@@ -18,7 +18,7 @@ pub struct HashState {
 pub fn generate_hash<H: Hash>(entries: &[H]) -> HashState {
     SmallRng::seed_from_u64(FIXED_SEED)
         .sample_iter(Standard)
-        .find_map(|key| try_generate_hash(4.5, key, entries))
+        .find_map(|key| try_generate_hash(6.0, key, entries))
         .expect("failed to solve PHF")
 }
 
@@ -47,7 +47,7 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
     // Sort descending
     buckets.sort_by(|a, b| a.keys.len().cmp(&b.keys.len()).reverse());
 
-    let table_len = hashes.len();
+    let table_len = hashes.len().next_power_of_two();
     let mut map = vec![None; table_len];
     let mut disps = vec![0; buckets_len];
 
@@ -98,5 +98,5 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
         return None;
     }
 
-    Some(HashState { key, disps, map: map.into_iter().map(|i| i.unwrap()).collect() })
+    Some(HashState { key, disps, map: map.into_iter().map(|i| i.unwrap_or(!0)).collect() })
 }

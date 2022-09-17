@@ -1,9 +1,11 @@
 use lgba_phf::generator;
 
 fn main() {
-    // Generate MPHF
+    let num_iter = 0u32..1020;
+
+    // Generate PHF
     let mut possible_objects = Vec::new();
-    for i in 0u32..1020 {
+    for i in num_iter.clone() {
         possible_objects.push(i.wrapping_mul(715827883));
     }
 
@@ -12,4 +14,11 @@ fn main() {
     println!("{:x?}", phf.key);
     println!("{:x?}", phf.disps);
     println!("Disp count: {}", phf.disps.len());
+
+    // Verify PHF
+    for (i, v) in possible_objects.iter().enumerate() {
+        let idx = lgba_phf::hash_dynamic(phf.key, &phf.disps, &v, phf.map.len());
+        assert_eq!(phf.map[idx], i as usize);
+    }
+    println!("Round trip validated!");
 }
