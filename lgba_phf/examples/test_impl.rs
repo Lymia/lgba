@@ -8,7 +8,7 @@ fn main() {
     }
 
     let n = possible_objects.len();
-    let phf = Mphf::new(1.05, &possible_objects);
+    let phf = Mphf::new(1.7, &possible_objects);
 
     println!("{:x?}", phf);
 
@@ -21,5 +21,5 @@ fn main() {
 
     // Expected hash output is set of all integers from 0..n
     let expected_hashes: Vec<u64> = (0..n as u64).collect();
-    assert!(hashes == expected_hashes);
+    assert_eq!(hashes, expected_hashes);
 }

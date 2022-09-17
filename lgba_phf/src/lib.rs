@@ -47,11 +47,6 @@ use core::{
 };
 
 #[inline]
-fn fold(v: u64) -> u32 {
-    ((v & 0xFFFFFFFF) as u32) ^ ((v >> 32) as u32)
-}
-
-#[inline]
 fn hash_with_seed<T: Hash + ?Sized>(iter: u64, v: &T) -> u64 {
     let key = 1 << (iter + iter);
     let mut state = siphasher::sip::SipHasher13::new_with_keys(key, key);
@@ -60,26 +55,9 @@ fn hash_with_seed<T: Hash + ?Sized>(iter: u64, v: &T) -> u64 {
 }
 
 #[inline]
-fn hash_with_seed32<T: Hash + ?Sized>(iter: u64, v: &T) -> u32 {
-    fold(hash_with_seed(iter, v))
-}
-
-#[inline]
-fn fastmod(hash: u32, n: u32) -> u64 {
-    ((hash as u64) * (n as u64)) >> 32
-}
-
-#[inline]
 fn hashmod<T: Hash + ?Sized>(iter: u64, v: &T, n: usize) -> u64 {
-    // when n < 2^32, use the fast alternative to modulo described here:
-    // https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-    if n < 1 << 32 {
-        let h = hash_with_seed32(iter, v);
-        fastmod(h, n as u32) as u64
-    } else {
-        let h = hash_with_seed(iter, v);
-        h % (n as u64)
-    }
+    let h = hash_with_seed(iter, v);
+    h % (n as u64)
 }
 
 /// A minimal perfect hash function over a set of objects of type `T`.
@@ -220,12 +198,12 @@ impl<T: Hash + Debug> Mphf<T> {
     /// and the size of the datastructure representing the hash function. See the paper for details.
     /// `max_iters` - None to never stop trying to find a perfect hash (safe if no duplicates).
     pub fn new(gamma: f64, objects: &[T]) -> Mphf<T> {
-        assert!(gamma > 1.01);
+        assert!(gamma > 1.0);
         let mut bitvecs = Vec::new();
         let mut iter = 0;
 
         let mut cx = Context::new(
-            cmp::max(255, (gamma * objects.len() as f64) as usize).next_power_of_two(),
+            cmp::max(256, (gamma * objects.len() as f64) as usize).next_power_of_two(),
             iter,
         );
 
@@ -240,7 +218,7 @@ impl<T: Hash + Debug> Mphf<T> {
 
         while !redo_keys.is_empty() {
             let mut cx = Context::new(
-                cmp::max(255, (gamma * redo_keys.len() as f64) as usize).next_power_of_two(),
+                cmp::max(256, (gamma * redo_keys.len() as f64) as usize).next_power_of_two(),
                 iter,
             );
 
@@ -290,17 +268,17 @@ impl<T: Hash + Debug> Mphf<T> {
         let ranks = self.ranks.get(i).expect("that level doesn't exist");
 
         // Last pre-computed rank
-        let mut rank = ranks[idx / 512];
+        let mut rank = ranks[idx / 256];
 
         // Add rank of intervening words
-        for j in (idx / 64) & !7..idx / 64 {
+        for j in (idx / 32) & !7..idx / 32 {
             rank += bv.get_word(j).count_ones() as u64;
         }
 
         // Add rank of final word up to hash
-        let final_word = bv.get_word(idx / 64);
-        if idx % 64 > 0 {
-            rank += (final_word << (64 - (idx % 64))).count_ones() as u64;
+        let final_word = bv.get_word(idx / 32);
+        if idx % 32 > 0 {
+            rank += (final_word << (32 - (idx % 32))).count_ones() as u64;
         }
         rank
     }

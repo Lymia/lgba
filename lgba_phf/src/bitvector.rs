@@ -17,12 +17,12 @@
 //!
 //! ### Implementation Details
 //!
-//! BitVector is realized with a `Vec<u64>`. Each bit of an u64 represent if a elements exists.
+//! BitVector is realized with a `Vec<u32>`. Each bit of an u32 represent if a elements exists.
 //! BitVector always increases from the end to begin, it meats that if you add element `0` to an
-//! empty bitvector, then the `Vec<u64>` will change from `0x00` to `0x01`.
+//! empty bitvector, then the `Vec<u32>` will change from `0x00` to `0x01`.
 //!
-//! Of course, if the real length of set can not be divided by 64,
-//! it will have a `capacity() % 64` bit memory waste.
+//! Of course, if the real length of set can not be divided by 32,
+//! it will have a `capacity() % 32` bit memory waste.
 //!
 
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -31,7 +31,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 #[derive(Clone, Debug)]
 pub struct BitVector {
     bits: usize,
-    vector: Box<[usize]>,
+    vector: Box<[u32]>,
 }
 
 impl PartialEq for BitVector {
@@ -43,24 +43,23 @@ impl PartialEq for BitVector {
 impl BitVector {
     /// Build a new empty bitvector
     pub fn new(bits: usize) -> Self {
-        let n = u64s(bits);
+        let n = u32_size(bits);
         let v = vec![0; n];
         BitVector { bits, vector: v.into_boxed_slice() }
     }
 
     /// new bitvector contains all elements
     ///
-    /// If `bits % 64 > 0`, the last u64 is guaranteed not to
-    /// have any extra 1 bits.
+    /// If `bits % 32 > 0`, the last u32 is guaranteed not to have any extra 1 bits.
     #[allow(dead_code)]
     pub fn ones(bits: usize) -> Self {
         let (word, offset) = word_offset(bits);
         let mut bvec = Vec::with_capacity(word + 1);
         for _ in 0..word {
-            bvec.push(usize::MAX);
+            bvec.push(u32::MAX);
         }
 
-        bvec.push(usize::MAX >> (64 - offset));
+        bvec.push(u32::MAX >> (32 - offset));
         BitVector { bits, vector: bvec.into_boxed_slice() }
     }
 
@@ -88,7 +87,7 @@ impl BitVector {
     #[inline]
     pub fn contains(&self, bit: usize) -> bool {
         let (word, mask) = word_mask(bit);
-        (self.get_word(word) as usize & mask) != 0
+        (self.get_word(word) & mask) != 0
     }
 
     /// compare if the following is true:
@@ -110,7 +109,7 @@ impl BitVector {
             .zip(other.vector.iter())
             .take(word)
             .all(|(s1, s2)| s1 == s2)
-            && (self.get_word(word) << (63 - offset)) == (other.get_word(word) << (63 - offset))
+            && (self.get_word(word) << (31 - offset)) == (other.get_word(word) << (31 - offset))
     }
 
     /// insert a new element synchronously.
@@ -151,8 +150,8 @@ impl BitVector {
     }
 
     #[inline]
-    pub fn get_word(&self, word: usize) -> u64 {
-        self.vector[word] as u64
+    pub fn get_word(&self, word: usize) -> u32 {
+        self.vector[word]
     }
 
     pub fn num_words(&self) -> usize {
@@ -160,18 +159,20 @@ impl BitVector {
     }
 }
 
-fn u64s(elements: usize) -> usize {
-    (elements + 63) / 64
-}
-
-fn word_offset(index: usize) -> (usize, usize) {
-    (index / 64, index % 64)
+#[inline]
+fn u32_size(elements: usize) -> usize {
+    (elements + 31) / 32
 }
 
 #[inline]
-fn word_mask(index: usize) -> (usize, usize) {
-    let word = index / 64;
-    let mask = 1 << (index % 64);
+fn word_offset(index: usize) -> (usize, usize) {
+    (index / 32, index % 32)
+}
+
+#[inline]
+fn word_mask(index: usize) -> (usize, u32) {
+    let word = index / 32;
+    let mask = 1 << (index % 32);
     (word, mask)
 }
 
