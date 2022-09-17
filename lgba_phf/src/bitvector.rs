@@ -23,7 +23,6 @@
 //!
 //! Of course, if the real length of set can not be divided by 32,
 //! it will have a `capacity() % 32` bit memory waste.
-//!
 
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -72,13 +71,6 @@ impl BitVector {
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.vector.iter().all(|x| *x == 0)
-    }
-
-    /// the number of elements in set
-    pub fn len(&self) -> usize {
-        self.vector
-            .iter()
-            .fold(0usize, |x0, x| x0 + x.count_ones() as usize)
     }
 
     /// If `bit` belongs to set, return `true`, else return `false`.
@@ -174,99 +166,4 @@ fn word_mask(index: usize) -> (usize, u32) {
     let word = index / 32;
     let mask = 1 << (index % 32);
     (word, mask)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn eq_left() {
-        let mut bitvec = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 11, 12, 19, 23] {
-            bitvec.insert(*i);
-        }
-        let mut bitvec2 = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 7, 11, 13, 17, 19, 23] {
-            bitvec2.insert(*i);
-        }
-
-        assert!(bitvec.eq_left(&bitvec2, 1));
-        assert!(bitvec.eq_left(&bitvec2, 2));
-        assert!(bitvec.eq_left(&bitvec2, 3));
-        assert!(bitvec.eq_left(&bitvec2, 4));
-        assert!(bitvec.eq_left(&bitvec2, 5));
-        assert!(bitvec.eq_left(&bitvec2, 6));
-        assert!(bitvec.eq_left(&bitvec2, 7));
-        assert!(!bitvec.eq_left(&bitvec2, 8));
-        assert!(!bitvec.eq_left(&bitvec2, 9));
-        assert!(!bitvec.eq_left(&bitvec2, 50));
-    }
-
-    #[test]
-    fn eq() {
-        let mut bitvec = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 11, 12, 19, 23] {
-            bitvec.insert(*i);
-        }
-        let mut bitvec2 = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 7, 11, 13, 17, 19, 23] {
-            bitvec2.insert(*i);
-        }
-        let mut bitvec3 = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 11, 12, 19, 23] {
-            bitvec3.insert(*i);
-        }
-
-        assert_ne!(bitvec, bitvec2);
-        assert_eq!(bitvec, bitvec3);
-        assert_ne!(bitvec2, bitvec3);
-    }
-
-    #[test]
-    fn remove() {
-        let mut bitvec = BitVector::new(50);
-        for i in &[0, 1, 3, 5, 11, 12, 19, 23] {
-            bitvec.insert(*i);
-        }
-        assert!(bitvec.contains(3));
-        bitvec.remove(3);
-        assert!(!bitvec.contains(3));
-        for i in [0, 1, 5, 11, 12, 19, 23] {
-            assert!(bitvec.contains(i));
-        }
-    }
-
-    #[test]
-    fn is_empty() {
-        assert!(!BitVector::ones(60).is_empty());
-        assert!(!BitVector::ones(65).is_empty());
-        let mut bvec = BitVector::new(60);
-
-        assert!(bvec.is_empty());
-
-        bvec.insert(5);
-        assert!(!bvec.is_empty());
-        bvec.remove(5);
-        assert!(bvec.is_empty());
-        let mut bvec = BitVector::ones(65);
-        for i in 0..65 {
-            bvec.remove(i);
-        }
-        assert!(bvec.is_empty());
-    }
-
-    #[test]
-    fn len() {
-        assert_eq!(BitVector::ones(60).len(), 60);
-        assert_eq!(BitVector::ones(65).len(), 65);
-        assert_eq!(BitVector::new(65).len(), 0);
-        let mut bvec = BitVector::new(60);
-        bvec.insert(5);
-        assert_eq!(bvec.len(), 1);
-        bvec.insert(6);
-        assert_eq!(bvec.len(), 2);
-        bvec.remove(5);
-        assert_eq!(bvec.len(), 1);
-    }
 }

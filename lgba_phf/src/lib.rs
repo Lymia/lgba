@@ -68,142 +68,18 @@ pub struct Mphf<T> {
     phantom: PhantomData<T>,
 }
 
-const MAX_ITERS: u64 = 100;
-
-impl<'a, T: 'a + Hash + Debug> Mphf<T> {
-    /// Constructs an MPHF from a (possibly lazy) iterator over iterators.
-    /// This allows construction of very large MPHFs without holding all the keys
-    /// in memory simultaneously.
-    /// `objects` is an `IntoInterator` yielding a stream of `IntoIterator`s that must not contain any duplicate items.
-    /// `objects` must be able to be iterated over multiple times and yield the same stream of items each time.
-    /// `gamma` controls the tradeoff between the construction-time and run-time speed,
-    /// and the size of the datastructure representing the hash function. See the paper for details.
-    /// `max_iters` - None to never stop trying to find a perfect hash (safe if no duplicates).
-    /// NOTE: the inner iterator `N::IntoIter` should override `nth` if there's an efficient way to skip
-    /// over items when iterating.  This is important because later iterations of the MPHF construction algorithm
-    /// skip most of the items.
-    pub fn from_chunked_iterator<I, N>(gamma: f64, objects: &'a I, n: usize) -> Mphf<T>
-    where
-        &'a I: IntoIterator<Item = N>,
-        N: IntoIterator<Item = T> + Send,
-        <N as IntoIterator>::IntoIter: ExactSizeIterator,
-        <&'a I as IntoIterator>::IntoIter: Send,
-        I: Sync,
-    {
-        let mut iter = 0;
-        let mut bitvecs = Vec::new();
-        let mut done_keys = BitVector::new(cmp::max(255, n));
-
-        assert!(gamma > 1.01);
-
-        loop {
-            if iter > MAX_ITERS {
-                panic!("ran out of key space. items: {:?}", done_keys.len());
-            }
-
-            let keys_remaining = if iter == 0 { n } else { n - done_keys.len() };
-
-            let size = cmp::max(255, (gamma * keys_remaining as f64) as u64);
-
-            let mut a = BitVector::new(size as usize);
-            let mut collide = BitVector::new(size as usize);
-
-            let seed = iter;
-            let mut offset = 0;
-
-            for object in objects {
-                let mut object_iter = object.into_iter();
-
-                // Note: we will use Iterator::nth() to advance the iterator if
-                // we've skipped over some items.
-                let mut object_pos = 0;
-                let len = object_iter.len();
-
-                for object_index in 0..len {
-                    let index = offset + object_index;
-
-                    if !done_keys.contains(index) {
-                        let key = match object_iter.nth(object_index - object_pos) {
-                            None => panic!("ERROR: max number of items overflowed"),
-                            Some(key) => key,
-                        };
-
-                        object_pos = object_index + 1;
-
-                        let idx = hashmod(seed, &key, size as usize);
-
-                        if collide.contains(idx as usize) {
-                            continue;
-                        }
-                        let a_was_set = !a.insert(idx as usize);
-                        if a_was_set {
-                            collide.insert(idx as usize);
-                        }
-                    }
-                } // end-window for
-
-                offset += len;
-            } // end-objects for
-
-            let mut offset = 0;
-            for object in objects {
-                let mut object_iter = object.into_iter();
-
-                // Note: we will use Iterator::nth() to advance the iterator if
-                // we've skipped over some items.
-                let mut object_pos = 0;
-                let len = object_iter.len();
-
-                for object_index in 0..len {
-                    let index = offset + object_index;
-
-                    if !done_keys.contains(index) {
-                        // This will fast-forward the iterator over unneeded items.
-                        let key = match object_iter.nth(object_index - object_pos) {
-                            None => panic!("ERROR: max number of items overflowed"),
-                            Some(key) => key,
-                        };
-
-                        object_pos = object_index + 1;
-
-                        let idx = hashmod(seed, &key, size as usize);
-
-                        if collide.contains(idx as usize) {
-                            a.remove(idx as usize);
-                        } else {
-                            done_keys.insert(index as usize);
-                        }
-                    }
-                } // end-window for
-
-                offset += len;
-            } // end- objects for
-
-            bitvecs.push(a);
-            if done_keys.len() == n {
-                break;
-            }
-            iter += 1;
-        }
-
-        let ranks = Self::compute_ranks(&bitvecs);
-        Mphf { bitvecs: bitvecs.into_boxed_slice(), ranks, phantom: PhantomData }
-    }
-}
-
 impl<T: Hash + Debug> Mphf<T> {
     /// Generate a minimal perfect hash function for the set of `objects`.
     /// `objects` must not contain any duplicate items.
     /// `gamma` controls the tradeoff between the construction-time and run-time speed,
     /// and the size of the datastructure representing the hash function. See the paper for details.
-    /// `max_iters` - None to never stop trying to find a perfect hash (safe if no duplicates).
-    pub fn new(gamma: f64, objects: &[T]) -> Mphf<T> {
+    pub fn new(gamma: f32, objects: &[T]) -> Mphf<T> {
         assert!(gamma > 1.0);
         let mut bitvecs = Vec::new();
         let mut iter = 0;
 
         let mut cx = Context::new(
-            cmp::max(256, (gamma * objects.len() as f64) as usize).next_power_of_two(),
+            cmp::max(256, (gamma * objects.len() as f32) as usize).next_power_of_two(),
             iter,
         );
 
@@ -218,7 +94,7 @@ impl<T: Hash + Debug> Mphf<T> {
 
         while !redo_keys.is_empty() {
             let mut cx = Context::new(
-                cmp::max(256, (gamma * redo_keys.len() as f64) as usize).next_power_of_two(),
+                cmp::max(256, (gamma * redo_keys.len() as f32) as usize).next_power_of_two(),
                 iter,
             );
 
@@ -227,7 +103,7 @@ impl<T: Hash + Debug> Mphf<T> {
 
             bitvecs.push(cx.a);
             iter += 1;
-            if iter > MAX_ITERS {
+            if iter > 100 {
                 panic!("ran out of key space. items: {:?}", redo_keys);
             }
         }
@@ -348,124 +224,5 @@ impl Context {
         } else {
             None
         }
-    }
-}
-
-#[cfg(test)]
-extern crate std;
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use alloc::{string::String, vec::Vec};
-    use quickcheck::quickcheck;
-    use std::{collections::HashSet, iter::FromIterator};
-
-    /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
-    fn check_mphf<T>(xs: HashSet<T>) -> bool
-    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
-        let xsv: Vec<T> = xs.into_iter().collect();
-
-        // test single-shot data input
-        check_mphf_serial(&xsv)
-    }
-
-    /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
-    fn check_mphf_serial<T>(xsv: &[T]) -> bool
-    where T: Hash + PartialEq + Eq + Debug {
-        // Generate the MPHF
-        let phf = Mphf::new(1.7, xsv);
-
-        // Hash all the elements of xs
-        let mut hashes: Vec<u64> = xsv.iter().map(|v| phf.hash(v)).collect();
-
-        hashes.sort_unstable();
-
-        // Hashes must equal 0 .. n
-        let gt: Vec<u64> = (0..xsv.len() as u64).collect();
-        hashes == gt
-    }
-
-    fn check_chunked_mphf<T>(values: Vec<Vec<T>>, total: usize) -> bool
-    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
-        let phf = Mphf::from_chunked_iterator(1.7, &values, total);
-
-        // Hash all the elements of xs
-        let mut hashes: Vec<u64> = values
-            .iter()
-            .flat_map(|x| x.iter().map(|v| phf.hash(&v)))
-            .collect();
-
-        hashes.sort_unstable();
-
-        // Hashes must equal 0 .. n
-        let gt: Vec<u64> = (0..total as u64).collect();
-        hashes == gt
-    }
-
-    quickcheck! {
-        fn check_int_slices(v: HashSet<u64>, lens: Vec<usize>) -> bool {
-
-            let mut lens = lens;
-
-            let items: Vec<u64> = v.iter().cloned().collect();
-            if lens.is_empty() || lens.iter().all(|x| *x == 0) {
-                lens.clear();
-                lens.push(items.len())
-            }
-
-            let mut slices: Vec<Vec<u64>> = Vec::new();
-
-            let mut total = 0_usize;
-            for slc_len in lens {
-                let end = std::cmp::min(items.len(), total.saturating_add(slc_len));
-                let slc = Vec::from(&items[total..end]);
-                slices.push(slc);
-                total = end;
-
-                if total == items.len() {
-                    break;
-                }
-            }
-
-            check_chunked_mphf(slices.clone(), total)
-        }
-    }
-
-    quickcheck! {
-        fn check_string(v: HashSet<Vec<String>>) -> bool {
-            check_mphf(v)
-        }
-    }
-
-    quickcheck! {
-        fn check_u32(v: HashSet<u32>) -> bool {
-            check_mphf(v)
-        }
-    }
-
-    quickcheck! {
-        fn check_isize(v: HashSet<isize>) -> bool {
-            check_mphf(v)
-        }
-    }
-
-    quickcheck! {
-        fn check_u64(v: HashSet<u64>) -> bool {
-            check_mphf(v)
-        }
-    }
-
-    quickcheck! {
-        fn check_vec_u8(v: HashSet<Vec<u8>>) -> bool {
-            check_mphf(v)
-        }
-    }
-
-    #[test]
-    fn from_ints_serial() {
-        let items = (0..1000000).map(|x| x * 2);
-        assert!(check_mphf(HashSet::from_iter(items)));
     }
 }

@@ -17,9 +17,4 @@ license = "MIT"
 siphasher = { version = "0.3", default-features = false }
 
 [dev-dependencies]
-bencher = ">=0.1"
 quickcheck = "1.0.2"
-
-[[bench]]
-name = "build"
-harness = false
