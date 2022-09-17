@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "codegen",
+    "lgba",
+    "lgba_phf"
+]
+
+[profile.release]
+opt-level = 3
+lto = true
