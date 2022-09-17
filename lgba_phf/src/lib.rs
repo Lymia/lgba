@@ -46,18 +46,20 @@ use core::{
     marker::PhantomData,
 };
 
-#[inline]
-fn hash_with_seed<T: Hash + ?Sized>(iter: u64, v: &T) -> u64 {
-    let key = 1 << (iter + iter);
-    let mut state = siphasher::sip::SipHasher13::new_with_keys(key, key);
+fn hash_with_seed<T: Hash + ?Sized>(iter: u32, v: &T) -> u32 {
+    let mut state = twox_hash::XxHash32::with_seed(1 << iter);
     v.hash(&mut state);
-    state.finish()
+    state.finish() as u32
 }
 
-#[inline]
-fn hashmod<T: Hash + ?Sized>(iter: u64, v: &T, n: usize) -> u64 {
+fn hashmod<T: Hash + ?Sized>(iter: u32, v: &T, n: usize) -> u32 {
     let h = hash_with_seed(iter, v);
-    h % (n as u64)
+    h % (n as u32)
+}
+
+#[inline(never)]
+fn hash_not_found() -> ! {
+    panic!("Value was not found in the hash!")
 }
 
 /// A minimal perfect hash function over a set of objects of type `T`.
@@ -138,10 +140,10 @@ impl<T: Hash + Debug> Mphf<T> {
     }
 
     #[inline]
-    fn get_rank(&self, hash: u64, i: usize) -> u64 {
+    fn get_rank(&self, hash: u32, i: usize) -> u64 {
         let idx = hash as usize;
-        let bv = self.bitvecs.get(i).expect("that level doesn't exist");
-        let ranks = self.ranks.get(i).expect("that level doesn't exist");
+        let bv = &self.bitvecs[i];
+        let ranks = &self.ranks[i];
 
         // Last pre-computed rank
         let mut rank = ranks[idx / 256];
@@ -164,16 +166,7 @@ impl<T: Hash + Debug> Mphf<T> {
     /// guarantee that `item` was in the construction set. If `item` was not present
     /// in the construction set this function may panic.
     pub fn hash(&self, item: &T) -> u64 {
-        for i in 0..self.bitvecs.len() {
-            let bv = &self.bitvecs[i];
-            let hash = hashmod(i as u64, item, bv.capacity());
-
-            if bv.contains(hash as usize) {
-                return self.get_rank(hash, i);
-            }
-        }
-
-        unreachable!("must find a hash value");
+        self.try_hash(item).unwrap_or_else(|| hash_not_found())
     }
 
     /// Compute the hash value of `item`. If `item` was not present
@@ -186,7 +179,7 @@ impl<T: Hash + Debug> Mphf<T> {
     {
         for i in 0..self.bitvecs.len() {
             let bv = &(self.bitvecs)[i];
-            let hash = hashmod(i as u64, item, bv.capacity());
+            let hash = hashmod(i as u32, item, bv.capacity());
 
             if bv.contains(hash as usize) {
                 return Some(self.get_rank(hash, i));
@@ -195,17 +188,25 @@ impl<T: Hash + Debug> Mphf<T> {
 
         None
     }
+
+    /// Returns the total size of the internal bitsets in bytes.
+    ///
+    /// This is an estimate of the amount of space this set would take up on disk, not fully
+    /// accurate. It is meant mostly for tuning the `gamma` parameter, not any other use.
+    pub fn total_size(&self) -> usize {
+        (self.bitvecs.iter().map(|x| x.capacity()).sum::<usize>() + 7) / 8
+    }
 }
 
 struct Context {
     size: usize,
-    seed: u64,
+    seed: u32,
     a: BitVector,
     collide: BitVector,
 }
 
 impl Context {
-    fn new(size: usize, seed: u64) -> Self {
+    fn new(size: usize, seed: u32) -> Self {
         Self { size, seed, a: BitVector::new(size), collide: BitVector::new(size) }
     }
 

@@ -8,9 +8,10 @@ fn main() {
     }
 
     let n = possible_objects.len();
-    let phf = Mphf::new(1.7, &possible_objects);
+    let phf = Mphf::new(1.01, &possible_objects);
 
     println!("{:x?}", phf);
+    println!("Size: {} bytes", phf.total_size());
 
     // Get hash value of all objects
     let mut hashes = Vec::new();

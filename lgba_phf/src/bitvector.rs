@@ -33,12 +33,6 @@ pub struct BitVector {
     vector: Box<[u32]>,
 }
 
-impl PartialEq for BitVector {
-    fn eq(&self, other: &BitVector) -> bool {
-        self.eq_left(other, self.bits)
-    }
-}
-
 impl BitVector {
     /// Build a new empty bitvector
     pub fn new(bits: usize) -> Self {
@@ -80,28 +74,6 @@ impl BitVector {
     pub fn contains(&self, bit: usize) -> bool {
         let (word, mask) = word_mask(bit);
         (self.get_word(word) & mask) != 0
-    }
-
-    /// compare if the following is true:
-    ///
-    /// self \cap {0, 1, ... , bit - 1} == other \cap {0, 1, ... ,bit - 1}
-    pub fn eq_left(&self, other: &BitVector, bit: usize) -> bool {
-        if bit == 0 {
-            return true;
-        }
-        let (word, offset) = word_offset(bit - 1);
-        // We can also use slice comparison, which only take 1 line.
-        // However, it has been reported that the `Eq` implementation of slice
-        // is extremly slow.
-        //
-        // self.vector.as_slice()[0 .. word] == other.vector.as_slice[0 .. word]
-        //
-        self.vector
-            .iter()
-            .zip(other.vector.iter())
-            .take(word)
-            .all(|(s1, s2)| s1 == s2)
-            && (self.get_word(word) << (31 - offset)) == (other.get_word(word) << (31 - offset))
     }
 
     /// insert a new element synchronously.
