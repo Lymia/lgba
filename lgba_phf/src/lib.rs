@@ -107,7 +107,7 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
     {
         let mut iter = 0;
         let mut bitvecs = Vec::new();
-        let done_keys = BitVector::new(std::cmp::max(255, n));
+        let mut done_keys = BitVector::new(std::cmp::max(255, n));
 
         assert!(gamma > 1.01);
 
@@ -150,9 +150,9 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
                         if collide.contains(idx as usize) {
                             continue;
                         }
-                        let a_was_set = !a.insert_sync(idx as usize);
+                        let a_was_set = !a.insert(idx as usize);
                         if a_was_set {
-                            collide.insert_sync(idx as usize);
+                            collide.insert(idx as usize);
                         }
                     }
                 } // end-window for
@@ -222,7 +222,7 @@ impl<T: Hash + Debug> Mphf<T> {
             iter,
         );
 
-        objects.iter().for_each(|v| cx.find_collisions_sync(v));
+        objects.iter().for_each(|v| cx.find_collisions(v));
         let mut redo_keys = objects
             .iter()
             .filter_map(|v| cx.filter(v))
@@ -239,7 +239,7 @@ impl<T: Hash + Debug> Mphf<T> {
 
             (&redo_keys)
                 .iter()
-                .for_each(|&v| cx.find_collisions_sync(v));
+                .for_each(|&v| cx.find_collisions(v));
             redo_keys = (&redo_keys).iter().filter_map(|&v| cx.filter(v)).collect();
 
             bitvecs.push(cx.a);
@@ -350,14 +350,14 @@ impl Context {
         Self { size, seed, a: BitVector::new(size), collide: BitVector::new(size) }
     }
 
-    fn find_collisions_sync<T: Hash>(&mut self, v: &T) {
+    fn find_collisions<T: Hash>(&mut self, v: &T) {
         let idx = hashmod(self.seed, v, self.size) as usize;
-        if !self.collide.contains(idx) && !self.a.insert_sync(idx) {
-            self.collide.insert_sync(idx);
+        if !self.collide.contains(idx) && !self.a.insert(idx) {
+            self.collide.insert(idx);
         }
     }
 
-    fn filter<'t, T: Hash>(&self, v: &'t T) -> Option<&'t T> {
+    fn filter<'t, T: Hash>(&mut self, v: &'t T) -> Option<&'t T> {
         let idx = hashmod(self.seed, v, self.size) as usize;
         if self.collide.contains(idx) {
             self.a.remove(idx);
