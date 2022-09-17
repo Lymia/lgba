@@ -25,8 +25,10 @@
 //! it will have a `capacity() % 64` bit memory waste.
 //!
 
-use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    fmt,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 /// Bitvector
 #[derive(Debug)]
@@ -81,10 +83,7 @@ impl BitVector {
             v.push(to_au(0));
         }
 
-        BitVector {
-            bits,
-            vector: v.into_boxed_slice(),
-        }
+        BitVector { bits, vector: v.into_boxed_slice() }
     }
 
     /// new bitvector contains all elements
@@ -100,10 +99,7 @@ impl BitVector {
         }
 
         bvec.push(to_au(usize::max_value() >> (64 - offset)));
-        BitVector {
-            bits,
-            vector: bvec.into_boxed_slice(),
-        }
+        BitVector { bits, vector: bvec.into_boxed_slice() }
     }
 
     /// return if this set is empty
@@ -119,9 +115,9 @@ impl BitVector {
 
     /// the number of elements in set
     pub fn len(&self) -> usize {
-        self.vector.iter().fold(0usize, |x0, x| {
-            x0 + x.load(Ordering::Relaxed).count_ones() as usize
-        })
+        self.vector
+            .iter()
+            .fold(0usize, |x0, x| x0 + x.load(Ordering::Relaxed).count_ones() as usize)
     }
 
     /*
@@ -247,12 +243,7 @@ impl BitVector {
 
     /// Return a iterator of the set element in the bitvector,
     pub fn iter(&self) -> BitVectorIter<'_> {
-        BitVectorIter {
-            iter: self.vector.iter(),
-            current: 0,
-            idx: 0,
-            size: self.bits,
-        }
+        BitVectorIter { iter: self.vector.iter(), current: 0, idx: 0, size: self.bits }
     }
 }
 
@@ -339,10 +330,7 @@ mod tests {
         bitvec.insert(65);
         bitvec.insert(66);
         bitvec.insert(99);
-        assert_eq!(
-            bitvec.iter().collect::<Vec<_>>(),
-            [1, 10, 19, 62, 63, 64, 65, 66, 99]
-        );
+        assert_eq!(bitvec.iter().collect::<Vec<_>>(), [1, 10, 19, 62, 63, 64, 65, 66, 99]);
     }
 
     #[test]
@@ -408,10 +396,7 @@ mod tests {
         assert!(bitvec.contains(3));
         bitvec.remove(3);
         assert!(!bitvec.contains(3));
-        assert_eq!(
-            bitvec.iter().collect::<Vec<_>>(),
-            vec![0, 1, 5, 11, 12, 19, 23]
-        );
+        assert_eq!(bitvec.iter().collect::<Vec<_>>(), vec![0, 1, 5, 11, 12, 19, 23]);
     }
 
     #[test]

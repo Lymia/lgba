@@ -37,13 +37,16 @@ pub mod hashmap;
 mod par_iter;
 use bitvector::BitVector;
 
-use std::borrow::Borrow;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::{
+    borrow::Borrow,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
+};
 
 #[inline]
 fn fold(v: u64) -> u32 {
@@ -207,11 +210,7 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
         }
 
         let ranks = Self::compute_ranks(&bitvecs);
-        Mphf {
-            bitvecs: bitvecs.into_boxed_slice(),
-            ranks,
-            phantom: PhantomData,
-        }
+        Mphf { bitvecs: bitvecs.into_boxed_slice(), ranks, phantom: PhantomData }
     }
 }
 
@@ -407,12 +406,7 @@ struct Context {
 
 impl Context {
     fn new(size: usize, seed: u64) -> Self {
-        Self {
-            size,
-            seed,
-            a: BitVector::new(size),
-            collide: BitVector::new(size),
-        }
+        Self { size, seed, a: BitVector::new(size), collide: BitVector::new(size) }
     }
 
     fn find_collisions<T: Hash>(&self, v: &T) {
@@ -544,11 +538,7 @@ impl<'a, T: 'a + Hash + Debug + Send + Sync> Mphf<T> {
                 panic!("ran out of key space. items: {:?}", global.done_keys.len());
             }
 
-            let keys_remaining = if iter == 0 {
-                n
-            } else {
-                n - global.done_keys.len()
-            };
+            let keys_remaining = if iter == 0 { n } else { n - global.done_keys.len() };
             if keys_remaining == 0 {
                 break;
             }
@@ -632,11 +622,7 @@ impl<'a, T: 'a + Hash + Debug + Send + Sync> Mphf<T> {
         }
 
         let ranks = Self::compute_ranks(&bitvecs);
-        Mphf {
-            bitvecs: bitvecs.into_boxed_slice(),
-            ranks,
-            phantom: PhantomData,
-        }
+        Mphf { bitvecs: bitvecs.into_boxed_slice(), ranks, phantom: PhantomData }
     }
 }
 
@@ -666,14 +652,11 @@ extern crate quickcheck;
 mod tests {
 
     use super::*;
-    use std::collections::HashSet;
-    use std::iter::FromIterator;
+    use std::{collections::HashSet, iter::FromIterator};
 
     /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
     fn check_mphf<T>(xs: HashSet<T>) -> bool
-    where
-        T: Sync + Hash + PartialEq + Eq + Debug + Send,
-    {
+    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
         let xsv: Vec<T> = xs.into_iter().collect();
 
         // test single-shot data input
@@ -682,9 +665,7 @@ mod tests {
 
     /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
     fn check_mphf_serial<T>(xsv: &[T]) -> bool
-    where
-        T: Hash + PartialEq + Eq + Debug,
-    {
+    where T: Hash + PartialEq + Eq + Debug {
         // Generate the MPHF
         let phf = Mphf::new(1.7, xsv);
 
@@ -700,9 +681,7 @@ mod tests {
 
     /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
     fn check_mphf_parallel<T>(xsv: &[T]) -> bool
-    where
-        T: Sync + Hash + PartialEq + Eq + Debug + Send,
-    {
+    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
         // Generate the MPHF
         let phf = Mphf::new_parallel(1.7, xsv, None);
 
@@ -717,9 +696,7 @@ mod tests {
     }
 
     fn check_chunked_mphf<T>(values: Vec<Vec<T>>, total: usize) -> bool
-    where
-        T: Sync + Hash + PartialEq + Eq + Debug + Send,
-    {
+    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
         let phf = Mphf::from_chunked_iterator(1.7, &values, total);
 
         // Hash all the elements of xs
@@ -736,9 +713,7 @@ mod tests {
     }
 
     fn check_chunked_mphf_parallel<T>(values: Vec<Vec<T>>, total: usize) -> bool
-    where
-        T: Sync + Hash + PartialEq + Eq + Debug + Send,
-    {
+    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
         let phf = Mphf::from_chunked_iterator_parallel(1.7, &values, None, total, 2);
 
         // Hash all the elements of xs

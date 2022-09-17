@@ -7,7 +7,6 @@ fn main() {
         possible_objects.push(i.wrapping_mul(715827883));
     }
 
-
     let n = possible_objects.len();
     let phf = Mphf::new(1.05, &possible_objects);
 

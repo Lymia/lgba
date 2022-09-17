@@ -1,10 +1,7 @@
 //! HashMap data structures, using MPHFs to encode the position of each key in a dense array.
 
 use crate::Mphf;
-use std::borrow::Borrow;
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::iter::ExactSizeIterator;
+use std::{borrow::Borrow, fmt::Debug, hash::Hash, iter::ExactSizeIterator};
 
 /// A HashMap data structure where the mapping between keys and values is encoded in a Mphf. This lets us store the keys and values in dense
 /// arrays, with ~3 bits/item overhead in the Mphf.
@@ -100,10 +97,7 @@ where
     }
 
     pub fn iter(&self) -> BoomIterator<K, D> {
-        BoomIterator {
-            hash: self,
-            index: 0,
-        }
+        BoomIterator { hash: self, index: 0 }
     }
 }
 
@@ -169,10 +163,7 @@ impl<'a, K: Hash, D> IntoIterator for &'a BoomHashMap<K, D> {
     type IntoIter = BoomIterator<'a, K, D>;
 
     fn into_iter(self) -> BoomIterator<'a, K, D> {
-        BoomIterator {
-            hash: self,
-            index: 0,
-        }
+        BoomIterator { hash: self, index: 0 }
     }
 }
 
@@ -223,10 +214,7 @@ impl<'a, K: Hash, D1, D2> IntoIterator for &'a BoomHashMap2<K, D1, D2> {
     type IntoIter = Boom2Iterator<'a, K, D1, D2>;
 
     fn into_iter(self) -> Boom2Iterator<'a, K, D1, D2> {
-        Boom2Iterator {
-            hash: self,
-            index: 0,
-        }
+        Boom2Iterator { hash: self, index: 0 }
     }
 }
 
@@ -255,12 +243,7 @@ where
             }
         }
 
-        BoomHashMap2 {
-            mphf,
-            keys,
-            values,
-            aux_values,
-        }
+        BoomHashMap2 { mphf, keys, values, aux_values }
     }
 
     /// Create a new hash map from the parallel arrays `keys` and `values`, and `aux_values`
@@ -317,10 +300,7 @@ where
 
     // Return iterator over key-values pairs
     pub fn iter(&self) -> Boom2Iterator<K, D1, D2> {
-        Boom2Iterator {
-            hash: self,
-            index: 0,
-        }
+        Boom2Iterator { hash: self, index: 0 }
     }
 
     pub fn get_key(&self, id: usize) -> Option<&K> {
@@ -482,11 +462,7 @@ where
                 aux_values.swap(i, kmer_slot);
             }
         }
-        NoKeyBoomHashMap2 {
-            mphf,
-            values,
-            aux_values,
-        }
+        NoKeyBoomHashMap2 { mphf, values, aux_values }
     }
 
     pub fn new_with_mphf(
@@ -494,11 +470,7 @@ where
         values: Vec<D1>,
         aux_values: Vec<D2>,
     ) -> NoKeyBoomHashMap2<K, D1, D2> {
-        NoKeyBoomHashMap2 {
-            mphf,
-            values,
-            aux_values,
-        }
+        NoKeyBoomHashMap2 { mphf, values, aux_values }
     }
 
     /// Get the value associated with `key`, if available, otherwise return None

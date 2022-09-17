@@ -1,8 +1,10 @@
 use std::hash::Hash;
 
 use crate::hashmap::BoomHashMap;
-use rayon::iter::plumbing::{bridge, Consumer, Producer, ProducerCallback, UnindexedConsumer};
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::iter::{
+    plumbing::{bridge, Consumer, Producer, ProducerCallback, UnindexedConsumer},
+    IndexedParallelIterator, IntoParallelIterator, ParallelIterator,
+};
 
 impl<'data, K, V> IntoParallelIterator for &'data BoomHashMap<K, V>
 where
@@ -13,10 +15,7 @@ where
     type Iter = Iter<'data, K, V>;
 
     fn into_par_iter(self) -> Self::Iter {
-        Iter {
-            keys: &self.keys,
-            values: &self.values,
-        }
+        Iter { keys: &self.keys, values: &self.values }
     }
 }
 
@@ -35,9 +34,7 @@ where
     type Item = (&'data K, &'data V);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
-    where
-        C: UnindexedConsumer<Self::Item>,
-    {
+    where C: UnindexedConsumer<Self::Item> {
         bridge(self, consumer)
     }
 
@@ -52,9 +49,7 @@ where
     V: Sync + 'data,
 {
     fn drive<C>(self, consumer: C) -> C::Result
-    where
-        C: Consumer<Self::Item>,
-    {
+    where C: Consumer<Self::Item> {
         bridge(self, consumer)
     }
 
@@ -63,13 +58,8 @@ where
     }
 
     fn with_producer<CB>(self, callback: CB) -> CB::Output
-    where
-        CB: ProducerCallback<Self::Item>,
-    {
-        callback.callback(IterProducer {
-            keys: self.keys,
-            values: self.values,
-        })
+    where CB: ProducerCallback<Self::Item> {
+        callback.callback(IterProducer { keys: self.keys, values: self.values })
     }
 }
 
@@ -87,25 +77,16 @@ where
     type IntoIter = KeyValIter<'data, K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
-        KeyValIter {
-            keys: self.keys,
-            values: self.values,
-        }
+        KeyValIter { keys: self.keys, values: self.values }
     }
 
     fn split_at(self, index: usize) -> (Self, Self) {
         let (left_keys, right_keys) = self.keys.split_at(index);
         let (left_vals, right_vals) = self.values.split_at(index);
-        (
-            IterProducer {
-                keys: left_keys,
-                values: left_vals,
-            },
-            IterProducer {
-                keys: right_keys,
-                values: right_vals,
-            },
-        )
+        (IterProducer { keys: left_keys, values: left_vals }, IterProducer {
+            keys: right_keys,
+            values: right_vals,
+        })
     }
 }
 
