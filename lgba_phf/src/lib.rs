@@ -1,3 +1,4 @@
+// Copyright (c) 2022 Lymia Aluysia
 // Copyright (c) 2017 10X Genomics, Inc. All rights reserved.
 // Copyright (c) 2015 Guillaume Rizk
 // Some portions of this code are derived from https://github.com/rizkg/BBHash (MIT license)
@@ -12,7 +13,7 @@
 //! may result in hashing new values, you will need an auxiliary scheme to detect this condition.
 //!
 //! ```
-//! use boomphf::*;
+//! use lgba_phf::*;
 //! // Generate MPHF
 //! let possible_objects = vec![1, 10, 1000, 23, 457, 856, 845, 124, 912];
 //! let n = possible_objects.len();
@@ -36,7 +37,6 @@ pub mod hashmap;
 mod par_iter;
 use bitvector::BitVector;
 
-use log::error;
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -44,9 +44,6 @@ use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Serialize};
 
 #[inline]
 fn fold(v: u64) -> u32 {
@@ -85,7 +82,6 @@ fn hashmod<T: Hash + ?Sized>(iter: u64, v: &T, n: usize) -> u64 {
 
 /// A minimal perfect hash function over a set of objects of type `T`.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Mphf<T> {
     bitvecs: Box<[BitVector]>,
     ranks: Box<[Box<[u64]>]>,
@@ -122,8 +118,7 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
 
         loop {
             if iter > MAX_ITERS {
-                error!("ran out of key space. items: {:?}", done_keys.len());
-                panic!("counldn't find unique hashes");
+                panic!("ran out of key space. items: {:?}", done_keys.len());
             }
 
             let keys_remaining = if iter == 0 { n } else { n - done_keys.len() };
@@ -259,8 +254,7 @@ impl<T: Hash + Debug> Mphf<T> {
             bitvecs.push(cx.a);
             iter += 1;
             if iter > MAX_ITERS {
-                error!("ran out of key space. items: {:?}", redo_keys);
-                panic!("counldn't find unique hashes");
+                panic!("ran out of key space. items: {:?}", redo_keys);
             }
         }
 
@@ -392,8 +386,7 @@ impl<T: Hash + Debug + Sync + Send> Mphf<T> {
             bitvecs.push(cx.a);
             iter += 1;
             if iter > MAX_ITERS {
-                println!("ran out of key space. items: {:?}", redo_keys);
-                panic!("counldn't find unique hashes");
+                panic!("ran out of key space. items: {:?}", redo_keys);
             }
         }
 
@@ -548,8 +541,7 @@ impl<'a, T: 'a + Hash + Debug + Send + Sync> Mphf<T> {
         });
         loop {
             if max_iters.is_some() && iter > max_iters.unwrap() {
-                error!("ran out of key space. items: {:?}", global.done_keys.len());
-                panic!("counldn't find unique hashes");
+                panic!("ran out of key space. items: {:?}", global.done_keys.len());
             }
 
             let keys_remaining = if iter == 0 {

@@ -1,4 +1,4 @@
-use boomphf::*;
+use lgba_phf::*;
 
 fn main() {
     // Generate MPHF

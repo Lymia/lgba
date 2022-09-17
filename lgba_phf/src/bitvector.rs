@@ -1,3 +1,4 @@
+// Copyright (c) 2022 Lymia Aluysia
 // Copyright (c) 2018 10x Genomics, Inc. All rights reserved.
 //
 // Note this code was copied from https://github.com/zhaihj/bitvector (MIT licensed),
@@ -27,64 +28,11 @@
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Serialize};
-
 /// Bitvector
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BitVector {
     bits: usize,
-    #[cfg_attr(
-        feature = "serde",
-        serde(serialize_with = "ser_atomic_vec", deserialize_with = "de_atomic_vec")
-    )]
     vector: Box<[AtomicUsize]>,
-}
-
-// Custom serializer
-#[cfg(feature = "serde")]
-fn ser_atomic_vec<S>(v: &[AtomicUsize], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::ser::SerializeSeq;
-    let mut seq = serializer.serialize_seq(Some(v.len()))?;
-    for x in v {
-        seq.serialize_element(&x.load(Ordering::SeqCst))?;
-    }
-    seq.end()
-}
-
-// Custom deserializer
-#[cfg(feature = "serde")]
-pub fn de_atomic_vec<'de, D>(deserializer: D) -> Result<Box<[AtomicUsize]>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct AtomicUsizeSeqVisitor;
-
-    impl<'de> serde::de::Visitor<'de> for AtomicUsizeSeqVisitor {
-        type Value = Box<[AtomicUsize]>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a 64bit unsigned integer")
-        }
-
-        fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
-        where
-            S: serde::de::SeqAccess<'de>,
-        {
-            let mut vec = Vec::<AtomicUsize>::with_capacity(access.size_hint().unwrap_or(0));
-
-            while let Some(x) = access.next_element()? {
-                vec.push(AtomicUsize::new(x));
-            }
-            Ok(vec.into_boxed_slice())
-        }
-    }
-    let x = AtomicUsizeSeqVisitor;
-    deserializer.deserialize_seq(x)
 }
 
 impl core::clone::Clone for BitVector {

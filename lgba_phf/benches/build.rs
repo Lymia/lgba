@@ -3,8 +3,7 @@
 extern crate bencher;
 
 use bencher::Bencher;
-
-use boomphf::Mphf;
+use lgba_phf::Mphf;
 
 fn build1_ser(bench: &mut Bencher) {
     bench.iter(|| {
