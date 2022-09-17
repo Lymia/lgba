@@ -14,7 +14,7 @@ include = ["LICENSE", "README.md"]
 license = "MIT"
 
 [dependencies]
-wyhash = ">=0.3, <=0.5"
+fnv = { version = "1.0.7", default-features = false }
 
 [dev-dependencies]
 quickcheck = "1.0.2"

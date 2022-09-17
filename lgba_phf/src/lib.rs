@@ -47,7 +47,7 @@ fn fold(v: u64) -> u32 {
 
 #[inline]
 fn hash_with_seed<T: Hash + ?Sized>(iter: u64, v: &T) -> u64 {
-    let mut state = wyhash::WyHash::with_seed(1 << (iter + iter));
+    let mut state = fnv::FnvHasher::with_key(1 << (iter + iter));
     v.hash(&mut state);
     state.finish()
 }
