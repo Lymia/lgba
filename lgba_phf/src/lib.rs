@@ -30,11 +30,17 @@
 //! assert_eq!(hashes, expected_hashes)
 //! ```
 
+#![no_std]
+
+extern crate alloc;
+
 mod bitvector;
 use bitvector::BitVector;
 
-use std::{
+use alloc::{boxed::Box, vec::Vec};
+use core::{
     borrow::Borrow,
+    cmp,
     fmt::Debug,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -47,7 +53,8 @@ fn fold(v: u64) -> u32 {
 
 #[inline]
 fn hash_with_seed<T: Hash + ?Sized>(iter: u64, v: &T) -> u64 {
-    let mut state = fnv::FnvHasher::with_key(1 << (iter + iter));
+    let key = 1 << (iter + iter);
+    let mut state = siphasher::sip::SipHasher13::new_with_keys(key, key);
     v.hash(&mut state);
     state.finish()
 }
@@ -107,7 +114,7 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
     {
         let mut iter = 0;
         let mut bitvecs = Vec::new();
-        let mut done_keys = BitVector::new(std::cmp::max(255, n));
+        let mut done_keys = BitVector::new(cmp::max(255, n));
 
         assert!(gamma > 1.01);
 
@@ -118,7 +125,7 @@ impl<'a, T: 'a + Hash + Debug> Mphf<T> {
 
             let keys_remaining = if iter == 0 { n } else { n - done_keys.len() };
 
-            let size = std::cmp::max(255, (gamma * keys_remaining as f64) as u64);
+            let size = cmp::max(255, (gamma * keys_remaining as f64) as u64);
 
             let mut a = BitVector::new(size as usize);
             let mut collide = BitVector::new(size as usize);
@@ -218,7 +225,7 @@ impl<T: Hash + Debug> Mphf<T> {
         let mut iter = 0;
 
         let mut cx = Context::new(
-            std::cmp::max(255, (gamma * objects.len() as f64) as usize).next_power_of_two(),
+            cmp::max(255, (gamma * objects.len() as f64) as usize).next_power_of_two(),
             iter,
         );
 
@@ -233,13 +240,11 @@ impl<T: Hash + Debug> Mphf<T> {
 
         while !redo_keys.is_empty() {
             let mut cx = Context::new(
-                std::cmp::max(255, (gamma * redo_keys.len() as f64) as usize).next_power_of_two(),
+                cmp::max(255, (gamma * redo_keys.len() as f64) as usize).next_power_of_two(),
                 iter,
             );
 
-            (&redo_keys)
-                .iter()
-                .for_each(|&v| cx.find_collisions(v));
+            (&redo_keys).iter().for_each(|&v| cx.find_collisions(v));
             redo_keys = (&redo_keys).iter().filter_map(|&v| cx.filter(v)).collect();
 
             bitvecs.push(cx.a);
@@ -369,13 +374,14 @@ impl Context {
 }
 
 #[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
+extern crate std;
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use alloc::{string::String, vec::Vec};
+    use quickcheck::quickcheck;
     use std::{collections::HashSet, iter::FromIterator};
 
     /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs

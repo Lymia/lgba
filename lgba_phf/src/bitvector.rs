@@ -25,6 +25,8 @@
 //! it will have a `capacity() % 64` bit memory waste.
 //!
 
+use alloc::{boxed::Box, vec, vec::Vec};
+
 /// Bitvector
 #[derive(Clone, Debug)]
 pub struct BitVector {

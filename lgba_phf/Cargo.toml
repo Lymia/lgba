@@ -14,11 +14,11 @@ include = ["LICENSE", "README.md"]
 license = "MIT"
 
 [dependencies]
-fnv = { version = "1.0.7", default-features = false }
+siphasher = { version = "0.3", default-features = false }
 
 [dev-dependencies]
-quickcheck = "1.0.2"
 bencher = ">=0.1"
+quickcheck = "1.0.2"
 
 [[bench]]
 name = "build"
