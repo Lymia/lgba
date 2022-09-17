@@ -14,8 +14,6 @@ include = ["LICENSE", "README.md"]
 license = "MIT"
 
 [dependencies]
-rayon = ">=1.0"
-crossbeam-utils = ">=0.7.2, <0.9"
 wyhash = ">=0.3, <=0.5"
 
 [dev-dependencies]

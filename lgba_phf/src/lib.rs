@@ -27,14 +27,10 @@
 //!
 //! // Expected hash output is set of all integers from 0..n
 //! let expected_hashes: Vec<u64> = (0 .. n as u64).collect();
-//! assert!(hashes == expected_hashes)
+//! assert_eq!(hashes, expected_hashes)
 //! ```
 
-use rayon::prelude::*;
-
 mod bitvector;
-pub mod hashmap;
-mod par_iter;
 use bitvector::BitVector;
 
 use std::{
@@ -42,10 +38,6 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
 };
 
 #[inline]
@@ -346,57 +338,6 @@ impl<T: Hash + Debug> Mphf<T> {
     }
 }
 
-impl<T: Hash + Debug + Sync + Send> Mphf<T> {
-    /// Same as `new`, but parallelizes work on the rayon default Rayon threadpool.
-    /// Configure the number of threads on that threadpool to control CPU usage.
-    pub fn new_parallel(gamma: f64, objects: &[T], starting_seed: Option<u64>) -> Mphf<T> {
-        assert!(gamma > 1.01);
-        let mut bitvecs = Vec::new();
-        let mut iter = 0;
-
-        let cx = Context::new(
-            std::cmp::max(255, (gamma * objects.len() as f64) as usize),
-            starting_seed.unwrap_or(0) + iter,
-        );
-
-        objects.into_par_iter().for_each(|v| cx.find_collisions(v));
-        let mut redo_keys = objects
-            .into_par_iter()
-            .filter_map(|v| cx.filter(v))
-            .collect::<Vec<_>>();
-
-        bitvecs.push(cx.a);
-        iter += 1;
-
-        while !redo_keys.is_empty() {
-            let cx = Context::new(
-                std::cmp::max(255, (gamma * redo_keys.len() as f64) as usize),
-                starting_seed.unwrap_or(0) + iter,
-            );
-
-            (&redo_keys)
-                .into_par_iter()
-                .for_each(|&v| cx.find_collisions(v));
-            redo_keys = (&redo_keys)
-                .into_par_iter()
-                .filter_map(|&v| cx.filter(v))
-                .collect();
-
-            bitvecs.push(cx.a);
-            iter += 1;
-            if iter > MAX_ITERS {
-                panic!("ran out of key space. items: {:?}", redo_keys);
-            }
-        }
-
-        Mphf {
-            ranks: Self::compute_ranks(&bitvecs),
-            bitvecs: bitvecs.into_boxed_slice(),
-            phantom: PhantomData,
-        }
-    }
-}
-
 struct Context {
     size: usize,
     seed: u64,
@@ -407,13 +348,6 @@ struct Context {
 impl Context {
     fn new(size: usize, seed: u64) -> Self {
         Self { size, seed, a: BitVector::new(size), collide: BitVector::new(size) }
-    }
-
-    fn find_collisions<T: Hash>(&self, v: &T) {
-        let idx = hashmod(self.seed, v, self.size) as usize;
-        if !self.collide.contains(idx) && !self.a.insert(idx) {
-            self.collide.insert(idx);
-        }
     }
 
     fn find_collisions_sync<T: Hash>(&mut self, v: &T) {
@@ -434,216 +368,6 @@ impl Context {
     }
 }
 
-struct Queue<'a, I: 'a, T>
-where
-    &'a I: IntoIterator,
-    <&'a I as IntoIterator>::Item: IntoIterator<Item = T>,
-{
-    keys_object: &'a I,
-    queue: <&'a I as IntoIterator>::IntoIter,
-
-    num_keys: usize,
-    last_key_index: usize,
-
-    job_id: u8,
-
-    phantom_t: PhantomData<T>,
-}
-
-impl<'a, I: 'a, N1, N2, T> Queue<'a, I, T>
-where
-    &'a I: IntoIterator<Item = N1>,
-    N2: Iterator<Item = T> + ExactSizeIterator,
-    N1: IntoIterator<Item = T, IntoIter = N2> + Clone,
-{
-    fn new(keys_object: &'a I, num_keys: usize) -> Queue<'a, I, T> {
-        Queue {
-            keys_object,
-            queue: keys_object.into_iter(),
-
-            num_keys,
-            last_key_index: 0,
-
-            job_id: 0,
-
-            phantom_t: PhantomData,
-        }
-    }
-
-    fn next(&mut self, done_keys_count: &AtomicUsize) -> Option<(N2, u8, usize, usize)> {
-        if self.last_key_index == self.num_keys {
-            loop {
-                let done_count = done_keys_count.load(Ordering::SeqCst);
-
-                if self.num_keys == done_count {
-                    self.queue = self.keys_object.into_iter();
-                    done_keys_count.store(0, Ordering::SeqCst);
-                    self.last_key_index = 0;
-                    self.job_id += 1;
-
-                    break;
-                }
-            }
-        }
-
-        if self.job_id > 1 {
-            return None;
-        }
-
-        let node = self.queue.next().unwrap();
-        let node_keys_start = self.last_key_index;
-
-        let num_keys = node.clone().into_iter().len();
-
-        self.last_key_index += num_keys;
-
-        Some((node.into_iter(), self.job_id, node_keys_start, num_keys))
-    }
-}
-
-impl<'a, T: 'a + Hash + Debug + Send + Sync> Mphf<T> {
-    /// Same as to `from_chunked_iterator` but parallelizes work over `num_threads` threads.
-    pub fn from_chunked_iterator_parallel<I, N>(
-        gamma: f64,
-        objects: &'a I,
-        max_iters: Option<u64>,
-        n: usize,
-        num_threads: usize,
-    ) -> Mphf<T>
-    where
-        &'a I: IntoIterator<Item = N>,
-        N: IntoIterator<Item = T> + Send + Clone,
-        <N as IntoIterator>::IntoIter: ExactSizeIterator,
-        <&'a I as IntoIterator>::IntoIter: Send,
-        I: Sync,
-    {
-        // TODO CONSTANT, might have to change
-        // Allowing atmost 381Mb for buffer
-        const MAX_BUFFER_SIZE: usize = 50000000;
-        const ONE_PERCENT_KEYS: f32 = 0.01;
-        let min_buffer_keys_threshold: usize = (ONE_PERCENT_KEYS * n as f32) as usize;
-
-        let mut iter: u64 = 0;
-        let mut bitvecs = Vec::<BitVector>::new();
-
-        assert!(gamma > 1.01);
-
-        let global = Arc::new(GlobalContext {
-            done_keys: BitVector::new(std::cmp::max(255, n)),
-            buffered_keys: Mutex::new(Vec::new()),
-            buffer_keys: AtomicBool::new(false),
-        });
-        loop {
-            if max_iters.is_some() && iter > max_iters.unwrap() {
-                panic!("ran out of key space. items: {:?}", global.done_keys.len());
-            }
-
-            let keys_remaining = if iter == 0 { n } else { n - global.done_keys.len() };
-            if keys_remaining == 0 {
-                break;
-            }
-            if keys_remaining < MAX_BUFFER_SIZE && keys_remaining < min_buffer_keys_threshold {
-                global.buffer_keys.store(true, Ordering::SeqCst);
-            }
-
-            let size = std::cmp::max(255, (gamma * keys_remaining as f64) as u64);
-            let cx = Arc::new(IterContext {
-                done_keys_count: AtomicUsize::new(0),
-                work_queue: Mutex::new(Queue::new(objects, n)),
-                collide: BitVector::new(size as usize),
-                a: BitVector::new(size as usize),
-            });
-
-            crossbeam_utils::thread::scope(|scope| {
-                for _ in 0..num_threads {
-                    let global = global.clone();
-                    let cx = cx.clone();
-
-                    scope.spawn(move |_| {
-                        loop {
-                            let (mut node, job_id, offset, num_keys) =
-                                match cx.work_queue.lock().unwrap().next(&cx.done_keys_count) {
-                                    None => break,
-                                    Some(val) => val,
-                                };
-
-                            let mut node_pos = 0;
-                            for index in 0..num_keys {
-                                let key_index = offset + index;
-                                if global.done_keys.contains(key_index) {
-                                    continue;
-                                }
-
-                                let key = node.nth(index - node_pos).unwrap();
-                                node_pos = index + 1;
-
-                                let idx = hashmod(iter, &key, size as usize) as usize;
-                                let collision = cx.collide.contains(idx);
-                                if job_id == 0 {
-                                    if !collision && !cx.a.insert(idx) {
-                                        cx.collide.insert(idx);
-                                    }
-                                } else if collision {
-                                    cx.a.remove(idx);
-                                    if global.buffer_keys.load(Ordering::SeqCst) {
-                                        global.buffered_keys.lock().unwrap().push(key);
-                                    }
-                                } else {
-                                    global.done_keys.insert(key_index);
-                                }
-                            }
-
-                            cx.done_keys_count.fetch_add(num_keys, Ordering::SeqCst);
-                        } //end-loop
-                    }); //end-scope
-                } //end-threads-for
-            })
-            .unwrap(); //end-crossbeam
-
-            match Arc::try_unwrap(cx) {
-                Ok(cx) => bitvecs.push(cx.a),
-                Err(_) => unreachable!(),
-            }
-
-            iter += 1;
-            if global.buffer_keys.load(Ordering::SeqCst) {
-                break;
-            }
-        } //end-loop
-
-        let buffered_keys_vec = global.buffered_keys.lock().unwrap();
-        if buffered_keys_vec.len() > 1 {
-            let mut buffered_mphf = Mphf::new_parallel(1.7, &buffered_keys_vec, Some(iter));
-
-            for i in 0..buffered_mphf.bitvecs.len() {
-                let buff_vec = std::mem::replace(&mut buffered_mphf.bitvecs[i], BitVector::new(0));
-                bitvecs.push(buff_vec);
-            }
-        }
-
-        let ranks = Self::compute_ranks(&bitvecs);
-        Mphf { bitvecs: bitvecs.into_boxed_slice(), ranks, phantom: PhantomData }
-    }
-}
-
-struct IterContext<'a, I: 'a, N1, N2, T>
-where
-    &'a I: IntoIterator<Item = N1>,
-    N2: Iterator<Item = T> + ExactSizeIterator,
-    N1: IntoIterator<Item = T, IntoIter = N2> + Clone,
-{
-    done_keys_count: AtomicUsize,
-    work_queue: Mutex<Queue<'a, I, T>>,
-    collide: BitVector,
-    a: BitVector,
-}
-
-struct GlobalContext<T> {
-    done_keys: BitVector,
-    buffered_keys: Mutex<Vec<T>>,
-    buffer_keys: AtomicBool,
-}
-
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
@@ -660,7 +384,7 @@ mod tests {
         let xsv: Vec<T> = xs.into_iter().collect();
 
         // test single-shot data input
-        check_mphf_serial(&xsv) && check_mphf_parallel(&xsv)
+        check_mphf_serial(&xsv)
     }
 
     /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
@@ -679,42 +403,9 @@ mod tests {
         hashes == gt
     }
 
-    /// Check that a Minimal perfect hash function (MPHF) is generated for the set xs
-    fn check_mphf_parallel<T>(xsv: &[T]) -> bool
-    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
-        // Generate the MPHF
-        let phf = Mphf::new_parallel(1.7, xsv, None);
-
-        // Hash all the elements of xs
-        let mut hashes: Vec<u64> = xsv.iter().map(|v| phf.hash(v)).collect();
-
-        hashes.sort_unstable();
-
-        // Hashes must equal 0 .. n
-        let gt: Vec<u64> = (0..xsv.len() as u64).collect();
-        hashes == gt
-    }
-
     fn check_chunked_mphf<T>(values: Vec<Vec<T>>, total: usize) -> bool
     where T: Sync + Hash + PartialEq + Eq + Debug + Send {
         let phf = Mphf::from_chunked_iterator(1.7, &values, total);
-
-        // Hash all the elements of xs
-        let mut hashes: Vec<u64> = values
-            .iter()
-            .flat_map(|x| x.iter().map(|v| phf.hash(&v)))
-            .collect();
-
-        hashes.sort_unstable();
-
-        // Hashes must equal 0 .. n
-        let gt: Vec<u64> = (0..total as u64).collect();
-        hashes == gt
-    }
-
-    fn check_chunked_mphf_parallel<T>(values: Vec<Vec<T>>, total: usize) -> bool
-    where T: Sync + Hash + PartialEq + Eq + Debug + Send {
-        let phf = Mphf::from_chunked_iterator_parallel(1.7, &values, None, total, 2);
 
         // Hash all the elements of xs
         let mut hashes: Vec<u64> = values
@@ -754,7 +445,7 @@ mod tests {
                 }
             }
 
-            check_chunked_mphf(slices.clone(), total) && check_chunked_mphf_parallel(slices, total)
+            check_chunked_mphf(slices.clone(), total)
         }
     }
 
