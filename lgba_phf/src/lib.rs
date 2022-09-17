@@ -70,44 +70,50 @@ pub struct Mphf<T> {
     phantom: PhantomData<T>,
 }
 
-impl<T: Hash + Debug> Mphf<T> {
+impl<T: Hash> Mphf<T> {
+    fn make_layer<'a>(
+        iter: u32,
+        gamma: f32,
+        vals: &[&'a T],
+        vecs: &mut Vec<BitVector>,
+    ) -> Vec<&'a T> {
+        let size = cmp::max(256, (gamma * vals.len() as f32) as usize).next_power_of_two();
+
+        let mut accum = BitVector::new(size);
+        let mut collide = BitVector::new(size);
+
+        for value in vals {
+            let idx = hashmod(iter, value, size) as usize;
+            if !collide.contains(idx) && !accum.insert(idx) {
+                collide.insert(idx);
+            }
+        }
+        let mut remaining = Vec::new();
+        for value in vals {
+            let idx = hashmod(iter, value, size) as usize;
+            if collide.contains(idx) {
+                accum.remove(idx);
+                remaining.push(*value)
+            }
+        }
+
+        vecs.push(accum);
+        remaining
+    }
+
     /// Generate a minimal perfect hash function for the set of `objects`.
     /// `objects` must not contain any duplicate items.
     /// `gamma` controls the tradeoff between the construction-time and run-time speed,
     /// and the size of the datastructure representing the hash function. See the paper for details.
     pub fn new(gamma: f32, objects: &[T]) -> Mphf<T> {
         assert!(gamma > 1.0);
+
         let mut bitvecs = Vec::new();
-        let mut iter = 0;
-
-        let mut cx = Context::new(
-            cmp::max(256, (gamma * objects.len() as f32) as usize).next_power_of_two(),
-            iter,
-        );
-
-        objects.iter().for_each(|v| cx.find_collisions(v));
-        let mut redo_keys = objects
-            .iter()
-            .filter_map(|v| cx.filter(v))
-            .collect::<Vec<_>>();
-
-        bitvecs.push(cx.a);
-        iter += 1;
-
-        while !redo_keys.is_empty() {
-            let mut cx = Context::new(
-                cmp::max(256, (gamma * redo_keys.len() as f32) as usize).next_power_of_two(),
-                iter,
-            );
-
-            (&redo_keys).iter().for_each(|&v| cx.find_collisions(v));
-            redo_keys = (&redo_keys).iter().filter_map(|&v| cx.filter(v)).collect();
-
-            bitvecs.push(cx.a);
-            iter += 1;
-            if iter > 100 {
-                panic!("ran out of key space. items: {:?}", redo_keys);
-            }
+        let mut remaining: Vec<_> = objects.iter().collect();
+        while !remaining.is_empty() {
+            assert!(bitvecs.len() < 100);
+            let new = Self::make_layer(bitvecs.len() as u32, gamma, &remaining, &mut bitvecs);
+            remaining = new;
         }
 
         Mphf {
@@ -195,35 +201,5 @@ impl<T: Hash + Debug> Mphf<T> {
     /// accurate. It is meant mostly for tuning the `gamma` parameter, not any other use.
     pub fn total_size(&self) -> usize {
         (self.bitvecs.iter().map(|x| x.capacity()).sum::<usize>() + 7) / 8
-    }
-}
-
-struct Context {
-    size: usize,
-    seed: u32,
-    a: BitVector,
-    collide: BitVector,
-}
-
-impl Context {
-    fn new(size: usize, seed: u32) -> Self {
-        Self { size, seed, a: BitVector::new(size), collide: BitVector::new(size) }
-    }
-
-    fn find_collisions<T: Hash>(&mut self, v: &T) {
-        let idx = hashmod(self.seed, v, self.size) as usize;
-        if !self.collide.contains(idx) && !self.a.insert(idx) {
-            self.collide.insert(idx);
-        }
-    }
-
-    fn filter<'t, T: Hash>(&mut self, v: &'t T) -> Option<&'t T> {
-        let idx = hashmod(self.seed, v, self.size) as usize;
-        if self.collide.contains(idx) {
-            self.a.remove(idx);
-            Some(v)
-        } else {
-            None
-        }
     }
 }
