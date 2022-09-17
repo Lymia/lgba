@@ -13,8 +13,9 @@ readme = "../README.md"
 license = "MIT"
 
 [features]
-generator = ["rand"]
+generator = []
 
 [dependencies]
-rand = { version = "0.8.5", default-features = false, features = ["small_rng"], optional = true }
 twox-hash = { version = "1.6.3", default-features = false }
+
+[dev-dependencies]

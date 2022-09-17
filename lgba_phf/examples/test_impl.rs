@@ -11,8 +11,7 @@ fn main() {
 
     let phf = generator::generate_hash(&possible_objects);
 
-    println!("{:x?}", phf.key);
-    println!("{:x?}", phf.disps);
+    println!("{}", phf.generate_rust_code("func", "u32"));
     println!("Disp count: {}", phf.disps.len());
 
     // Verify PHF

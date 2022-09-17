@@ -1,3 +1,4 @@
 #![no_std]
 
-mod terminal;
+pub mod entry;
+pub mod terminal;

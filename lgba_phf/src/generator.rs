@@ -2,11 +2,8 @@ use crate::{
     params,
     params::{DisplacementData, HashKey},
 };
-use alloc::{vec, vec::Vec};
-use core::{cmp::min, hash::Hash};
-use rand::{distributions::Standard, rngs::SmallRng, Rng, SeedableRng};
-
-const FIXED_SEED: u64 = 1234567891;
+use alloc::{string::String, vec, vec::Vec};
+use core::{cmp::min, fmt::Write, hash::Hash};
 
 #[derive(Clone, Debug)]
 pub struct HashState {
@@ -14,12 +11,45 @@ pub struct HashState {
     pub disps: Vec<DisplacementData>,
     pub map: Vec<usize>,
 }
+impl HashState {
+    pub fn generate_rust_code(&self, hash_fn_name: &str, in_ty: &str) -> String {
+        let mut disps = String::new();
+        for (i, disp) in self.disps.iter().enumerate() {
+            if i % 15 == 0 {
+                disps.push_str("        ");
+            }
+            write!(disps, "0x{disp:04x},").unwrap();
+            if i % 15 == 14 {
+                disps.push_str("\n");
+            }
+        }
+        if self.disps.len() % 15 != 0 {
+            disps.push_str("\n");
+        }
+
+        let mut buf = String::new();
+        writeln!(buf, "fn {hash_fn_name}(value: &{in_ty}) -> usize {{").unwrap();
+        writeln!(buf, "    const KEY: u32 = 0x{:08x};", self.key).unwrap();
+        writeln!(buf, "    const DISPS: [u16; {}] = [", self.disps.len()).unwrap();
+        buf.push_str(&disps);
+        writeln!(buf, "    ];").unwrap();
+        writeln!(buf, "    lgba_phf::hash::<{}, {}, _>(", self.disps.len(), self.map.len())
+            .unwrap();
+        writeln!(buf, "        KEY, &DISPS, value,").unwrap();
+        writeln!(buf, "    )").unwrap();
+        writeln!(buf, "}}").unwrap();
+        buf
+    }
+}
 
 pub fn generate_hash<H: Hash>(entries: &[H]) -> HashState {
-    SmallRng::seed_from_u64(FIXED_SEED)
-        .sample_iter(Standard)
-        .find_map(|key| try_generate_hash(6.0, key, entries))
-        .expect("failed to solve PHF")
+    let mut seed = 1234567890;
+    loop {
+        if let Some(result) = try_generate_hash(6.0, seed, entries) {
+            return result;
+        }
+        seed = seed.wrapping_mul(1588635695).wrapping_add(12345);
+    }
 }
 
 fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option<HashState> {
