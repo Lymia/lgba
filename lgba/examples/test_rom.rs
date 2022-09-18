@@ -9,8 +9,9 @@ use core::{
 };
 use lgba::lcd::{DispCnt, DispMode, DISPCNT};
 
-#[start]
-fn main(_: isize, _: *const *const u8) -> isize {
+#[inline(never)]
+#[link_section = ".iwram.test"]
+fn main_impl() -> ! {
     unsafe {
         let mut i = 0;
         let mut rng = 1u32;
@@ -32,6 +33,11 @@ fn main(_: isize, _: *const *const u8) -> isize {
             }
         }
     }
+}
+
+#[start]
+fn main(_: isize, _: *const *const u8) -> isize {
+    main_impl()
 }
 
 #[panic_handler]

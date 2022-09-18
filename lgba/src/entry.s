@@ -20,12 +20,12 @@ __start:
     @ Set IRQ stack pointer
     mov r0, #0x12
     msr CPSR_c, r0
-    ldr sp, =0x03007FA0
+    ldr sp, =0x3007FA0
 
     @ Set user stack pointer
     mov r0, #0x1f
     msr CPSR_c, r0
-    ldr sp, =0x03007F00
+    ldr sp, =0x3007F00
 
     @ Switch to Thumb
     ldr r0, =(1f + 1)
@@ -35,14 +35,17 @@ __start:
     1:
 
     @ Sets WAITCNT to the default used by GBA games
-    @
-    @ See https://problemkaputt.de/gbatek.htm#gbasystemcontrol for reference.
-    ldr r0, =0x04000204
+    ldr r0, =0x4000204
     ldr r1, =0x4317
     strh r1, [r0]
 
+    @ Blanks the screen
+    ldr r0, =0x4000000
+    ldr r1, =0x0080
+    strh r1, [r0]
+
     @ Initializes memory
-    bl ._lgba_init_memory
+    bl __lgba_init_memory
 
     @ Call lgba initialization code
     ldr r0, =__lgba_init_rust
@@ -62,60 +65,64 @@ __start:
 @
 @ Initialize the user memory of lgba
 @
-._lgba_init_memory:
-    bx lr
-
-@
-@ Initialize the user memory of lgba
-@ TODO: Legacy version, rewrite this to use DMA
-@
-.arm
-.align 4
-._lgba_init_memory__old:
-    @ function prologue
+__lgba_init_memory:
     push {lr}
-    push {r4-r10}
+    push {r4-r7}
 
-    @ zeros .bbs
-1:  ldr r0, =__bss_start
+    @ Sets up constants before-hand
+    ldr r4, =0x40000D4 @ DMA3SAD
+    ldr r5, =0x40000D8 @ DMA3DAD
+    ldr r6, =0x40000DC @ DMA3CNT_L
+    ldr r7, =0x40000DE @ DMA3CNT_H
+
+    @ Clear .bbs
+    ldr r0, =__bss_start
     ldr r1, =__bss_end
     cmp r0, r1
     beq 1f
-    mov r3, #0
-    mov r4, #0
-    mov r5, #0
-    mov r6, #0
-    mov r7, #0
-    mov r8, #0
-    mov r9, #0
-    mov r10, #0
-0:  stmia r0!,{r3-r10}
-    cmp r0, r1
-    blt 0b
+    ldr r2, =0f
+    str r2, [r4]    @ DMA3SAD = &0u32
+    ldr r3, =0x8500 @ dma flags = (source fixed, dest increment, 32-bit)
+    bl 2f           @ call dma helper function
 
-    @ copy .iwram section to IWRAM
-1:  ldr r0, =__iwram_lma
+    @ Set up DMA flags for next section
+1:  ldr r3, =0x8400 @ dma flags = (source increment, dest increment, 32-bit)
+
+    @ Copy .iwram section to IWRAM
+    ldr r0, =__iwram_start
     ldr r1, =__iwram_end
-    ldr r2, =__iwram_start
-    cmp r1, r2
+    cmp r0, r1
     beq 1f
-0:  ldmia r0!,{r3-r10}
-    stmia r2!,{r3-r10}
-    cmp r2, r1
-    blt 0b
+    ldr r2, =__iwram_lma
+    str r2, [r4]    @ DMA3SAD = __iwram_lma
+    bl 2f           @ call dma helper function
 
-    @ copy .ewram section to EWRAM
-1:  ldr r0, =__ewram_lma
+    @ Copy .ewram section to EWRAM
+1:  ldr r0, =__ewram_start
     ldr r1, =__ewram_end
-    ldr r2, =__ewram_start
-    cmp r1, r2
+    cmp r0, r1
     beq 1f
-0:  ldmia r0!,{r3-r10}
-    stmia r2!,{r3-r10}
-    cmp r2, r1
-    blt 0b
+    ldr r2, =__ewram_lma
+    str r2, [r4]    @ DMA3SAD = __ewram_lma
+    bl 2f           @ call dma helper function
 
-    @ function epilogue
-1:  pop {r4-r10}
+    @ Return from the function
+1:  pop {r4-r7}
     pop {r0}
     bx r0
+
+    @ DMA helper function
+2:  sub r1, r0      @ begin computing the word count
+    add r1, #3
+    lsr r1, #2
+    strh r1, [r6]   @ DMA3CNT_L = (end - start + 3) / 4
+    str r0, [r5]    @ DMA3DAD = start
+    strh r3, [r7]   @ DMA3CNT_H = <begin dma>
+    nop             @ \
+    nop             @ | wait for the DMA to finish
+    nop             @ /
+    bx lr
+
+.align 4
+0:  .word 0
+.pool

@@ -1,11 +1,11 @@
+ENTRY  (__start)
+INPUT  (liblgba_as.a)
+
 MEMORY {
     rom (rx)    : ORIGIN = 0x08000000, LENGTH = 32M
     ewram (w!x) : ORIGIN = 0x02000000, LENGTH = 256K
     iwram (w!x) : ORIGIN = 0x03000000, LENGTH = 32K
 }
-
-ENTRY  (__start)
-INPUT  (liblgba_as.a)
 
 SECTIONS {
     .text : {
@@ -20,14 +20,6 @@ SECTIONS {
         . = ALIGN(4);
     } >rom = 0xff
 
-    .bss : {
-        __bss_start = ABSOLUTE(.);
-        *(.bss .bss.*);
-        . = ALIGN(4);
-        __bss_end = ABSOLUTE(.);
-        . = ALIGN(4);
-    } >iwram
-
     __iwram_lma = .;
     .iwram : {
         __iwram_start = ABSOLUTE(.);
@@ -36,8 +28,9 @@ SECTIONS {
         . = ALIGN(4);
         __iwram_end = ABSOLUTE(.);
         . = ALIGN(4);
-    } >iwram
+    } >iwram AT>rom = 0xff
 
+    . = __iwram_lma + (__iwram_end - __iwram_start);
     __ewram_lma = .;
     .ewram : {
         __ewram_start = ABSOLUTE(.);
@@ -46,7 +39,15 @@ SECTIONS {
         __ewram_end = ABSOLUTE(.);
         . = ALIGN(4);
         __heap_start = ABSOLUTE(.);
-    } >ewram
+    } >ewram AT>rom = 0xff
+
+    .bss : {
+        __bss_start = ABSOLUTE(.);
+        *(.bss .bss.*);
+        . = ALIGN(4);
+        __bss_end = ABSOLUTE(.);
+        . = ALIGN(4);
+    } >iwram
 
     /* DWARF 1 */
     .debug          0 : { *(.debug) }
