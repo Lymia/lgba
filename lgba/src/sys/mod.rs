@@ -7,6 +7,14 @@ mod prelude {
     };
 }
 
+macro_rules! packed_struct_ty {
+    ((@enumset $inner_ty:ty)) => {
+        enumset::EnumSet<$inner_ty>
+    };
+    ($ty:ty) => {
+        $ty
+    };
+}
 macro_rules! packed_struct_read {
     (@num $target:ty, $self:ident, $data:expr, $inner_ty:ty) => {{
         let range: RangeInclusive<usize> = $data;
@@ -30,6 +38,11 @@ macro_rules! packed_struct_read {
     (bool, $self:ident, $data:expr, $inner_ty:ty) => {
         $self.0 & (1 << $data) != 0
     };
+    ((@enumset $target:ty), $self:ident, $data:expr, $inner_ty:ty) => {{
+        let data = packed_struct_read!(@num $inner_ty, $self, $data, $inner_ty);
+        enumset::EnumSet::try_from_u32(data as u32)
+            .unwrap_or_else(|| $crate::sys::invalid_enum_in_register())
+    }};
     // Assume this is an enum.
     ($target:ty, $self:ident, $data:expr, $inner_ty:ty) => {{
         let data = packed_struct_read!(@num $inner_ty, $self, $data, $inner_ty);
@@ -67,9 +80,41 @@ macro_rules! packed_struct_write {
         $self.0 &= !(1 << $data);
         $self.0 |= ($value as $inner_ty) << $data;
     };
+    ((@enumset $target:ty), $self:ident, $data:expr, $inner_ty:ty, $value:expr) => {
+        packed_struct_write!(@num u32, $self, $data, $inner_ty, $value.as_u32_truncated())
+    };
     // Assume this is an enum.
     ($target:ty, $self:ident, $data:expr, $inner_ty:ty, $value:expr) => {
         packed_struct_write!(@num $inner_ty, $self, $data, $inner_ty, $value as $inner_ty)
+    };
+}
+macro_rules! packed_struct_try_set {
+    (
+        $field_name:ident, -, $with_field_name:ident,
+        $($rest:tt)*
+    ) => {};
+    (
+        $field_name:ident, $set_field_name:ident, $with_field_name:ident,
+        $name:ident, $setter_name:ident, $field_ty:tt $(,)?
+    ) => {
+        #[doc = "Sets the"]
+        #[doc = concat!(
+                                    "[`", stringify!($field_name), "`]",
+                                    "(`", stringify!($name), "::", stringify!($field_name), "`)",
+                                )]
+        #[doc = "field of the uncommitted register value."]
+        pub fn $set_field_name(
+            self,
+            value: packed_struct_ty!($field_ty),
+        ) -> $setter_name<'a, { true }> {
+            let read = self.read();
+            let new_value = unsafe { read.value.assume_init().$with_field_name(value) };
+            $setter_name {
+                register: read.register,
+                value: MaybeUninit::new(new_value),
+                _phantom: PhantomData,
+            }
+        }
     };
 }
 macro_rules! packed_struct_fields {
@@ -78,7 +123,7 @@ macro_rules! packed_struct_fields {
         $(
             , $(#[$field_meta:meta])*
             (
-                $field_name:ident, $set_field_name:ident, $with_field_name:ident,
+                $field_name:ident, $set_field_name:tt, $with_field_name:ident,
                 $field_ty:tt, $data:expr $(,)?
             )
         )*
@@ -130,11 +175,21 @@ macro_rules! packed_struct_fields {
 
             /// Resets the uncommitted register value to its default.
             pub fn clear(self) -> $setter_name<'a, { true }> {
+                self.set(Default::default())
+            }
+
+            /// Sets the uncommited register value to a given fixed value.
+            pub fn set(self, value: $name) -> $setter_name<'a, { true }> {
                 $setter_name {
                     register: self.register,
-                    value: MaybeUninit::new(Default::default()),
+                    value: MaybeUninit::new(value),
                     _phantom: PhantomData,
                 }
+            }
+
+            /// Writes a certain value to the IO port.
+            pub fn write(self, value: $name) {
+                self.set(value).commit()
             }
 
             /// Writes the uncommitted register value to the IO port.
@@ -144,21 +199,10 @@ macro_rules! packed_struct_fields {
             }
 
             $(
-                #[doc = "Sets the"]
-                #[doc = concat!(
-                    "[`", stringify!($field_name), "`]",
-                    "(`", stringify!($name), "::", stringify!($field_name), "`)",
-                )]
-                #[doc = "field of the uncommitted register value."]
-                pub fn $set_field_name(self,value: $field_ty) -> $setter_name<'a, { true }> {
-                    let read = self.read();
-                    let new_value = unsafe { read.value.assume_init().$with_field_name(value) };
-                    $setter_name {
-                        register: read.register,
-                        value: MaybeUninit::new(new_value),
-                        _phantom: PhantomData,
-                    }
-                }
+                packed_struct_try_set!(
+                    $field_name, $set_field_name, $with_field_name,
+                    $name, $setter_name, $field_ty,
+                );
             )*
         }
         impl<'a> Deref for $setter_name<'a, { true }> {
@@ -171,7 +215,7 @@ macro_rules! packed_struct_fields {
         impl $name {
             $(
                 $(#[$field_meta])*
-                pub fn $field_name(&self) -> $field_ty {
+                pub fn $field_name(&self) -> packed_struct_ty!($field_ty) {
                     packed_struct_read!($field_ty, self, $data, $inner_ty)
                 }
             )*
@@ -183,7 +227,7 @@ macro_rules! packed_struct_fields {
                     "(`", stringify!($name), "::", stringify!($field_name), "`)",
                 )]
                 #[doc = "field."]
-                pub fn $with_field_name(mut self, value: $field_ty) -> Self {
+                pub fn $with_field_name(mut self, value: packed_struct_ty!($field_ty)) -> Self {
                     packed_struct_write!($field_ty, self, $data, $inner_ty, value);
                     self
                 }
@@ -204,3 +248,4 @@ fn value_out_of_range(max: usize, value: usize) -> ! {
 mod reg;
 
 pub mod lcd;
+pub mod vram;

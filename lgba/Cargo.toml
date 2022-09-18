@@ -17,6 +17,7 @@ default = ["terminal"]
 terminal = []
 
 [dependencies]
+enumset = "1.0.11"
 num_enum = { version = "0.5.7", default-features = false }
 
 lgba_macros = { version = "0.1.0", path = "../lgba_macros" }
