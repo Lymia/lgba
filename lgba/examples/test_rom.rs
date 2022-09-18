@@ -3,9 +3,11 @@
 
 extern crate lgba;
 
-use core::alloc::{GlobalAlloc, Layout};
-use core::arch::asm;
-use core::panic::PanicInfo;
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    panic::PanicInfo,
+};
+use lgba::lcd::{DispCnt, DispMode, DISPCNT};
 
 #[start]
 fn main(_: isize, _: *const *const u8) -> isize {
@@ -13,9 +15,15 @@ fn main(_: isize, _: *const *const u8) -> isize {
         let mut i = 0;
         let mut rng = 1u32;
         loop {
-            (0x4000000 as *mut u16).write_volatile(3 | (1 << 10));
+            DISPCNT.write(
+                DispCnt::default()
+                    .with_mode(DispMode::Mode3)
+                    .with_display_bg2(true),
+            );
             for _ in 0..100 {
-                (0x06000000 as *mut u16).offset(i).write_volatile((rng >> 16) as u16);
+                (0x06000000 as *mut u16)
+                    .offset(i)
+                    .write_volatile((rng >> 16) as u16);
                 i += 1;
                 if i > 0xA000 {
                     i = 0
@@ -27,21 +35,21 @@ fn main(_: isize, _: *const *const u8) -> isize {
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn panic(_: &PanicInfo) -> ! {
     loop {}
 }
 
 #[alloc_error_handler]
-fn alloc_error(info: Layout) -> ! {
+fn alloc_error(_: Layout) -> ! {
     loop {}
 }
 
 struct NoAlloc;
 unsafe impl GlobalAlloc for NoAlloc {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+    unsafe fn alloc(&self, _: Layout) -> *mut u8 {
         todo!()
     }
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {
         todo!()
     }
 }

@@ -17,15 +17,22 @@ __start:
 @ The entry point for the actual ROM
 @
 ._lgba_init:
-    @ set IRQ stack pointer
+    @ Set IRQ stack pointer
     mov r0, #0x12
     msr CPSR_c, r0
     ldr sp, =0x03007FA0
 
-    @ set user stack pointer
+    @ Set user stack pointer
     mov r0, #0x1f
     msr CPSR_c, r0
     ldr sp, =0x03007F00
+
+    @ Switch to Thumb
+    ldr r0, =(1f + 1)
+    bx r0
+    .thumb
+    .align 2
+    1:
 
     @ Sets WAITCNT to the default used by GBA games
     @
@@ -48,13 +55,23 @@ __start:
     @ main should be `fn() -> !`, but it doesn't hurt to guard
     1: b 1b
 
-    @ trampoline for blx
+    @ trampoline for blx - we don't know if these functions are ARM or Thumb (since we support armv4t target)
     2: bx r0
+.pool
 
 @
 @ Initialize the user memory of lgba
 @
 ._lgba_init_memory:
+    bx lr
+
+@
+@ Initialize the user memory of lgba
+@ TODO: Legacy version, rewrite this to use DMA
+@
+.arm
+.align 4
+._lgba_init_memory__old:
     @ function prologue
     push {lr}
     push {r4-r10}

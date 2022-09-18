@@ -1,6 +1,8 @@
+//! Implements a simple text terminal for the GBA.
+
 mod font_data;
 
-pub fn get_font_glyph(id: char) -> (u8, u8) {
+fn get_font_glyph(id: char) -> (u8, u8) {
     let id = id as usize;
     if id < 256 {
         // We check the low plane bitmap to see if we have this glyph.
@@ -26,3 +28,5 @@ pub fn get_font_glyph(id: char) -> (u8, u8) {
         font_data::REPLACEMENT_GLYPH
     }
 }
+
+pub struct Terminal {}
