@@ -1,16 +1,11 @@
-#![feature(start, alloc_error_handler)]
 #![no_std]
+#![no_main]
 
-extern crate lgba;
-
-use core::{
-    alloc::{GlobalAlloc, Layout},
-    panic::PanicInfo,
-};
+use core::alloc::{GlobalAlloc, Layout};
 use lgba::lcd::{DispCnt, DispMode, DISPCNT};
 
 #[inline(never)]
-#[link_section = ".iwram.test"]
+#[lgba::iwram]
 fn main_impl() -> ! {
     unsafe {
         let mut i = 0;
@@ -35,19 +30,9 @@ fn main_impl() -> ! {
     }
 }
 
-#[start]
-fn main(_: isize, _: *const *const u8) -> isize {
+#[lgba::entry]
+fn rom_entry() -> ! {
     main_impl()
-}
-
-#[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    loop {}
-}
-
-#[alloc_error_handler]
-fn alloc_error(_: Layout) -> ! {
-    loop {}
 }
 
 struct NoAlloc;

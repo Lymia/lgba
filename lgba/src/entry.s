@@ -10,8 +10,34 @@
 __start:
     b ._lgba_init
 
-    @ Left empty for `gbafix`
-    .space 188
+    @ GBA header, left empty for `gbafix` (for now)
+    .space 0xBC
+
+    @ Multiboot header
+    0: b 0b @ multiboot entry point; not currently supported
+    .space 0x1C
+    0: b 0b @ joybus entry point; not currently supported
+
+    @ LGBA specific markers
+    .ascii "lgbarom0"
+    .word __lgba_exheader
+
+@
+@ An extra LGBA-specific header used for (eventually) the ROM builder script.
+@
+.section .lgba.exheader
+__lgba_exheader:
+    .word __lgba_exh_lib_cname     @ LGBA crate name
+    .word __lgba_exh_lib_cver      @ LGBA crate version
+    .word __lgba_exh_rom_cname     @ ROM crate name
+    .word __lgba_exh_rom_cver      @ ROM crate version
+    .word __lgba_exh_rom_title     @ ROM header title
+    .word __lgba_exh_rom_code      @ ROM header code
+    .word __lgba_exh_rom_developer @ ROM header developer
+    .word __lgba_exh_rom_ver       @ ROM header version
+
+.section .lgba.init
+.global __lgba_init_memory
 
 @
 @ The entry point for the actual ROM
@@ -51,15 +77,19 @@ __start:
     ldr r0, =__lgba_init_rust
     bl 2f
 
-    @ jump to user code
-    ldr r0, =main
+    @ Jump to user code
+    ldr r0, =__lgba_rom_entry
     bl 2f
 
-    @ main should be `fn() -> !`, but it doesn't hurt to guard
-    1: b 1b
+    @ Call a fallback function that just panics.
+    ldr r0, =__lgba_main_func_returned
+    bl 2f
 
-    @ trampoline for blx - we don't know if these functions are ARM or Thumb (since we support armv4t target)
-    2: bx r0
+    @ This should be *completely* unreachable, but... just in case.
+1:  b 1b
+
+    @ Trampoline for blx - we don't know if these functions are ARM or Thumb (since we support armv4t target)
+2:  bx r0
 .pool
 
 @

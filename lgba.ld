@@ -9,8 +9,10 @@ MEMORY {
 
 SECTIONS {
     .text : {
-        KEEP(*(.lgba.header));
+        KEEP(*(.lgba.*));
         *(.lgba.header);
+        *(.lgba.markers .lgba.ex_header);
+        *(.lgba.*);
         *(.text .text.*);
         . = ALIGN(4);
     } >rom = 0xff
