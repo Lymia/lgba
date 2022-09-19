@@ -1,12 +1,9 @@
-.section .lgba.header
-
-.arm
-.global __start
-.align
-
 @
 @ The GBA Header
 @
+    .section .lgba.header, "ax", %progbits
+    .arm
+    .global __start
 __start:
     b ._lgba_init
 
@@ -25,7 +22,7 @@ __start:
 @
 @ An extra LGBA-specific header used for (eventually) the ROM builder script.
 @
-.section .lgba.exheader
+    .section .lgba.exheader, "a"
 __lgba_exheader:
     .word __lgba_exh_lib_cname     @ LGBA crate name
     .word __lgba_exh_lib_cver      @ LGBA crate version
@@ -36,12 +33,11 @@ __lgba_exheader:
     .word __lgba_exh_rom_developer @ ROM header developer
     .word __lgba_exh_rom_ver       @ ROM header version
 
-.section .lgba.init
-.global __lgba_init_memory
-
 @
 @ The entry point for the actual ROM
 @
+    .section .lgba.init, "ax", %progbits
+    .arm
 ._lgba_init:
     @ Set IRQ stack pointer
     mov r0, #0x12
@@ -62,12 +58,7 @@ __lgba_exheader:
 
     @ Sets WAITCNT to the default used by GBA games
     ldr r0, =0x4000204
-    ldr r1, =0x4317
-    strh r1, [r0]
-
-    @ Blanks the screen
-    ldr r0, =0x4000000
-    ldr r1, =0x0080
+    ldrh r1, =0x4317
     strh r1, [r0]
 
     @ Initializes memory
@@ -95,64 +86,61 @@ __lgba_exheader:
 @
 @ Initialize the user memory of lgba
 @
+    .section .lgba.init, "ax", %progbits
+    .thumb
+    .global __lgba_init_memory
 __lgba_init_memory:
-    push {lr}
-    push {r4-r7}
+    push {r4,lr}
 
     @ Sets up constants before-hand
-    ldr r4, =0x40000D4 @ DMA3SAD
-    ldr r5, =0x40000D8 @ DMA3DAD
-    ldr r6, =0x40000DC @ DMA3CNT_L
-    ldr r7, =0x40000DE @ DMA3CNT_H
+    mov r4, #1
+    lsl r4, #26
+    add r4, #0xD0          @ r4 = 0x40000D0
 
     @ Clear .bbs
-    ldr r0, =__bss_start
-    ldr r1, =__bss_end
-    cmp r0, r1
-    beq 1f
-    ldr r2, =0f
-    str r2, [r4]    @ DMA3SAD = &0u32
-    ldr r3, =0x8500 @ dma flags = (source fixed, dest increment, 32-bit)
-    bl 2f           @ call dma helper function
-
-    @ Set up DMA flags for next section
-1:  ldr r3, =0x8400 @ dma flags = (source increment, dest increment, 32-bit)
+    ldr r0, =__bss_start   @ start of bss
+    ldr r1, =__bss_end     @ end of bss
+    adr r2, 2f             @ copy source
+    mov r3, #0x85
+    lsl r3, #8             @ dma flags (0x8500)
+    bl 1f
 
     @ Copy .iwram section to IWRAM
-    ldr r0, =__iwram_start
-    ldr r1, =__iwram_end
-    cmp r0, r1
-    beq 1f
-    ldr r2, =__iwram_lma
-    str r2, [r4]    @ DMA3SAD = __iwram_lma
-    bl 2f           @ call dma helper function
+    ldr r0, =__iwram_start @ start of iwram
+    ldr r1, =__iwram_end   @ end of iwram
+    ldr r2, =__iwram_lma   @ iwram data in ROM
+    mov r3, #0x84
+    lsl r3, #8             @ dma flags (0x8400)
+    bl 1f
 
     @ Copy .ewram section to EWRAM
-1:  ldr r0, =__ewram_start
-    ldr r1, =__ewram_end
-    cmp r0, r1
-    beq 1f
-    ldr r2, =__ewram_lma
-    str r2, [r4]    @ DMA3SAD = __ewram_lma
-    bl 2f           @ call dma helper function
+    ldr r0, =__ewram_start @ start of ewram
+    ldr r1, =__ewram_end   @ end of ewram
+    ldr r2, =__ewram_lma   @ ewram data in ROM
+    @ (r3 carried over)    @ dma flags (0x8400)
+    bl 1f
 
     @ Return from the function
-1:  pop {r4-r7}
+    pop {r4}
     pop {r0}
     bx r0
 
     @ DMA helper function
-2:  sub r1, r0      @ begin computing the word count
+1:  cmp r0, r1
+    beq 0f                 @ Bail out early if there is nothing to copy
+    sub r1, r0
     add r1, #3
-    lsr r1, #2
-    strh r1, [r6]   @ DMA3CNT_L = (end - start + 3) / 4
-    str r0, [r5]    @ DMA3DAD = start
-    strh r3, [r7]   @ DMA3CNT_H = <begin dma>
-    nop             @ \
-    nop             @ | wait for the DMA to finish
-    nop             @ /
-    bx lr
+    lsr r1, #2             @ r1 = (r1 - r0 + 3) / 4
+    str  r2, [r4, #0x4]    @ DMA3SAD   (0x40000D4) = r2
+    str  r0, [r4, #0x8]    @ DMA3DAD   (0x40000D8) = r0
+    strh r1, [r4, #0xC]    @ DMA3CNT_L (0x40000DC) = r1
+    strh r3, [r4, #0xE]    @ DMA3CNT_H (0x40000DE) = r3
+    nop                    @ \
+    nop                    @ | wait for the DMA to finish
+    nop                    @ /
+0:  bx lr
 
-.align 4
-0:  .word 0
+    @ A zero byte for clearing .bbs
+    .align 4
+2:  .word 0
 .pool

@@ -388,7 +388,7 @@ fn make_glyphs_file(glyphs: GlyphData) {
             pub {phf_code}\
         "
     );
-    File::create("../lgba/src/terminal/font_data.rs")
+    File::create("../lgba/src/display/terminal/font_data.rs")
         .unwrap()
         .write_all(raw_source.as_bytes())
         .unwrap();

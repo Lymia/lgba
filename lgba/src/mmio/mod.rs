@@ -1,5 +1,7 @@
+#![allow(unused)] // a lot of the definitions here are unused in various contexts.
+
 mod prelude {
-    pub use crate::sys::reg::*;
+    pub use crate::mmio::reg::*;
     pub use core::{
         marker::PhantomData,
         mem::MaybeUninit,
@@ -41,14 +43,14 @@ macro_rules! packed_struct_read {
     ((@enumset $target:ty), $self:ident, $data:expr, $inner_ty:ty) => {{
         let data = packed_struct_read!(@num $inner_ty, $self, $data, $inner_ty);
         enumset::EnumSet::try_from_u32(data as u32)
-            .unwrap_or_else(|| $crate::sys::invalid_enum_in_register())
+            .unwrap_or_else(|| $crate::mmio::invalid_enum_in_register())
     }};
     // Assume this is an enum.
     ($target:ty, $self:ident, $data:expr, $inner_ty:ty) => {{
         let data = packed_struct_read!(@num $inner_ty, $self, $data, $inner_ty);
         match <$target>::try_from(data) {
             Ok(v) => v,
-            Err(_) => $crate::sys::invalid_enum_in_register(),
+            Err(_) => $crate::mmio::invalid_enum_in_register(),
         }
     }};
 }
@@ -59,7 +61,7 @@ macro_rules! packed_struct_write {
         let mask: $inner_ty = ((1 << bit_size) - 1) as $inner_ty;
 
         if ($value as usize) >= (1 << bit_size) {
-            $crate::sys::value_out_of_range($value as usize, 1 << bit_size)
+            $crate::mmio::value_out_of_range($value as usize, 1 << bit_size)
         }
         $self.0 &= !(mask << *range.start());
         $self.0 |= ($value as $inner_ty) << *range.start();
@@ -247,5 +249,6 @@ fn value_out_of_range(max: usize, value: usize) -> ! {
 
 mod reg;
 
+pub mod emulator;
 pub mod lcd;
 pub mod vram;

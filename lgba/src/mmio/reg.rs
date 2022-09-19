@@ -11,6 +11,9 @@ impl<T: Copy, S> Register<T, S> {
     pub const unsafe fn new(offset: usize) -> Self {
         Register(offset as *mut T, PhantomData)
     }
+    pub fn as_ptr(&self) -> *mut T {
+        self.0
+    }
 }
 impl<T: Copy> Register<T, SafeReg> {
     pub fn write(&self, t: T) {
@@ -30,4 +33,27 @@ impl<T: Copy> Register<T, UnsafeReg> {
     pub unsafe fn read(&self) -> T {
         self.0.read_volatile()
     }
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+pub struct RegArray<T: Copy, const COUNT: usize, S = SafeReg>(*mut T, PhantomData<S>);
+impl<T: Copy, S, const COUNT: usize> RegArray<T, COUNT, S> {
+    pub const unsafe fn new(offset: usize) -> Self {
+        RegArray(offset as *mut T, PhantomData)
+    }
+    pub fn index(&self, offset: usize) -> Register<T, S> {
+        if offset >= COUNT {
+            index_out_of_bounds()
+        } else {
+            unsafe { Register(self.0.offset(offset as isize), PhantomData) }
+        }
+    }
+    pub fn as_ptr(&self) -> *mut T {
+        self.0
+    }
+}
+
+#[inline(never)]
+fn index_out_of_bounds() -> ! {
+    panic!("indexed register out of bounds!")
 }

@@ -24,7 +24,8 @@ fn main() {
         let out_dir = std::env::var("OUT_DIR").unwrap();
         let mut o_files = Vec::new();
 
-        arm_as("src/entry.s", "entry.o", &mut o_files);
+        arm_as("src/crt0.s", "crt0.o", &mut o_files);
+        arm_as("src/sys.s", "sys.o", &mut o_files);
 
         let archive_name = format!("{out_dir}/liblgba_as.a");
         std::fs::remove_file(&archive_name).ok();

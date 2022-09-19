@@ -10,22 +10,21 @@ fn main_impl() -> ! {
     unsafe {
         let mut i = 0;
         let mut rng = 1u32;
+        DISPCNT.write(
+            DispCnt::default()
+                .with_mode(DispMode::Mode3)
+                .with_display_bg2(true),
+        );
         loop {
-            DISPCNT.write(
-                DispCnt::default()
-                    .with_mode(DispMode::Mode3)
-                    .with_display_bg2(true),
-            );
-            for _ in 0..100 {
-                (0x06000000 as *mut u16)
-                    .offset(i)
-                    .write_volatile((rng >> 16) as u16);
-                i += 1;
-                if i > 0xA000 {
-                    i = 0
-                }
-                rng = rng.wrapping_mul(2891336453).wrapping_add(1234561);
+            (0x06000000 as *mut u16)
+                .offset(i)
+                .write_volatile((rng >> 16) as u16);
+            i += 1;
+            if i > 0xA000 {
+                //i = 0
+                lgba::sys::abort();
             }
+            rng = rng.wrapping_mul(2891336453).wrapping_add(1234561);
         }
     }
 }

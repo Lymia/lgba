@@ -1,4 +1,4 @@
-use crate::sys::prelude::*;
+use crate::mmio::prelude::*;
 use enumset::{EnumSet, EnumSetType};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -48,7 +48,7 @@ packed_struct_fields!(
     (use_window_1, set_use_window_1, with_use_window_1, bool, 14),
     (use_obj_window, set_use_obj_window, with_use_obj_window, bool, 15),
 );
-pub const DISPCNT: Register<DispCnt, SafeReg> = unsafe { Register::new(0x4000000) };
+pub const DISPCNT: Register<DispCnt> = unsafe { Register::new(0x4000000) };
 
 /// Used to retrieve the status of graphics rendering, and control rendering interrupts.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -74,9 +74,9 @@ packed_struct_fields!(
     /// Determines the vcount scanline in use for `is_vcount` and `vcount_irq_enabled`.
     (vcount_scanline, set_vcount_scanline, with_vcount_scanline, u32, 8..=15),
 );
-pub const DISPSTAT: Register<DispStat, SafeReg> = unsafe { Register::new(0x4000004) };
+pub const DISPSTAT: Register<DispStat> = unsafe { Register::new(0x4000004) };
 
-pub const VCOUNT: Register<u16, SafeReg> = unsafe { Register::new(0x4000006) };
+pub const VCOUNT: Register<u16> = unsafe { Register::new(0x4000006) };
 
 /// Used to control the behavior of a background layer.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -94,19 +94,19 @@ packed_struct_fields!(
     (tile_map_base, set_tile_map_base, with_tile_map_base, usize, 8..=12),
     (screen_size, set_screen_size, with_screen_size, u32, 14..=15),
 );
-pub const BG0CNT: Register<BgCnt, SafeReg> = unsafe { Register::new(0x4000008) };
-pub const BG1CNT: Register<BgCnt, SafeReg> = unsafe { Register::new(0x400000A) };
-pub const BG2CNT: Register<BgCnt, SafeReg> = unsafe { Register::new(0x400000C) };
-pub const BG3CNT: Register<BgCnt, SafeReg> = unsafe { Register::new(0x400000E) };
+pub const BG0CNT: Register<BgCnt> = unsafe { Register::new(0x4000008) };
+pub const BG1CNT: Register<BgCnt> = unsafe { Register::new(0x400000A) };
+pub const BG2CNT: Register<BgCnt> = unsafe { Register::new(0x400000C) };
+pub const BG3CNT: Register<BgCnt> = unsafe { Register::new(0x400000E) };
 
-pub const BG0HOFS: Register<u16, SafeReg> = unsafe { Register::new(0x4000010) };
-pub const BG0VOFS: Register<u16, SafeReg> = unsafe { Register::new(0x4000012) };
-pub const BG1HOFS: Register<u16, SafeReg> = unsafe { Register::new(0x4000014) };
-pub const BG1VOFS: Register<u16, SafeReg> = unsafe { Register::new(0x4000016) };
-pub const BG2HOFS: Register<u16, SafeReg> = unsafe { Register::new(0x4000018) };
-pub const BG2VOFS: Register<u16, SafeReg> = unsafe { Register::new(0x400001A) };
-pub const BG3HOFS: Register<u16, SafeReg> = unsafe { Register::new(0x400001C) };
-pub const BG3VOFS: Register<u16, SafeReg> = unsafe { Register::new(0x400001E) };
+pub const BG0HOFS: Register<u16> = unsafe { Register::new(0x4000010) };
+pub const BG0VOFS: Register<u16> = unsafe { Register::new(0x4000012) };
+pub const BG1HOFS: Register<u16> = unsafe { Register::new(0x4000014) };
+pub const BG1VOFS: Register<u16> = unsafe { Register::new(0x4000016) };
+pub const BG2HOFS: Register<u16> = unsafe { Register::new(0x4000018) };
+pub const BG2VOFS: Register<u16> = unsafe { Register::new(0x400001A) };
+pub const BG3HOFS: Register<u16> = unsafe { Register::new(0x400001C) };
+pub const BG3VOFS: Register<u16> = unsafe { Register::new(0x400001E) };
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
 #[repr(transparent)]
@@ -134,19 +134,19 @@ packed_struct_fields!(
     (sign, set_sign, with_sign, bool, 15),
 );
 
-pub const BG2X: Register<GbaFrac32, SafeReg> = unsafe { Register::new(0x4000028) };
-pub const BG2Y: Register<GbaFrac32, SafeReg> = unsafe { Register::new(0x400002C) };
-pub const BG2PA: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000020) };
-pub const BG2PB: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000022) };
-pub const BG2PC: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000024) };
-pub const BG2PD: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000026) };
+pub const BG2X: Register<GbaFrac32> = unsafe { Register::new(0x4000028) };
+pub const BG2Y: Register<GbaFrac32> = unsafe { Register::new(0x400002C) };
+pub const BG2PA: Register<GbaFrac16> = unsafe { Register::new(0x4000020) };
+pub const BG2PB: Register<GbaFrac16> = unsafe { Register::new(0x4000022) };
+pub const BG2PC: Register<GbaFrac16> = unsafe { Register::new(0x4000024) };
+pub const BG2PD: Register<GbaFrac16> = unsafe { Register::new(0x4000026) };
 
-pub const BG3X: Register<GbaFrac32, SafeReg> = unsafe { Register::new(0x4000038) };
-pub const BG3Y: Register<GbaFrac32, SafeReg> = unsafe { Register::new(0x400003C) };
-pub const BG3PA: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000030) };
-pub const BG3PB: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000032) };
-pub const BG3PC: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000034) };
-pub const BG3PD: Register<GbaFrac16, SafeReg> = unsafe { Register::new(0x4000036) };
+pub const BG3X: Register<GbaFrac32> = unsafe { Register::new(0x4000038) };
+pub const BG3Y: Register<GbaFrac32> = unsafe { Register::new(0x400003C) };
+pub const BG3PA: Register<GbaFrac16> = unsafe { Register::new(0x4000030) };
+pub const BG3PB: Register<GbaFrac16> = unsafe { Register::new(0x4000032) };
+pub const BG3PC: Register<GbaFrac16> = unsafe { Register::new(0x4000034) };
+pub const BG3PD: Register<GbaFrac16> = unsafe { Register::new(0x4000036) };
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
 #[repr(transparent)]
@@ -160,10 +160,10 @@ packed_struct_fields!(
     (min, set_min, with_min, u32, 8..=15),
 );
 
-pub const WIN0H: Register<WinBound, SafeReg> = unsafe { Register::new(0x4000040) };
-pub const WIN1H: Register<WinBound, SafeReg> = unsafe { Register::new(0x4000042) };
-pub const WIN0V: Register<WinBound, SafeReg> = unsafe { Register::new(0x4000044) };
-pub const WIN1V: Register<WinBound, SafeReg> = unsafe { Register::new(0x4000046) };
+pub const WIN0H: Register<WinBound> = unsafe { Register::new(0x4000040) };
+pub const WIN1H: Register<WinBound> = unsafe { Register::new(0x4000042) };
+pub const WIN0V: Register<WinBound> = unsafe { Register::new(0x4000044) };
+pub const WIN1V: Register<WinBound> = unsafe { Register::new(0x4000046) };
 
 #[derive(EnumSetType, Debug)]
 pub enum WinTarget {
@@ -174,8 +174,8 @@ pub enum WinTarget {
     Obj = 4,
     ColorEffect = 5,
 }
-pub const WININ: Register<[EnumSet<WinTarget>; 2], SafeReg> = unsafe { Register::new(0x4000048) };
-pub const WINOUT: Register<[EnumSet<WinTarget>; 2], SafeReg> = unsafe { Register::new(0x400004A) };
+pub const WININ: Register<[EnumSet<WinTarget>; 2]> = unsafe { Register::new(0x4000048) };
+pub const WINOUT: Register<[EnumSet<WinTarget>; 2]> = unsafe { Register::new(0x400004A) };
 
 /// Used to control the size of the mosaic renderer.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -194,7 +194,7 @@ packed_struct_fields!(
     /// Sets the vertical size of the OBJ mosaic.
     (obj_mosaic_y, set_obj_mosaic_y, with_obj_mosaic_y, u32, 12..=15),
 );
-pub const MOSAIC: Register<Mosaic, SafeReg> = unsafe { Register::new(0x400004C) };
+pub const MOSAIC: Register<Mosaic> = unsafe { Register::new(0x400004C) };
 
 /// Represents a layer that may be blended.
 #[derive(EnumSetType, Debug)]
@@ -234,7 +234,7 @@ packed_struct_fields!(
     (mode, set_mode, with_mode, BlendingMode, 6..=7),
     (target_b, set_target_b, with_target_b, (@enumset BlendTarget), 8..=13),
 );
-pub const BLDCNT: Register<BldCnt, SafeReg> = unsafe { Register::new(0x4000050) };
+pub const BLDCNT: Register<BldCnt> = unsafe { Register::new(0x4000050) };
 
-pub const BLDALPHA: Register<[u8; 2], SafeReg> = unsafe { Register::new(0x4000052) };
-pub const BLDY: Register<u16, SafeReg> = unsafe { Register::new(0x4000054) };
+pub const BLDALPHA: Register<[u8; 2]> = unsafe { Register::new(0x4000052) };
+pub const BLDY: Register<u16> = unsafe { Register::new(0x4000054) };
