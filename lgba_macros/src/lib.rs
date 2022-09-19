@@ -159,6 +159,8 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
             pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");
             #[no_mangle]
             pub static __lgba_exh_rom_cver: &str = env!("CARGO_PKG_VERSION");
+            #[no_mangle]
+            pub static __lgba_exh_rom_repository: &str = env!("CARGO_PKG_REPOSITORY");
 
             #[no_mangle]
             pub unsafe extern "C" fn __lgba_rom_entry() -> ! {

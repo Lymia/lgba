@@ -24,14 +24,17 @@ __start:
 @
     .section .lgba.exheader, "a"
 __lgba_exheader:
-    .word __lgba_exh_lib_cname     @ LGBA crate name
-    .word __lgba_exh_lib_cver      @ LGBA crate version
-    .word __lgba_exh_rom_cname     @ ROM crate name
-    .word __lgba_exh_rom_cver      @ ROM crate version
-    .word __lgba_exh_rom_title     @ ROM header title
-    .word __lgba_exh_rom_code      @ ROM header code
-    .word __lgba_exh_rom_developer @ ROM header developer
-    .word __lgba_exh_rom_ver       @ ROM header version
+    .word __lgba_exh_lib_cname      @ LGBA crate name
+    .word __lgba_exh_lib_cver       @ LGBA crate version
+
+    .word __lgba_exh_rom_cname      @ ROM crate name
+    .word __lgba_exh_rom_cver       @ ROM crate version
+    .word __lgba_exh_rom_repository @ ROM crate repository
+
+    .word __lgba_exh_rom_title      @ ROM header title
+    .word __lgba_exh_rom_code       @ ROM header code
+    .word __lgba_exh_rom_developer  @ ROM header developer
+    .word __lgba_exh_rom_ver        @ ROM header version
 
 @
 @ The entry point for the actual ROM
