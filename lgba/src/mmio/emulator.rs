@@ -28,6 +28,10 @@ packed_struct_fields!(
     MgbaDebugFlag, MgbaDebugFlagAccess, u16,
 
     (level, set_level, with_level, MgbaDebugLevel, 0..=2),
-    (send, set_send, with_send, bool, 10),
+    (send, set_send, with_send, bool, 8),
 );
 pub const MGBA_DEBUG_FLAG: Register<MgbaDebugFlag> = unsafe { Register::new(0x4fff700) };
+
+pub const NO_CASH_CHAR: Register<u8> = unsafe { Register::new(0x04fffa1c) };
+pub const NO_CASH_SIG: RegArray<u8, 16> = unsafe { RegArray::new(0x04fffa00) };
+pub const NO_CASH_EXPECTED_SIG: [u8; 7] = *b"no$gba ";

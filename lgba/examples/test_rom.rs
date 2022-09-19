@@ -1,6 +1,9 @@
 #![no_std]
 #![no_main]
 
+#[macro_use]
+extern crate lgba;
+
 use core::alloc::{GlobalAlloc, Layout};
 use lgba::lcd::{DispCnt, DispMode, DISPCNT};
 
@@ -31,6 +34,15 @@ fn main_impl() -> ! {
 
 #[lgba::entry]
 fn rom_entry() -> ! {
+    log!(Info, "log~");
+    println!("println~");
+    eprintln!("eprintln~");
+    error!("error~");
+    warn!("warn~");
+    info!("info~");
+    debug!("debug~");
+    dbg!();
+    dbg!(dbg!(3) + 3);
     main_impl()
 }
 

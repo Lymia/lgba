@@ -15,6 +15,10 @@ fn already_locked() -> ! {
 fn double_unlock() -> ! {
     panic!("Attempt to unlock a `RawMutex` which is not locked!")
 }
+#[inline(never)]
+fn not_yet_initialized() -> ! {
+    panic!("Attempt to read an InitOnce that is not yet initialized")
+}
 
 /// A mutex that prevents code from running in both an IRQ and normal code at
 /// the same time.
@@ -146,15 +150,20 @@ impl<T> InitOnce<T> {
         }
     }
 
-    /// Gets the contents of this state, or initializes it if it has not already
-    /// been initialized.
+    /// Returns whether the contents of the cell have already been initialized.
+    ///
+    /// This should only be used as an optimization.
+    pub fn is_initialized(&self) -> bool {
+        self.is_initialized.read()
+    }
+
+    /// Gets the contents of this state, or initializes it if it has not already been initialized.
     ///
     /// The initializer function is guaranteed to only be called once.
     ///
-    /// This function disables IRQs while it is initializing the inner value.
-    /// While this can cause audio skipping and other similar issues, it is
-    /// not normally a problem as interrupts will only be disabled once per
-    /// `InitOnce` during the life cycle of the program.
+    /// This function disables IRQs while it is initializing the inner value. While this can cause
+    /// audio skipping and other similar issues, it is not normally a problem as interrupts will
+    /// only be disabled once per `InitOnce` during the life cycle of the program.
     pub fn get(&self, initializer: impl FnOnce() -> T) -> &T {
         match self.try_get(|| -> Result<T, Void> { Ok(initializer()) }) {
             Ok(v) => v,
@@ -162,17 +171,15 @@ impl<T> InitOnce<T> {
         }
     }
 
-    /// Gets the contents of this state, or initializes it if it has not already
-    /// been initialized.
+    /// Gets the contents of this state, or initializes it if it has not already been initialized.
     ///
-    /// The initializer function is guaranteed to only be called once if it
-    /// returns `Ok`. If it returns `Err`, it will be called again in the
-    /// future until an attempt at initialization succeeds.
+    /// The initializer function is guaranteed to only be called once if it returns `Ok`. If it
+    /// returns `Err`, it will be called again in the future until an attempt at initialization
+    /// succeeds.
     ///
-    /// This function disables IRQs while it is initializing the inner value.
-    /// While this can cause audio skipping and other similar issues, it is
-    /// not normally a problem as interrupts will only be disabled once per
-    /// `InitOnce` during the life cycle of the program.
+    /// This function disables IRQs while it is initializing the inner value. While this can cause
+    /// audio skipping and other similar issues, it is not normally a problem as interrupts will
+    /// only be disabled once per `InitOnce` during the life cycle of the program.
     pub fn try_get<E>(&self, initializer: impl FnOnce() -> Result<T, E>) -> Result<&T, E> {
         unsafe {
             if !self.is_initialized.read() {
@@ -192,6 +199,25 @@ impl<T> InitOnce<T> {
             }
             compiler_fence(Ordering::Acquire);
             Ok(&*(*self.value.get()).as_mut_ptr())
+        }
+    }
+
+    /// Returns whether the contents of the cell have already been initialized.
+    ///
+    /// This should only be used as an optimization.
+    pub fn get_existing(&self) -> &T {
+        self.try_get_existing()
+            .unwrap_or_else(|| not_yet_initialized())
+    }
+
+    /// Returns whether the contents of the cell have already been initialized.
+    ///
+    /// This should only be used as an optimization.
+    pub fn try_get_existing(&self) -> Option<&T> {
+        if self.is_initialized.read() {
+            Some(unsafe { &*(*self.value.get()).as_mut_ptr() })
+        } else {
+            None
         }
     }
 }

@@ -86,6 +86,8 @@ __lgba_exheader:
 @
 @ Initialize the user memory of lgba
 @
+@ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
+@
     .section .lgba.init, "ax", %progbits
     .thumb
     .global __lgba_init_memory
@@ -97,10 +99,17 @@ __lgba_init_memory:
     lsl r4, #26
     add r4, #0xD0          @ r4 = 0x40000D0
 
+    @ Create a value on the stack set to 0x00.
+    sub sp, #4
+    mov r2, #0
+    str r2, [sp]           @ *sp = 0u32
+    mov r2, sp             @ r2 = &0u32
+    add sp, #4
+
     @ Clear .bbs
     ldr r0, =__bss_start   @ start of bss
     ldr r1, =__bss_end     @ end of bss
-    adr r2, 2f             @ copy source
+    @ (r2 from earlier)    @ copy source = &0u32
     mov r3, #0x85
     lsl r3, #8             @ dma flags (0x8500)
     bl 1f
@@ -135,12 +144,7 @@ __lgba_init_memory:
     str  r0, [r4, #0x8]    @ DMA3DAD   (0x40000D8) = r0
     strh r1, [r4, #0xC]    @ DMA3CNT_L (0x40000DC) = r1
     strh r3, [r4, #0xE]    @ DMA3CNT_H (0x40000DE) = r3
-    nop                    @ \
-    nop                    @ | wait for the DMA to finish
-    nop                    @ /
+    nop
+    nop
 0:  bx lr
-
-    @ A zero byte for clearing .bbs
-    .align 4
-2:  .word 0
 .pool

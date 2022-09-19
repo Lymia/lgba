@@ -11,6 +11,8 @@ __sync_synchronize:
 @
 @ Abort function for shutting down the GBA in case of an error.
 @
+@ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
+@
     .section .text, "ax", %progbits
     .thumb
     .global __lgba_abort

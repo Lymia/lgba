@@ -37,7 +37,7 @@ impl<T: Copy> Register<T, UnsafeReg> {
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct RegArray<T: Copy, const COUNT: usize, S = SafeReg>(*mut T, PhantomData<S>);
-impl<T: Copy, S, const COUNT: usize> RegArray<T, COUNT, S> {
+impl<T: Copy, const COUNT: usize, S> RegArray<T, COUNT, S> {
     pub const unsafe fn new(offset: usize) -> Self {
         RegArray(offset as *mut T, PhantomData)
     }

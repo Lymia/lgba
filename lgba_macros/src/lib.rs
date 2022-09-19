@@ -147,13 +147,18 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_title, #title);
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_code, #code);
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_developer, #developer);
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_ver, #version);
-
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_cname, env!("CARGO_PKG_NAME"));
-            lgba::__lgba_macro_export__marker!(__lgba_exh_rom_cver, env!("CARGO_PKG_VERSION"));
+            #[no_mangle]
+            pub static __lgba_exh_rom_title: &str = #title;
+            #[no_mangle]
+            pub static __lgba_exh_rom_code: &str = #code;
+            #[no_mangle]
+            pub static __lgba_exh_rom_developer: &str = #developer;
+            #[no_mangle]
+            pub static __lgba_exh_rom_ver: &str = #version;
+            #[no_mangle]
+            pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");
+            #[no_mangle]
+            pub static __lgba_exh_rom_cver: &str = env!("CARGO_PKG_VERSION");
 
             #[no_mangle]
             pub unsafe extern "C" fn __lgba_rom_entry() -> ! {

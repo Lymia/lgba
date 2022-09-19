@@ -15,20 +15,6 @@ unsafe fn transfer<T: Copy>(dst: *mut T, src: *const T) {
     } else if size <= 40 && align % 4 == 0 {
         // We can do the same up to 40 bytes, but we need to switch to ARM.
         transfer_align4_arm(dst, src);
-    } else if size <= 2 && align % 2 == 0 {
-        // We can do a 2-byte aligned transfer up to 2 bytes.
-        asm!(
-            "ldrh {2},[{0}]",
-            "strh {2},[{1}]",
-            in(reg) src, in(reg) dst, out(reg) _,
-        );
-    } else if size == 1 {
-        // We can do a simple byte copy.
-        asm!(
-            "ldrb {2},[{0}]",
-            "strb {2},[{1}]",
-            in(reg) src, in(reg) dst, out(reg) _,
-        );
     } else {
         // When we don't have an optimized path, we just disable IRQs.
         crate::irq::disable(|| ptr::write_volatile(dst, ptr::read_volatile(src)));
@@ -40,13 +26,7 @@ unsafe fn transfer_align4_thumb<T: Copy>(mut dst: *mut T, mut src: *const T) {
     let size = mem::size_of::<T>();
 
     if size <= 4 {
-        // We use assembly here regardless to just do the word aligned copy. This
-        // ensures it's done with a single ldr/str instruction.
-        asm!(
-            "ldr {2},[{0}]",
-            "str {2},[{1}]",
-            inout(reg) src, in(reg) dst, out(reg) _,
-        );
+        unimplemented!("This case should be handled via read_volatile/write_volatile.");
     } else if size <= 8 {
         // Starting at size == 8, we begin using ldmia/stmia to load/save multiple
         // words in one instruction, avoiding IRQs from interrupting our operation.
@@ -235,15 +215,39 @@ impl<T> Static<T> {
 impl<T: Copy> Static<T> {
     /// Writes a new value into this static variable.
     pub fn write(&self, val: T) {
-        unsafe { transfer(self.data.get(), &val) }
+        unsafe {
+            let align = mem::align_of::<T>();
+            let size = mem::size_of::<T>();
+
+            if size == 0 {
+                // do nothing
+            } else if size == 1 || (size <= 2 && align % 2 == 0) || (size <= 4 && align % 4 == 0) {
+                // This doesn't *guarantee* the CPU won't generate multiple instructions for this,
+                // but that would be such absurd codegen, it's not worth worrying about.
+                ptr::write_volatile(self.data.get(), val);
+            } else {
+                transfer(self.data.get(), &val);
+            }
+        }
     }
 
     /// Reads a value from this static variable.
     pub fn read(&self) -> T {
         unsafe {
-            let mut out: mem::MaybeUninit<T> = mem::MaybeUninit::uninit();
-            transfer(out.as_mut_ptr(), self.data.get());
-            out.assume_init()
+            let align = mem::align_of::<T>();
+            let size = mem::size_of::<T>();
+
+            if size == 0 {
+                ptr::read(self.data.get())
+            } else if size == 1 || (size <= 2 && align % 2 == 0) || (size <= 4 && align % 4 == 0) {
+                // This doesn't *guarantee* the CPU won't generate multiple instructions for this,
+                // but that would be such absurd codegen, it's not worth worrying about.
+                ptr::read_volatile(self.data.get())
+            } else {
+                let mut out: mem::MaybeUninit<T> = mem::MaybeUninit::uninit();
+                transfer(out.as_mut_ptr(), self.data.get());
+                out.assume_init()
+            }
         }
     }
 }

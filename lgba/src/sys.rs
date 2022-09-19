@@ -13,8 +13,10 @@ mod init {
         };
     }
 
-    __lgba_macro_export__marker!(__lgba_exh_lib_cname, env!("CARGO_PKG_NAME"));
-    __lgba_macro_export__marker!(__lgba_exh_lib_cver, env!("CARGO_PKG_VERSION"));
+    #[no_mangle]
+    pub static __lgba_exh_lib_cname: &str = env!("CARGO_PKG_NAME");
+    #[no_mangle]
+    pub static __lgba_exh_lib_cver: &str = env!("CARGO_PKG_VERSION");
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {}
@@ -43,7 +45,5 @@ pub fn reset() -> ! {
 /// no further code will be run. This will also disable sound to prevent this state from hurting
 /// the player's ears.
 pub fn abort() -> ! {
-    unsafe {
-        __lgba_abort()
-    }
+    unsafe { __lgba_abort() }
 }
