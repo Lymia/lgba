@@ -1,47 +1,10 @@
 @
-@ The GBA Header
-@
-    .section .lgba.header, "ax", %progbits
-    .arm
-    .global __start
-__start:
-    b ._lgba_init
-
-    @ GBA header, left empty for `gbafix` (for now)
-    .space 0xBC
-
-    @ Multiboot header
-    0: b 0b @ multiboot entry point; not currently supported
-    .space 0x1C
-    0: b 0b @ joybus entry point; not currently supported
-
-    @ LGBA specific markers
-    .ascii "lgbarom0"
-    .word __lgba_exheader
-
-@
-@ An extra LGBA-specific header used for (eventually) the ROM builder script.
-@
-    .section .lgba.exheader, "a"
-__lgba_exheader:
-    .word __lgba_exh_lib_cname      @ LGBA crate name
-    .word __lgba_exh_lib_cver       @ LGBA crate version
-
-    .word __lgba_exh_rom_cname      @ ROM crate name
-    .word __lgba_exh_rom_cver       @ ROM crate version
-    .word __lgba_exh_rom_repository @ ROM crate repository
-
-    .word __lgba_exh_rom_title      @ ROM header title
-    .word __lgba_exh_rom_code       @ ROM header code
-    .word __lgba_exh_rom_developer  @ ROM header developer
-    .word __lgba_exh_rom_ver        @ ROM header version
-
-@
 @ The entry point for the actual ROM
 @
     .section .lgba.init, "ax", %progbits
     .arm
-._lgba_init:
+    .global __lgba_start
+__lgba_start:
     @ Set IRQ stack pointer
     mov r0, #0x12
     msr CPSR_c, r0
@@ -151,3 +114,4 @@ __lgba_init_memory:
     nop
 0:  bx lr
 .pool
+

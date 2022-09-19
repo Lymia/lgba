@@ -17,13 +17,13 @@ fn error<T>(span: Span, message: impl Display) -> Result<T> {
 #[darling(attributes(rom), default)]
 struct EntryAttrs {
     #[darling(default)]
-    rom_title: Option<String>,
+    title: Option<String>,
     #[darling(default)]
-    rom_code: Option<String>,
+    code: Option<String>,
     #[darling(default)]
-    rom_developer: Option<String>,
+    developer: Option<String>,
     #[darling(default)]
-    rom_version: Option<u16>,
+    version: Option<u8>,
 }
 
 /// Stores the item this is placed on in iwram rather than its default location.
@@ -71,7 +71,7 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
         Err(e) => e.to_compile_error().into(),
     }
 }
-fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenStream> {
+fn derive_enum_set_type_0(mut input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenStream> {
     // Check function signature
     match &input.sig.output {
         ReturnType::Type(_, ty) if matches!(**ty, Type::Never(_)) => {} // ok
@@ -105,9 +105,9 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
         )?;
     }
 
-    // Generate
+    // Generate the entry point code
     let name = &input.sig.ident;
-    let title = match attrs.rom_title {
+    let title = match &attrs.title {
         None => quote! { env!("CARGO_PKG_NAME") },
         Some(title) => {
             if title.len() > 12 {
@@ -116,8 +116,8 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
             quote! { #title }
         }
     };
-    let code = match attrs.rom_code {
-        None => quote! { "LGBA" },
+    let code = match &attrs.code {
+        None => quote! { "" },
         Some(code) => {
             if code.len() != 4 {
                 error(Span::call_site(), "ROM code must be exactly 4 characters.")?;
@@ -125,8 +125,8 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
             quote! { #code }
         }
     };
-    let developer = match attrs.rom_developer {
-        None => quote! { "00" },
+    let developer = match &attrs.developer {
+        None => quote! { "" },
         Some(developer) => {
             if developer.len() != 2 {
                 error(Span::call_site(), "ROM developer code must be exactly 2 characters.")?;
@@ -134,27 +134,40 @@ fn derive_enum_set_type_0(input: ItemFn, attrs: EntryAttrs) -> Result<SynTokenSt
             quote! { #developer }
         }
     };
-    let version = match attrs.rom_version {
-        None => quote! { "0" },
-        Some(version) => {
-            let version = version.to_string();
-            quote! { #version }
-        }
+    let version = match attrs.version {
+        None => quote! { 0 },
+        Some(version) => quote! { #version },
     };
+    let title_auto = attrs.title.is_none();
+    let code_auto = attrs.code.is_none();
+    let developer_auto = attrs.developer.is_none();
 
+    let new_attrs: Vec<_> = input
+        .attrs
+        .iter()
+        .cloned()
+        .filter(|x| !x.path.is_ident("rom"))
+        .collect();
+    input.attrs = new_attrs;
     Ok(quote! {
         #input
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
+            use lgba::__macro_export::*;
+
             #[no_mangle]
-            pub static __lgba_exh_rom_title: &str = #title;
-            #[no_mangle]
-            pub static __lgba_exh_rom_code: &str = #code;
-            #[no_mangle]
-            pub static __lgba_exh_rom_developer: &str = #developer;
-            #[no_mangle]
-            pub static __lgba_exh_rom_ver: &str = #version;
+            #[link_section = ".lgba.header.dynamic"]
+            pub static __lgba_header_dynamic: GbaHeader = {
+                let mut h = GBA_HEADER_TEMPLATE;
+                h = set_header_field(h, #title, 0, 12, #title_auto);
+                h = set_header_field(h, #code, 12, 4, #code_auto);
+                h = set_header_field(h, #developer, 16, 2, #developer_auto);
+                h[0x1C] = #version as u8;
+                h = calculate_complement(h);
+                h
+            };
+
             #[no_mangle]
             pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");
             #[no_mangle]

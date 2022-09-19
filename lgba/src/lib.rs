@@ -3,6 +3,7 @@
 
 pub mod debug;
 
+mod gba_header;
 mod mmio;
 mod panic_handler;
 
@@ -19,5 +20,6 @@ pub use lgba_macros::{entry, ewram, iwram};
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {
+    pub use crate::gba_header::*;
     pub use core;
 }

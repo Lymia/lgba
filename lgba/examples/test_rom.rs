@@ -33,6 +33,7 @@ fn main_impl() -> ! {
 }
 
 #[lgba::entry]
+#[rom(title = "LGBA_TESTROM", code = "LGTR")]
 fn rom_entry() -> ! {
     log!(Info, "log~");
     println!("println~");

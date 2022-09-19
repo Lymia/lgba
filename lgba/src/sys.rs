@@ -2,22 +2,7 @@
 
 use core::arch::asm;
 
-mod init {
-    /// Not public API.
-    #[doc(hidden)]
-    #[macro_export]
-    macro_rules! __lgba_macro_export__marker {
-        ($name:ident, $str:expr) => {
-            #[no_mangle]
-            pub static $name: &'static str = concat!($str, "\0");
-        };
-    }
-
-    #[no_mangle]
-    pub static __lgba_exh_lib_cname: &str = env!("CARGO_PKG_NAME");
-    #[no_mangle]
-    pub static __lgba_exh_lib_cver: &str = env!("CARGO_PKG_VERSION");
-
+mod asm_export {
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {}
 

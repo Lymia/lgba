@@ -1,5 +1,5 @@
-use core::{alloc::Layout, panic::PanicInfo};
 use crate::eprintln;
+use core::{alloc::Layout, panic::PanicInfo};
 
 #[panic_handler]
 fn handle_panic(error: &PanicInfo) -> ! {

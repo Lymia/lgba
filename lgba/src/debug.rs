@@ -285,7 +285,6 @@ macro_rules! debug {
     };
 }
 
-
 /// Prints and returns the value of a given expression for quick and dirty debugging.
 ///
 /// This is based on the [`std::dbg!`](https://doc.rust-lang.org/std/macro.dbg.html) macro (which
