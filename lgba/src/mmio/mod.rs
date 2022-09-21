@@ -247,8 +247,9 @@ fn value_out_of_range(max: usize, value: usize) -> ! {
     panic!("value for field exceeds limits: {value} >= {max}")
 }
 
-mod reg;
+pub mod reg;
 
+pub mod display;
 pub mod emulator;
-pub mod lcd;
+pub mod sys;
 pub mod vram;

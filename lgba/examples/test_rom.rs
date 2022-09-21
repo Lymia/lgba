@@ -5,7 +5,6 @@
 extern crate lgba;
 
 use core::alloc::{GlobalAlloc, Layout};
-use lgba::lcd::{DispCnt, DispMode, DISPCNT};
 
 #[inline(never)]
 #[lgba::iwram]
@@ -13,11 +12,12 @@ fn main_impl() -> ! {
     unsafe {
         let mut i = 0;
         let mut rng = 1u32;
-        DISPCNT.write(
+        /*DISPCNT.write(
             DispCnt::default()
                 .with_mode(DispMode::Mode3)
                 .with_display_bg2(true),
-        );
+        );*/
+        // TODO Fix me
         loop {
             (0x06000000 as *mut u16)
                 .offset(i)

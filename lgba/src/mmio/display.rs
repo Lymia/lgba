@@ -48,7 +48,6 @@ packed_struct_fields!(
     (use_window_1, set_use_window_1, with_use_window_1, bool, 14),
     (use_obj_window, set_use_obj_window, with_use_obj_window, bool, 15),
 );
-pub const DISPCNT: Register<DispCnt> = unsafe { Register::new(0x4000000) };
 
 /// Used to retrieve the status of graphics rendering, and control rendering interrupts.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -74,9 +73,6 @@ packed_struct_fields!(
     /// Determines the vcount scanline in use for `is_vcount` and `vcount_irq_enabled`.
     (vcount_scanline, set_vcount_scanline, with_vcount_scanline, u32, 8..=15),
 );
-pub const DISPSTAT: Register<DispStat> = unsafe { Register::new(0x4000004) };
-
-pub const VCOUNT: Register<u16> = unsafe { Register::new(0x4000006) };
 
 /// Used to control the behavior of a background layer.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -88,25 +84,12 @@ packed_struct_fields!(
 
     // Not directly documented here, as this API will only be used internally.
     (bg_priority, set_bg_priority, with_bg_priority, u32, 0..=1),
-    (tiles_base, set_tiles_base, with_tiles_base, usize, 2..=3),
+    (char_base, set_char_base, with_char_base, usize, 2..=3),
     (enable_mosaic, set_enable_mosaic, with_mosaic, bool, 6),
     (enable_256_color, set_enable_256_color, with_enable_256_color, bool, 7),
     (tile_map_base, set_tile_map_base, with_tile_map_base, usize, 8..=12),
     (screen_size, set_screen_size, with_screen_size, u32, 14..=15),
 );
-pub const BG0CNT: Register<BgCnt> = unsafe { Register::new(0x4000008) };
-pub const BG1CNT: Register<BgCnt> = unsafe { Register::new(0x400000A) };
-pub const BG2CNT: Register<BgCnt> = unsafe { Register::new(0x400000C) };
-pub const BG3CNT: Register<BgCnt> = unsafe { Register::new(0x400000E) };
-
-pub const BG0HOFS: Register<u16> = unsafe { Register::new(0x4000010) };
-pub const BG0VOFS: Register<u16> = unsafe { Register::new(0x4000012) };
-pub const BG1HOFS: Register<u16> = unsafe { Register::new(0x4000014) };
-pub const BG1VOFS: Register<u16> = unsafe { Register::new(0x4000016) };
-pub const BG2HOFS: Register<u16> = unsafe { Register::new(0x4000018) };
-pub const BG2VOFS: Register<u16> = unsafe { Register::new(0x400001A) };
-pub const BG3HOFS: Register<u16> = unsafe { Register::new(0x400001C) };
-pub const BG3VOFS: Register<u16> = unsafe { Register::new(0x400001E) };
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
 #[repr(transparent)]
@@ -134,20 +117,6 @@ packed_struct_fields!(
     (sign, set_sign, with_sign, bool, 15),
 );
 
-pub const BG2X: Register<GbaFrac32> = unsafe { Register::new(0x4000028) };
-pub const BG2Y: Register<GbaFrac32> = unsafe { Register::new(0x400002C) };
-pub const BG2PA: Register<GbaFrac16> = unsafe { Register::new(0x4000020) };
-pub const BG2PB: Register<GbaFrac16> = unsafe { Register::new(0x4000022) };
-pub const BG2PC: Register<GbaFrac16> = unsafe { Register::new(0x4000024) };
-pub const BG2PD: Register<GbaFrac16> = unsafe { Register::new(0x4000026) };
-
-pub const BG3X: Register<GbaFrac32> = unsafe { Register::new(0x4000038) };
-pub const BG3Y: Register<GbaFrac32> = unsafe { Register::new(0x400003C) };
-pub const BG3PA: Register<GbaFrac16> = unsafe { Register::new(0x4000030) };
-pub const BG3PB: Register<GbaFrac16> = unsafe { Register::new(0x4000032) };
-pub const BG3PC: Register<GbaFrac16> = unsafe { Register::new(0x4000034) };
-pub const BG3PD: Register<GbaFrac16> = unsafe { Register::new(0x4000036) };
-
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
 #[repr(transparent)]
 pub struct WinBound(u16);
@@ -160,11 +129,6 @@ packed_struct_fields!(
     (min, set_min, with_min, u32, 8..=15),
 );
 
-pub const WIN0H: Register<WinBound> = unsafe { Register::new(0x4000040) };
-pub const WIN1H: Register<WinBound> = unsafe { Register::new(0x4000042) };
-pub const WIN0V: Register<WinBound> = unsafe { Register::new(0x4000044) };
-pub const WIN1V: Register<WinBound> = unsafe { Register::new(0x4000046) };
-
 #[derive(EnumSetType, Debug)]
 pub enum WinTarget {
     Bg0 = 0,
@@ -174,8 +138,17 @@ pub enum WinTarget {
     Obj = 4,
     ColorEffect = 5,
 }
-pub const WININ: Register<[EnumSet<WinTarget>; 2]> = unsafe { Register::new(0x4000048) };
-pub const WINOUT: Register<[EnumSet<WinTarget>; 2]> = unsafe { Register::new(0x400004A) };
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct WinCnt(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    WinCnt, WinCntAccess, u16,
+
+    (cnt_a, set_cnt_a, with_cnt_a, (@enumset WinTarget), 0..=5),
+    (cnt_b, set_cnt_b, with_cnt_b, (@enumset WinTarget), 8..=13),
+);
 
 /// Used to control the size of the mosaic renderer.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -194,7 +167,6 @@ packed_struct_fields!(
     /// Sets the vertical size of the OBJ mosaic.
     (obj_mosaic_y, set_obj_mosaic_y, with_obj_mosaic_y, u32, 12..=15),
 );
-pub const MOSAIC: Register<Mosaic> = unsafe { Register::new(0x400004C) };
 
 /// Represents a layer that may be blended.
 #[derive(EnumSetType, Debug)]
@@ -234,7 +206,92 @@ packed_struct_fields!(
     (mode, set_mode, with_mode, BlendingMode, 6..=7),
     (target_b, set_target_b, with_target_b, (@enumset BlendTarget), 8..=13),
 );
-pub const BLDCNT: Register<BldCnt> = unsafe { Register::new(0x4000050) };
 
-pub const BLDALPHA: Register<[u8; 2]> = unsafe { Register::new(0x4000052) };
-pub const BLDY: Register<u16> = unsafe { Register::new(0x4000054) };
+/// Represents a tile in a background layer.
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct VramTile(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    VramTile, VramTileAccess, u16,
+
+    /// The ID of the character to render.
+    ///
+    /// This must be a number between 0-1023.
+    (char, set_char, with_char, u16, 0..=9),
+    /// Whether to flip the tile horizontally.
+    (h_flip, set_h_flip, with_h_flip, bool, 10),
+    /// Whether to flip the tile vertically.
+    (v_flip, set_v_flip, with_v_flip, bool, 11),
+    /// The ID of the palette to use.
+    ///
+    /// This must be a number between 0-15.
+    (palette, set_palette, with_palette, u8, 12..=15),
+);
+
+/// Controls which special effects an object is rendered using.
+#[derive(IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
+#[repr(u16)]
+pub enum ObjMode {
+    /// Render this object with no special effects.
+    Normal,
+    /// Applies the alpha blending settings to this object.
+    SemiTransparent,
+    /// Apply the OBJ Window to the object.
+    ObjWindow,
+}
+
+#[derive(IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
+#[repr(u16)]
+pub enum ObjShape {
+    Square,
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct ObjAttr0(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    ObjAttr0, ObjAttr0Access, u16,
+
+    (y_coordinate, set_y_coordinate, with_y_coordinate, u32, 0..=7),
+    (rotation_enabled, set_rotation_enabled, with_rotation_enabled, bool, 8),
+    (double_size, set_double_size, with_double_size, bool, 9),
+    (disabled, set_disabled, with_disabled, bool, 9),
+    (obj_mode, set_obj_mode, with_obj_mode, ObjMode, 10..=11),
+    (mosiac_enabled, set_mosiac_enabled, with_mosiac_enabled, bool, 12),
+    (use_256_color, set_use_256_color, with_use_256_color, bool, 13),
+
+);
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct ObjAttr1(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    ObjAttr1, ObjAttr1Access, u16,
+
+    (x_coordinate, set_x_coordinate, with_x_coordinate, u32, 0..=7),
+    (rotation_id, set_rotation_id, with_rotation_id, usize, 9..=13),
+    (h_flip, set_h_flip, with_h_flip, bool, 12),
+    (v_flip, set_v_flip, with_v_flip, bool, 13),
+    (obj_shape, set_obj_shape, with_obj_shape, u8, 14..=15),
+);
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct ObjAttr2(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    ObjAttr2, ObjAttr2Access, u16,
+
+    (x_coordinate, set_x_coordinate, with_x_coordinate, u32, 0..=7),
+    (rotation_id, set_rotation_id, with_rotation_id, usize, 9..=13),
+    (h_flip, set_h_flip, with_h_flip, bool, 12),
+    (v_flip, set_v_flip, with_v_flip, bool, 13),
+    (obj_shape, set_obj_shape, with_obj_shape, u8, 14..=15),
+);

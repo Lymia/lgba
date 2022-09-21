@@ -2,6 +2,7 @@
 
 #[cfg(feature = "terminal")]
 mod terminal;
+mod vram;
 
 #[cfg(feature = "terminal")]
 pub use terminal::Terminal;

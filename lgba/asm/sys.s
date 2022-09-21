@@ -25,7 +25,7 @@ __lgba_abort:
     add r4, r2, r3       @ r4 = 0x4000200
 
     @ Disable interrupts
-    strh r1, [r4, #0x08] @ IME (0x4000208)
+    strh r0, [r4, #0x08] @ IME (0x4000208)
     strh r0, [r4, #0x00] @ IE  (0x4000200)
     strh r0, [r4, #0x02] @ IF  (0x4000202)
 

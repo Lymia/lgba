@@ -34,4 +34,5 @@ pub const MGBA_DEBUG_FLAG: Register<MgbaDebugFlag> = unsafe { Register::new(0x4f
 
 pub const NO_CASH_CHAR: Register<u8> = unsafe { Register::new(0x04fffa1c) };
 pub const NO_CASH_SIG: RegArray<u8, 16> = unsafe { RegArray::new(0x04fffa00) };
+
 pub const NO_CASH_EXPECTED_SIG: [u8; 7] = *b"no$gba ";

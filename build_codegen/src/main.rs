@@ -313,7 +313,7 @@ macro_rules! to_array {
 }
 fn make_glyphs_file(glyphs: GlyphData) {
     // Creates the data table
-    to_array!(data_str, glyphs.data, "0x{:02x},", 22);
+    to_array!(data_str, glyphs.data, "0x{:02x},", 19);
 
     // Creates the low plane table bitset
     let mut low_plane = [0u16; 16];
@@ -322,7 +322,7 @@ fn make_glyphs_file(glyphs: GlyphData) {
             low_plane[i >> 4] |= 1 << (i % 16);
         }
     }
-    to_array!(low_plane_str, low_plane, "0x{:04x},", 22);
+    to_array!(low_plane_str, low_plane, "0x{:04x},", 13);
 
     // Compute the raw PHF for the high planes
     let entries: Vec<_> = glyphs.glyph_map.keys().cloned().collect();
@@ -344,9 +344,9 @@ fn make_glyphs_file(glyphs: GlyphData) {
         glyph_id_hi[i / 8] |= (*hi << (2 * (i % 8))) as u16;
         glyph_id_lo[i] = *lo as u8;
     }
-    to_array!(glyph_check_str, glyph_check, "0x{:04x},", 16);
-    to_array!(glyph_id_hi_str, glyph_id_hi, "0x{:04x},", 16);
-    to_array!(glyph_id_lo_str, glyph_id_lo, "0x{:02x},", 22);
+    to_array!(glyph_check_str, glyph_check, "0x{:04x},", 13);
+    to_array!(glyph_id_hi_str, glyph_id_hi, "0x{:04x},", 13);
+    to_array!(glyph_id_lo_str, glyph_id_lo, "0x{:02x},", 19);
 
     // Find the replacement glyph
     let (replacement_hi, replacement_lo) = glyphs.glyph_map[&(FALLBACK_CHARACTER as u16)];
@@ -360,10 +360,10 @@ fn make_glyphs_file(glyphs: GlyphData) {
             // Data is based on a subset of the following fonts:\n\
             // - Unscii 2.0 (http://viznut.fi/unscii/)\n\
             // - Misaki Font Gothic 2 (https://littlelimit.net/misaki.htm)\n\
-            // \n\
+            //\n\
             // Both are released under the public domain.\n\
             \n\
-            pub static REPLACEMENT_GLYPH: (u8, u8) = ({replacement_hi}, {replacement_lo});
+            pub static REPLACEMENT_GLYPH: (u8, u8) = ({replacement_hi}, {replacement_lo});\n\
             \n\
             pub static LOW_PLANE_BITMAP: [u16; 16] = [\n\
                 {low_plane_str}\n\
