@@ -8,7 +8,7 @@ mod asm_export {
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_main_func_returned() -> ! {
-        panic!("Internal error: Main function returned?")
+        crate::panic_handler::static_panic("Internal error: Main function returned?")
     }
 }
 

@@ -8,6 +8,7 @@ mod mmio;
 mod panic_handler;
 
 pub mod display;
+pub mod dma;
 pub mod irq;
 pub mod sync;
 pub mod sys;

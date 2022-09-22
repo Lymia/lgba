@@ -240,7 +240,7 @@ macro_rules! packed_struct_fields {
 
 #[inline(never)]
 fn invalid_enum_in_register() -> ! {
-    panic!("invalid enum value in io register??")
+    crate::panic_handler::static_panic("invalid enum value in io register??")
 }
 #[inline(never)]
 fn value_out_of_range(max: usize, value: usize) -> ! {

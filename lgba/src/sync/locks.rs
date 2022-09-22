@@ -9,15 +9,15 @@ use core::{
 
 #[inline(never)]
 fn already_locked() -> ! {
-    panic!("IRQ and main thread are attempting to access the same Mutex!")
+    crate::panic_handler::static_panic("IRQ and main are attempting to access the same Mutex!")
 }
 #[inline(never)]
 fn double_unlock() -> ! {
-    panic!("Attempt to unlock a `RawMutex` which is not locked!")
+    crate::panic_handler::static_panic("Attempt to unlock a `RawMutex` which is not locked!")
 }
 #[inline(never)]
 fn not_yet_initialized() -> ! {
-    panic!("Attempt to read an InitOnce that is not yet initialized")
+    crate::panic_handler::static_panic("Attempt to read an InitOnce that is not yet initialized")
 }
 
 /// A mutex that prevents code from running in both an IRQ and normal code at

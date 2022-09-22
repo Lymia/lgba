@@ -57,7 +57,7 @@ impl<T: Copy, const COUNT: usize, S> RegArray<T, COUNT, S> {
 
 #[inline(never)]
 fn index_out_of_bounds() -> ! {
-    panic!("indexed register out of bounds!")
+    crate::panic_handler::static_panic("indexed register out of bounds!")
 }
 
 //

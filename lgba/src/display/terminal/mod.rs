@@ -1,5 +1,3 @@
-//! Implements a simple text terminal for the GBA.
-
 #[rustfmt::skip]
 mod font_data;
 
@@ -30,4 +28,5 @@ fn get_font_glyph(id: char) -> (u8, u8) {
     }
 }
 
+/// A terminal display mode that uses a built-in font.
 pub struct Terminal {}

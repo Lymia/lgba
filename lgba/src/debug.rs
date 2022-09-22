@@ -11,9 +11,6 @@ use crate::{
 };
 use core::fmt::{Arguments, Debug, Error, Write};
 
-//pub mod mgba;
-//pub mod nocash;
-
 /// A debug level that a log message may be emitted at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -51,47 +48,13 @@ fn detect_debug_type() -> DebugType {
             }
 
             // we are either on real hardware or an emulator we don't recognize
+            DEBUG_MASTER_FLAG.write(false);
             DebugType::None
         })
     })
 }
 
-/// The function type used for debug hooks.
-pub type DebugHook = fn(DebugLevel, &Arguments<'_>) -> Result<(), Error>;
-
 static DEBUG_MASTER_FLAG: Static<bool> = Static::new(true);
-static DEBUG_DISABLED: Static<bool> = Static::new(false);
-static DEBUG_HOOK: Static<Option<DebugHook>> = Static::new(None);
-
-fn recalculate_master_flag() {
-    if DEBUG_DISABLED.read() {
-        DEBUG_MASTER_FLAG.write(false);
-    } else if let Some(_) = DEBUG_HOOK.read() {
-        DEBUG_MASTER_FLAG.write(true);
-    } else {
-        DEBUG_MASTER_FLAG.write(detect_debug_type() != DebugType::None)
-    }
-}
-
-/// Sets whether debug messages is enabled.
-///
-/// Defaults to `true`.
-pub fn set_enabled(enabled: bool) {
-    crate::irq::disable(|| {
-        DEBUG_DISABLED.write(!enabled);
-        recalculate_master_flag();
-    })
-}
-
-/// Sets the debug hook.
-///
-/// Defaults to `None`.
-pub fn set_debug_hook(hook: Option<DebugHook>) {
-    crate::irq::disable(|| {
-        DEBUG_HOOK.write(hook);
-        recalculate_master_flag();
-    })
-}
 
 /// Returns whether debugging will actually log any messages.
 ///
@@ -106,8 +69,9 @@ struct MGBADebug {
     flag: emulator::MgbaDebugFlag,
     bytes_written: usize,
 }
-impl core::fmt::Write for MGBADebug {
-    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+impl Write for MGBADebug {
+    #[inline(never)]
+    fn write_str(&mut self, s: &str) -> Result<(), Error> {
         for byte in s.bytes() {
             if byte == b'\r' {
                 continue;
@@ -126,6 +90,7 @@ impl core::fmt::Write for MGBADebug {
     }
 }
 impl Drop for MGBADebug {
+    #[inline(never)]
     fn drop(&mut self) {
         if self.bytes_written != 0 {
             emulator::MGBA_DEBUG_FLAG.write(self.flag);
@@ -134,8 +99,9 @@ impl Drop for MGBADebug {
 }
 
 struct NoCashDebug;
-impl core::fmt::Write for NoCashDebug {
-    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+impl Write for NoCashDebug {
+    #[inline(never)]
+    fn write_str(&mut self, s: &str) -> Result<(), Error> {
         for b in s.bytes() {
             emulator::NO_CASH_CHAR.write(b);
         }
@@ -143,34 +109,80 @@ impl core::fmt::Write for NoCashDebug {
     }
 }
 
-/// Prints a line to the debug interface, if there is any.
-#[inline(never)]
-fn debug_print_0(level: DebugLevel, args: &Arguments<'_>) -> Result<(), Error> {
+/// Something that can be written to a debug stream.
+pub trait DebugPrintable {
+    fn print(&self, w: impl Write) -> Result<(), Error>;
+}
+impl<'a> DebugPrintable for Arguments<'a> {
+    fn print(&self, mut w: impl Write) -> Result<(), Error> {
+        w.write_fmt(*self)
+    }
+}
+impl<'a> DebugPrintable for &'a str {
+    fn print(&self, mut w: impl Write) -> Result<(), Error> {
+        w.write_str(*self)
+    }
+}
+macro_rules! debug_printable_tuple {
+    ($($num:tt $id:ident)*) => {
+        impl<$($id: DebugPrintable,)*> DebugPrintable for ($($id,)*) {
+            fn print(&self, mut w: impl Write) -> Result<(), Error> {
+                $(self.$num.print(&mut w)?;)*
+                Ok(())
+            }
+        }
+    };
+}
+debug_printable_tuple!(0 A 1 B);
+debug_printable_tuple!(0 A 1 B 2 C);
+debug_printable_tuple!(0 A 1 B 2 C 3 D);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E 5 F);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E 5 F 6 G);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E 5 F 6 G 7 H);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E 5 F 6 G 7 H 8 I);
+debug_printable_tuple!(0 A 1 B 2 C 3 D 4 E 5 F 6 G 7 H 8 I 9 J);
+
+trait DebugPrintableLowered {
+    fn print_mgba(&self, w: MGBADebug) -> Result<(), Error>;
+    fn print_nocash(&self, w: NoCashDebug) -> Result<(), Error>;
+}
+impl<T: DebugPrintable> DebugPrintableLowered for T {
+    fn print_mgba(&self, w: MGBADebug) -> Result<(), Error> {
+        self.print(w)
+    }
+    fn print_nocash(&self, w: NoCashDebug) -> Result<(), Error> {
+        self.print(w)
+    }
+}
+
+fn debug_print_0(level: DebugLevel, args: &dyn DebugPrintableLowered) -> Result<(), Error> {
     if DEBUG_MASTER_FLAG.read() {
-        if let Some(hook) = DEBUG_HOOK.read() {
-            hook(level, args)
-        } else {
-            match detect_debug_type() {
-                DebugType::None => {
-                    crate::irq::disable(recalculate_master_flag);
-                    Ok(())
+        match detect_debug_type() {
+            DebugType::None => Ok(()),
+            DebugType::MGba => {
+                let level = match level {
+                    DebugLevel::Error => MgbaDebugLevel::Error,
+                    DebugLevel::Warn => MgbaDebugLevel::Warn,
+                    DebugLevel::Info => MgbaDebugLevel::Info,
+                    DebugLevel::Debug => MgbaDebugLevel::Debug,
+                };
+                let mut write = MGBADebug {
+                    flag: MgbaDebugFlag::default().with_level(level).with_send(true),
+                    bytes_written: 0,
+                };
+                args.print_mgba(write)
+            }
+            DebugType::NoCash => {
+                let mut write = NoCashDebug;
+                write.write_str("User: [")?;
+                match level {
+                    DebugLevel::Error => write.write_str("Error")?,
+                    DebugLevel::Warn => write.write_str("Warn")?,
+                    DebugLevel::Info => write.write_str("Info")?,
+                    DebugLevel::Debug => write.write_str("Debug")?,
                 }
-                DebugType::MGba => {
-                    let level = match level {
-                        DebugLevel::Error => MgbaDebugLevel::Error,
-                        DebugLevel::Warn => MgbaDebugLevel::Warn,
-                        DebugLevel::Info => MgbaDebugLevel::Info,
-                        DebugLevel::Debug => MgbaDebugLevel::Debug,
-                    };
-                    let mut write = MGBADebug {
-                        flag: MgbaDebugFlag::default().with_level(level).with_send(true),
-                        bytes_written: 0,
-                    };
-                    write!(write, "{}", args)
-                }
-                DebugType::NoCash => {
-                    write!(NoCashDebug, "User: [{:?}] {}\n", level, args)
-                }
+                args.print_nocash(write)
             }
         }
     } else {
@@ -178,13 +190,53 @@ fn debug_print_0(level: DebugLevel, args: &Arguments<'_>) -> Result<(), Error> {
     }
 }
 
-/// Logs a message in the debug log.
+/// Logs a message to the debug log.
 #[inline(never)]
-pub fn debug_print(level: DebugLevel, args: &Arguments<'_>) {
-    match debug_print_0(level, args) {
+pub fn debug_print(level: DebugLevel, args: impl DebugPrintable) {
+    match debug_print_0(level, &args) {
         Ok(_) => (),
         Err(_) => crate::sys::abort(),
     }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __lgba_print_impl {
+    (@mod_prefix) => {
+        $crate::__lgba_print_impl!(@concat
+            $crate::__macro_export::core::module_path!(),
+            " | ",
+        )
+    };
+    (@file_line_prefix) => {
+        $crate::__lgba_print_impl!(@concat
+            "[",
+            $crate::__macro_export::core::file!(),
+            ":",
+        )
+    };
+    (@file_line_suffix) => {
+        $crate::__lgba_print_impl!(@concat
+            $crate::__macro_export::core::line!(),
+            "] ",
+        )
+    };
+    (@concat $($rest:tt)*) => {
+        $crate::__macro_export::core::concat!($($rest)*)
+    };
+    (@print $level:ident, $expr:expr) => {
+        if $crate::debug::is_enabled() {
+            $crate::debug::debug_print($crate::debug::DebugLevel::$level, $expr);
+        }
+    };
+    (@plain $level:ident, $text:literal) => {
+        $crate::__lgba_print_impl!(@print $level, $text)
+    };
+    (@plain $level:ident, $($rest:tt)*) => {
+        $crate::__lgba_print_impl!(@print $level,
+            $crate::__macro_export::core::format_args!($($rest)*)
+        )
+    };
 }
 
 /// Logs a message to the debug log at a given log level.
@@ -194,18 +246,17 @@ pub fn debug_print(level: DebugLevel, args: &Arguments<'_>) {
 /// further details.
 #[macro_export]
 macro_rules! log {
+    ($level:ident, $text:literal) => {
+        $crate::__lgba_print_impl!(@print $level, (
+            $crate::__lgba_print_impl!(@mod_prefix),
+            $text,
+        ));
+    };
     ($level:ident, $($rest:tt)*) => {
-        let args = format_args!($($rest)*);
-        if $crate::debug::is_enabled() {
-            $crate::debug::debug_print(
-                $crate::debug::DebugLevel::$level,
-                &$crate::__macro_export::core::format_args!(
-                    "{} | {}",
-                    $crate::__macro_export::core::module_path!(),
-                    args,
-                ),
-            );
-        }
+        $crate::__lgba_print_impl!(@print $level, (
+            $crate::__lgba_print_impl!(@mod_prefix),
+            $crate::__macro_export::core::format_args!($($rest)*),
+        ));
     };
 }
 
@@ -216,12 +267,7 @@ macro_rules! log {
 #[macro_export]
 macro_rules! println {
     ($($rest:tt)*) => {
-        if $crate::debug::is_enabled() {
-            $crate::debug::debug_print(
-                $crate::debug::DebugLevel::Info,
-                &$crate::__macro_export::core::format_args!($($rest)*),
-            );
-        }
+        $crate::__lgba_print_impl!(@plain Info, $($rest)*)
     };
 }
 
@@ -232,12 +278,7 @@ macro_rules! println {
 #[macro_export]
 macro_rules! eprintln {
     ($($rest:tt)*) => {
-        if $crate::debug::is_enabled() {
-            $crate::debug::debug_print(
-                $crate::debug::DebugLevel::Error,
-                &$crate::__macro_export::core::format_args!($($rest)*),
-            );
-        }
+        $crate::__lgba_print_impl!(@plain Error, $($rest)*)
     };
 }
 
@@ -292,29 +333,23 @@ macro_rules! debug {
 /// for further details.
 #[macro_export]
 macro_rules! dbg {
-    // NOTE: We cannot use `concat!` to make a static string as a format argument
-    // of `eprintln!` because `file!` could contain a `{` or
-    // `$val` expression could be a block (`{ .. }`), in which case the `eprintln!`
-    // will be malformed.
     () => {
-        $crate::eprintln!(
-            "[{}:{}]",
-            $crate::__macro_export::core::file!(),
-            $crate::__macro_export::core::line!(),
-        )
+        $crate::__lgba_print_impl!(@print Debug, (
+            $crate::__lgba_print_impl!(@file_line_prefix),
+            $crate::__lgba_print_impl!(@file_line_suffix),
+        ));
     };
     ($val:expr $(,)?) => {
         // Use of `match` here is intentional because it affects the lifetimes
         // of temporaries - https://stackoverflow.com/a/48732525/1063961
         match $val {
             tmp => {
-                $crate::eprintln!(
-                    "[{}:{}] {} = {:#?}",
-                    $crate::__macro_export::core::file!(),
-                    $crate::__macro_export::core::line!(),
-                    $crate::__macro_export::core::stringify!($val),
-                    &tmp,
-                );
+                $crate::__lgba_print_impl!(@print Debug, (
+                    $crate::__lgba_print_impl!(@file_line_prefix),
+                    $crate::__lgba_print_impl!(@file_line_suffix),
+                    $crate::__lgba_print_impl!(@concat stringify!($val), " = "),
+                    $crate::__macro_export::core::format_args!("{:#?}", &tmp),
+                ));
                 tmp
             }
         }
