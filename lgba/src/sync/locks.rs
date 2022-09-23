@@ -1,6 +1,8 @@
 use crate::sync::Static;
 use core::{
     cell::UnsafeCell,
+    fmt,
+    fmt::Formatter,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
     ptr,
@@ -69,12 +71,26 @@ impl RawMutex {
 }
 unsafe impl Send for RawMutex {}
 unsafe impl Sync for RawMutex {}
+impl fmt::Debug for RawMutex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("RawMutex")
+            .field(&format_args!("0x{:x}", self as *const RawMutex as usize))
+            .finish()
+    }
+}
 
 /// A guard representing an active lock on an [`RawMutex`].
 pub struct RawMutexGuard<'a>(&'a RawMutex);
 impl<'a> Drop for RawMutexGuard<'a> {
     fn drop(&mut self) {
         self.0.raw_unlock();
+    }
+}
+impl<'a> fmt::Debug for RawMutexGuard<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("RawMutexGuard")
+            .field(&format_args!("0x{:x}", self.0 as *const RawMutex as usize))
+            .finish()
     }
 }
 

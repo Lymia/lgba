@@ -112,19 +112,19 @@ pub const VRAM_OBJ_BASE: usize = 0x6010000;
 //
 // DMA Transfer Registers
 //
-pub const DMA0SAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000B0) };
+pub const DMA0SAD: Register<*const c_void, UnsafeReg> = unsafe { Register::new(0x40000B0) };
 pub const DMA0DAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000B4) };
 pub const DMA0CNT_L: Register<u16, UnsafeReg> = unsafe { Register::new(0x40000B8) };
 pub const DMA0CNT_H: Register<DmaCnt, UnsafeReg> = unsafe { Register::new(0x40000BA) };
-pub const DMA1SAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000BC) };
+pub const DMA1SAD: Register<*const c_void, UnsafeReg> = unsafe { Register::new(0x40000BC) };
 pub const DMA1DAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000C0) };
 pub const DMA1CNT_L: Register<u16, UnsafeReg> = unsafe { Register::new(0x40000C4) };
 pub const DMA1CNT_H: Register<DmaCnt, UnsafeReg> = unsafe { Register::new(0x40000C6) };
-pub const DMA2SAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000C8) };
+pub const DMA2SAD: Register<*const c_void, UnsafeReg> = unsafe { Register::new(0x40000C8) };
 pub const DMA2DAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000CC) };
 pub const DMA2CNT_L: Register<u16, UnsafeReg> = unsafe { Register::new(0x40000D0) };
 pub const DMA2CNT_H: Register<DmaCnt, UnsafeReg> = unsafe { Register::new(0x40000D2) };
-pub const DMA3SAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000D4) };
+pub const DMA3SAD: Register<*const c_void, UnsafeReg> = unsafe { Register::new(0x40000D4) };
 pub const DMA3DAD: Register<*mut c_void, UnsafeReg> = unsafe { Register::new(0x40000D8) };
 pub const DMA3CNT_L: Register<u16, UnsafeReg> = unsafe { Register::new(0x40000DC) };
 pub const DMA3CNT_H: Register<DmaCnt, UnsafeReg> = unsafe { Register::new(0x40000DE) };

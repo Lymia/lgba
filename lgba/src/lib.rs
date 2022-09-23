@@ -1,6 +1,8 @@
 #![feature(alloc_error_handler, isa_attribute)]
 #![no_std]
 
+// TODO: Liberal use of #[track_caller]
+
 pub mod debug;
 
 mod gba_header;

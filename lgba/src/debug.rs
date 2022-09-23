@@ -166,11 +166,10 @@ fn debug_print_0(level: DebugLevel, args: &dyn DebugPrintableLowered) -> Result<
                     DebugLevel::Info => MgbaDebugLevel::Info,
                     DebugLevel::Debug => MgbaDebugLevel::Debug,
                 };
-                let mut write = MGBADebug {
+                args.print_mgba(MGBADebug {
                     flag: MgbaDebugFlag::default().with_level(level).with_send(true),
                     bytes_written: 0,
-                };
-                args.print_mgba(write)
+                })
             }
             DebugType::NoCash => {
                 let mut write = NoCashDebug;
