@@ -6,3 +6,5 @@ mod vram;
 
 #[cfg(feature = "terminal")]
 pub use terminal::Terminal;
+
+pub use vram::*;

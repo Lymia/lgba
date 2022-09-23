@@ -15,15 +15,15 @@ impl HashState {
     pub fn generate_rust_code(&self, hash_fn_name: &str, in_ty: &str) -> String {
         let mut disps = String::new();
         for (i, disp) in self.disps.iter().enumerate() {
-            if i % 13 == 0 {
+            if i % 12 == 0 {
                 disps.push_str("        ");
             }
             write!(disps, "0x{disp:04x},").unwrap();
-            if i % 13 == 12 {
+            if i % 12 == 11 {
                 disps.push_str("\n");
             }
         }
-        if self.disps.len() % 13 != 0 {
+        if self.disps.len() % 12 != 0 {
             disps.push_str("\n");
         }
 

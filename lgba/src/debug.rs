@@ -5,8 +5,10 @@
 //! * NO$GBA
 
 use crate::{
-    emulator::{MgbaDebugFlag, MgbaDebugLevel},
-    mmio::emulator,
+    mmio::{
+        emulator,
+        emulator::{MgbaDebugFlag, MgbaDebugLevel},
+    },
     sync::{InitOnce, Static},
 };
 use core::fmt::{Arguments, Debug, Error, Write};
@@ -57,9 +59,6 @@ fn detect_debug_type() -> DebugType {
 static DEBUG_MASTER_FLAG: Static<bool> = Static::new(true);
 
 /// Returns whether debugging will actually log any messages.
-///
-/// This does *not* return the value from [`set_enabled`] directly, as it will also return false
-/// if `lgba` has detected no possible way to log.
 #[inline(always)]
 pub fn is_enabled() -> bool {
     DEBUG_MASTER_FLAG.read()
@@ -244,6 +243,8 @@ macro_rules! __lgba_print_impl {
 /// This macro takes a single identifier (`Error`, `Warn`, `Info`, or `Debug`) followed by a comma
 /// and an argument list identical to [`format_args!`]. See the documentation for that macro for
 /// further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! log {
     ($level:ident, $text:literal) => {
@@ -264,6 +265,8 @@ macro_rules! log {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! println {
     ($($rest:tt)*) => {
@@ -275,6 +278,8 @@ macro_rules! println {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! eprintln {
     ($($rest:tt)*) => {
@@ -286,6 +291,8 @@ macro_rules! eprintln {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! error {
     ($($rest:tt)*) => {
@@ -297,6 +304,8 @@ macro_rules! error {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! warn {
     ($($rest:tt)*) => {
@@ -308,6 +317,8 @@ macro_rules! warn {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! info {
     ($($rest:tt)*) => {
@@ -319,6 +330,8 @@ macro_rules! info {
 ///
 /// This macro takes an argument list identical to [`format_args!`]. See the documentation for
 /// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
 #[macro_export]
 macro_rules! debug {
     ($($rest:tt)*) => {

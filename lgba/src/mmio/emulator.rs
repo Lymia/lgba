@@ -25,10 +25,10 @@ pub enum MgbaDebugLevel {
 pub struct MgbaDebugFlag(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    MgbaDebugFlag, MgbaDebugFlagAccess, u16,
+    MgbaDebugFlag, u16,
 
-    (level, set_level, with_level, MgbaDebugLevel, 0..=2),
-    (send, set_send, with_send, bool, 8),
+    (level, with_level, MgbaDebugLevel, 0..=2),
+    (send, with_send, bool, 8),
 );
 pub const MGBA_DEBUG_FLAG: Register<MgbaDebugFlag> = unsafe { Register::new(0x4fff700) };
 

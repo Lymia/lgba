@@ -90,130 +90,18 @@ macro_rules! packed_struct_write {
         packed_struct_write!(@num $inner_ty, $self, $data, $inner_ty, $value as $inner_ty)
     };
 }
-macro_rules! packed_struct_try_set {
-    (
-        $field_name:ident, -, $with_field_name:ident,
-        $($rest:tt)*
-    ) => {};
-    (
-        $field_name:ident, $set_field_name:ident, $with_field_name:ident,
-        $name:ident, $setter_name:ident, $field_ty:tt $(,)?
-    ) => {
-        #[doc = "Sets the"]
-        #[doc = concat!(
-                                    "[`", stringify!($field_name), "`]",
-                                    "(`", stringify!($name), "::", stringify!($field_name), "`)",
-                                )]
-        #[doc = "field of the uncommitted register value."]
-        pub fn $set_field_name(
-            self,
-            value: packed_struct_ty!($field_ty),
-        ) -> $setter_name<'a, { true }> {
-            let read = self.read();
-            let new_value = unsafe { read.value.assume_init().$with_field_name(value) };
-            $setter_name {
-                register: read.register,
-                value: MaybeUninit::new(new_value),
-                _phantom: PhantomData,
-            }
-        }
-    };
-}
 macro_rules! packed_struct_fields {
     (
-        $name:ident, $setter_name:ident, $inner_ty:ty
+        $name:ident, $inner_ty:ty
         $(
             , $(#[$field_meta:meta])*
             (
-                $field_name:ident, $set_field_name:tt, $with_field_name:ident,
+                $field_name:ident, $with_field_name:ident,
                 $field_ty:tt, $data:expr $(,)?
             )
         )*
         $(,)?
     ) => {
-        #[doc = "A helper for setting registers containing a"]
-        #[doc = concat!("[`", stringify!($name), "`].")]
-        pub struct $setter_name<'a, const IS_READ: bool = true> {
-            register: Register<$name, SafeReg>,
-            value: MaybeUninit<$name>,
-            _phantom: PhantomData<&'a mut ()>,
-        }
-
-        // Initial state
-        impl<'a> $setter_name<'a, { false }> {
-            pub(crate) fn from_reg(reg: Register<$name, SafeReg>) -> Self {
-                $setter_name {
-                    register: reg,
-                    value: MaybeUninit::uninit(),
-                    _phantom: PhantomData,
-                }
-            }
-            pub(crate) unsafe fn from_unsafe_reg(reg: Register<$name, UnsafeReg>) -> Self {
-                $setter_name {
-                    register: reg.assert_safe(),
-                    value:  MaybeUninit::uninit(),
-                    _phantom: PhantomData,
-                }
-            }
-        }
-
-        impl<'a, const IS_READ: bool> $setter_name<'a, { IS_READ }> {
-            /// Reads the register into memory, if it is not already read.
-            ///
-            /// This returns a version of the accessor that allows reading the current value of
-            /// the field.
-            pub fn read(self) -> $setter_name<'a, { true }> {
-                let new_value = if IS_READ {
-                    unsafe { self.value.assume_init() }
-                } else {
-                    self.register.read()
-                };
-                $setter_name {
-                    register: self.register,
-                    value: MaybeUninit::new(new_value),
-                    _phantom: PhantomData,
-                }
-            }
-
-            /// Resets the uncommitted register value to its default.
-            pub fn clear(self) -> $setter_name<'a, { true }> {
-                self.set(Default::default())
-            }
-
-            /// Sets the uncommited register value to a given fixed value.
-            pub fn set(self, value: $name) -> $setter_name<'a, { true }> {
-                $setter_name {
-                    register: self.register,
-                    value: MaybeUninit::new(value),
-                    _phantom: PhantomData,
-                }
-            }
-
-            /// Writes a certain value to the IO port.
-            pub fn write(self, value: $name) {
-                self.set(value).commit()
-            }
-
-            /// Writes the uncommitted register value to the IO port.
-            pub fn commit(self) {
-                let read = self.read();
-                read.register.write(unsafe { read.value.assume_init() });
-            }
-
-            $(
-                packed_struct_try_set!(
-                    $field_name, $set_field_name, $with_field_name,
-                    $name, $setter_name, $field_ty,
-                );
-            )*
-        }
-        impl<'a> Deref for $setter_name<'a, { true }> {
-            type Target = $name;
-            fn deref(&self) -> &Self::Target {
-                unsafe { self.value.assume_init_ref() }
-            }
-        }
-
         impl $name {
             $(
                 $(#[$field_meta])*
@@ -252,4 +140,3 @@ pub mod reg;
 pub mod display;
 pub mod emulator;
 pub mod sys;
-pub mod vram;

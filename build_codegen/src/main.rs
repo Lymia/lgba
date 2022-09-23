@@ -203,7 +203,7 @@ fn gather_characters(characters: Vec<CharacterInfo>) -> Vec<CharacterInfo> {
 }
 
 struct GlyphData {
-    data: [u8; 1024 * 8],
+    data: [u32; 1024 * 2],
     low_plane: [bool; 256],
     glyph_map: HashMap<u16, (usize, usize)>,
 }
@@ -287,8 +287,15 @@ fn build_planes(characters: Vec<CharacterInfo>) -> GlyphData {
         }
     }
 
+    let mut data_u32 = [0u32; (256 * 8 * 8 * 4) / 32];
+    for i in 0..data_u32.len() {
+        let mut cell = [0u8; 4];
+        cell.copy_from_slice(&data[i * 4..(i + 1) * 4]);
+        data_u32[i] = u32::from_le_bytes(cell);
+    }
+
     // Returns the glyph data
-    GlyphData { data, low_plane: low_plane_table, glyph_map }
+    GlyphData { data: data_u32, low_plane: low_plane_table, glyph_map }
 }
 
 macro_rules! to_array {
@@ -304,7 +311,7 @@ macro_rules! to_array {
                     $target.push_str("\n");
                 }
             }
-            if $data.len() % $count == $count - 1 {
+            if $data.len() % $count == 0 {
                 $target.pop();
             }
             $target
@@ -313,7 +320,7 @@ macro_rules! to_array {
 }
 fn make_glyphs_file(glyphs: GlyphData) {
     // Creates the data table
-    to_array!(data_str, glyphs.data, "0x{:02x},", 19);
+    to_array!(data_str, glyphs.data, "0x{:08x},", 8);
 
     // Creates the low plane table bitset
     let mut low_plane = [0u16; 16];
@@ -322,7 +329,7 @@ fn make_glyphs_file(glyphs: GlyphData) {
             low_plane[i >> 4] |= 1 << (i % 16);
         }
     }
-    to_array!(low_plane_str, low_plane, "0x{:04x},", 13);
+    to_array!(low_plane_str, low_plane, "0x{:04x},", 12);
 
     // Compute the raw PHF for the high planes
     let entries: Vec<_> = glyphs.glyph_map.keys().cloned().collect();
@@ -344,9 +351,9 @@ fn make_glyphs_file(glyphs: GlyphData) {
         glyph_id_hi[i / 8] |= (*hi << (2 * (i % 8))) as u16;
         glyph_id_lo[i] = *lo as u8;
     }
-    to_array!(glyph_check_str, glyph_check, "0x{:04x},", 13);
-    to_array!(glyph_id_hi_str, glyph_id_hi, "0x{:04x},", 13);
-    to_array!(glyph_id_lo_str, glyph_id_lo, "0x{:02x},", 19);
+    to_array!(glyph_check_str, glyph_check, "0x{:04x},", 12);
+    to_array!(glyph_id_hi_str, glyph_id_hi, "0x{:04x},", 12);
+    to_array!(glyph_id_lo_str, glyph_id_lo, "0x{:02x},", 16);
 
     // Find the replacement glyph
     let (replacement_hi, replacement_lo) = glyphs.glyph_map[&(FALLBACK_CHARACTER as u16)];
@@ -378,12 +385,9 @@ fn make_glyphs_file(glyphs: GlyphData) {
                 {glyph_id_lo_str}\n\
             ];\n\
             \n\
-            #[repr(align(4))]\n\
-            struct Align([u8; 1024 * 8]);\n\
-            static RAW_FONT_DATA: Align = Align([\n\
+            pub static FONT_DATA: [u32; 1024 * 2] = [\n\
                 {data_str}\n\
-            ]);\n\
-            pub static FONT_DATA: &[u8; 1024 * 8] = &RAW_FONT_DATA.0;\n\
+            ];\n\
             \n\
             pub {phf_code}\
         "

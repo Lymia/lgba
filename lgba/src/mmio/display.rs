@@ -31,22 +31,22 @@ pub enum DispMode {
 pub struct DispCnt(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    DispCnt, DispCntAccess, u16,
+    DispCnt, u16,
 
     // Not directly documented here, as this API will only be used internally.
-    (mode, set_mode, with_mode, DispMode, 0..=2),
-    (active_frame, set_active_frame, with_active_frame, usize, 4..=4),
-    (hblank_oam_access, set_hblank_oam_access, with_hblank_oam_access, bool, 5),
-    (use_2d_obj_vram, set_use_2d_obj_vram, with_use_2d_obj_vram, bool, 6),
-    (forced_blank, set_forced_blank, with_forced_blank, bool, 7),
-    (display_bg0, set_display_bg0, with_display_bg0, bool, 8),
-    (display_bg1, set_display_bg1, with_display_bg1, bool, 9),
-    (display_bg2, set_display_bg2, with_display_bg2, bool, 10),
-    (display_bg3, set_display_bg3, with_display_bg3, bool, 11),
-    (display_obj, set_display_obj, with_display_obj, bool, 12),
-    (use_window_0, set_use_window_0, with_use_window_0, bool, 13),
-    (use_window_1, set_use_window_1, with_use_window_1, bool, 14),
-    (use_obj_window, set_use_obj_window, with_use_obj_window, bool, 15),
+    (mode, with_mode, DispMode, 0..=2),
+    (active_frame, with_active_frame, usize, 4..=4),
+    (hblank_oam_access, with_hblank_oam_access, bool, 5),
+    (use_2d_obj_vram, with_use_2d_obj_vram, bool, 6),
+    (forced_blank, with_forced_blank, bool, 7),
+    (display_bg0, with_display_bg0, bool, 8),
+    (display_bg1, with_display_bg1, bool, 9),
+    (display_bg2, with_display_bg2, bool, 10),
+    (display_bg3, with_display_bg3, bool, 11),
+    (display_obj, with_display_obj, bool, 12),
+    (use_window_0, with_use_window_0, bool, 13),
+    (use_window_1, with_use_window_1, bool, 14),
+    (use_obj_window, with_use_obj_window, bool, 15),
 );
 
 /// Used to retrieve the status of graphics rendering, and control rendering interrupts.
@@ -55,23 +55,23 @@ packed_struct_fields!(
 pub struct DispStat(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    DispStat, DispStatAccess, u16,
+    DispStat, u16,
 
     /// Whether the graphics chip is currently in vblank.
-    (is_vblank, -, with_is_vblank, bool, 0),
+    (is_vblank, with_is_vblank, bool, 0),
     /// Whether the graphics chip is currently in hblank.
-    (is_hblank, -, with_is_hblank, bool, 1),
+    (is_hblank, with_is_hblank, bool, 1),
     /// Whether the graphics chip is processing the scanline matching the `vcount_scanline`
     /// setting.
-    (is_vcount, -, with_is_vcount, bool, 2),
+    (is_vcount, with_is_vcount, bool, 2),
     /// Whether to send an IRQ when vblank is reached.
-    (vblank_irq_enabled, set_vblank_irq_enabled, with_vblank_irq_enabled, bool, 3),
+    (vblank_irq_enabled, with_vblank_irq_enabled, bool, 3),
     /// Whether to send an IRQ when hblank is reached.
-    (hblank_irq_enabled, set_hblank_irq_enabled, with_hblank_irq_enabled, bool, 4),
+    (hblank_irq_enabled, with_hblank_irq_enabled, bool, 4),
     /// Whether to send an IRQ when the scanline matching the `vcount_scanline` setting is reached.
-    (vcount_irq_enabled, set_vcount_irq_enabled, with_vcount_irq_enabled, bool, 5),
+    (vcount_irq_enabled, with_vcount_irq_enabled, bool, 5),
     /// Determines the vcount scanline in use for `is_vcount` and `vcount_irq_enabled`.
-    (vcount_scanline, set_vcount_scanline, with_vcount_scanline, u32, 8..=15),
+    (vcount_scanline, with_vcount_scanline, u32, 8..=15),
 );
 
 /// Used to control the behavior of a background layer.
@@ -80,15 +80,15 @@ packed_struct_fields!(
 pub struct BgCnt(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    BgCnt, BgCntAccess, u16,
+    BgCnt, u16,
 
     // Not directly documented here, as this API will only be used internally.
-    (bg_priority, set_bg_priority, with_bg_priority, u32, 0..=1),
-    (char_base, set_char_base, with_char_base, usize, 2..=3),
-    (enable_mosaic, set_enable_mosaic, with_mosaic, bool, 6),
-    (enable_256_color, set_enable_256_color, with_enable_256_color, bool, 7),
-    (tile_map_base, set_tile_map_base, with_tile_map_base, usize, 8..=12),
-    (screen_size, set_screen_size, with_screen_size, u32, 14..=15),
+    (bg_priority, with_bg_priority, u32, 0..=1),
+    (char_base, with_char_base, usize, 2..=3),
+    (enable_mosaic, with_mosaic, bool, 6),
+    (enable_256_color, with_enable_256_color, bool, 7),
+    (tile_map_base, with_tile_map_base, usize, 8..=12),
+    (screen_size, with_screen_size, u32, 14..=15),
 );
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -96,12 +96,12 @@ packed_struct_fields!(
 pub struct GbaFrac32(u32);
 #[rustfmt::skip]
 packed_struct_fields!(
-    GbaFrac32, GbaFrac32Access, u32,
+    GbaFrac32, u32,
 
     // Not directly documented here, as this API will only be used internally.
-    (frac, set_frac, with_frac, u32, 0..=7),
-    (int, set_int, with_int, u32, 8..=26),
-    (sign, set_sign, with_sign, bool, 27),
+    (frac, with_frac, u32, 0..=7),
+    (int, with_int, u32, 8..=26),
+    (sign, with_sign, bool, 27),
 );
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -109,12 +109,12 @@ packed_struct_fields!(
 pub struct GbaFrac16(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    GbaFrac16, GbaFrac16Access, u16,
+    GbaFrac16, u16,
 
     // Not directly documented here, as this API will only be used internally.
-    (frac, set_frac, with_frac, u32, 0..=7),
-    (int, set_int, with_int, u32, 8..=14),
-    (sign, set_sign, with_sign, bool, 15),
+    (frac, with_frac, u32, 0..=7),
+    (int, with_int, u32, 8..=14),
+    (sign, with_sign, bool, 15),
 );
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -122,11 +122,11 @@ packed_struct_fields!(
 pub struct WinBound(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    WinBound, WinBoundAccess, u16,
+    WinBound, u16,
 
     // Not directly documented here, as this API will only be used internally.
-    (max, set_max, with_max, u32, 0..=7),
-    (min, set_min, with_min, u32, 8..=15),
+    (max, with_max, u32, 0..=7),
+    (min, with_min, u32, 8..=15),
 );
 
 #[derive(EnumSetType, Debug)]
@@ -144,10 +144,10 @@ pub enum WinTarget {
 pub struct WinCnt(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    WinCnt, WinCntAccess, u16,
+    WinCnt, u16,
 
-    (cnt_a, set_cnt_a, with_cnt_a, (@enumset WinTarget), 0..=5),
-    (cnt_b, set_cnt_b, with_cnt_b, (@enumset WinTarget), 8..=13),
+    (cnt_a, with_cnt_a, (@enumset WinTarget), 0..=5),
+    (cnt_b, with_cnt_b, (@enumset WinTarget), 8..=13),
 );
 
 /// Used to control the size of the mosaic renderer.
@@ -156,16 +156,16 @@ packed_struct_fields!(
 pub struct Mosaic(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    Mosaic, MosaicAccess, u16,
+    Mosaic, u16,
 
     /// Sets the horizontal size of the BG0-3 mosaic.
-    (bg_mosaic_x, set_bg_mosaic_x, with_bg_mosaic_x, u32, 0..=3),
+    (bg_mosaic_x, with_bg_mosaic_x, u32, 0..=3),
     /// Sets the vertical size of the BG0-3 mosaic.
-    (bg_mosaic_y, set_bg_mosaic_y, with_bg_mosaic_y, u32, 4..=7),
+    (bg_mosaic_y, with_bg_mosaic_y, u32, 4..=7),
     /// Sets the horizontal size of the OBJ mosaic.
-    (obj_mosaic_x, set_obj_mosaic_x, with_obj_mosaic_x, u32, 8..=11),
+    (obj_mosaic_x, with_obj_mosaic_x, u32, 8..=11),
     /// Sets the vertical size of the OBJ mosaic.
-    (obj_mosaic_y, set_obj_mosaic_y, with_obj_mosaic_y, u32, 12..=15),
+    (obj_mosaic_y, with_obj_mosaic_y, u32, 12..=15),
 );
 
 /// Represents a layer that may be blended.
@@ -199,12 +199,12 @@ pub enum BlendingMode {
 pub struct BldCnt(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    BldCnt, BldCntAccess, u16,
+    BldCnt, u16,
 
     // Not directly documented here, as this API will only be used internally.
-    (target_a, set_target_a, with_target_a, (@enumset BlendTarget), 0..=5),
-    (mode, set_mode, with_mode, BlendingMode, 6..=7),
-    (target_b, set_target_b, with_target_b, (@enumset BlendTarget), 8..=13),
+    (target_a, with_target_a, (@enumset BlendTarget), 0..=5),
+    (mode, with_mode, BlendingMode, 6..=7),
+    (target_b, with_target_b, (@enumset BlendTarget), 8..=13),
 );
 
 /// Represents a tile in a background layer.
@@ -213,20 +213,20 @@ packed_struct_fields!(
 pub struct VramTile(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    VramTile, VramTileAccess, u16,
+    VramTile, u16,
 
     /// The ID of the character to render.
     ///
     /// This must be a number between 0-1023.
-    (char, set_char, with_char, u16, 0..=9),
+    (char, with_char, u16, 0..=9),
     /// Whether to flip the tile horizontally.
-    (h_flip, set_h_flip, with_h_flip, bool, 10),
+    (h_flip, with_h_flip, bool, 10),
     /// Whether to flip the tile vertically.
-    (v_flip, set_v_flip, with_v_flip, bool, 11),
+    (v_flip, with_v_flip, bool, 11),
     /// The ID of the palette to use.
     ///
     /// This must be a number between 0-15.
-    (palette, set_palette, with_palette, u8, 12..=15),
+    (palette, with_palette, u8, 12..=15),
 );
 
 /// Controls which special effects an object is rendered using.
@@ -256,15 +256,15 @@ pub enum ObjShape {
 pub struct ObjAttr0(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    ObjAttr0, ObjAttr0Access, u16,
+    ObjAttr0, u16,
 
-    (y_coordinate, set_y_coordinate, with_y_coordinate, u32, 0..=7),
-    (rotation_enabled, set_rotation_enabled, with_rotation_enabled, bool, 8),
-    (double_size, set_double_size, with_double_size, bool, 9),
-    (disabled, set_disabled, with_disabled, bool, 9),
-    (obj_mode, set_obj_mode, with_obj_mode, ObjMode, 10..=11),
-    (mosiac_enabled, set_mosiac_enabled, with_mosiac_enabled, bool, 12),
-    (use_256_color, set_use_256_color, with_use_256_color, bool, 13),
+    (y_coordinate, with_y_coordinate, u32, 0..=7),
+    (rotation_enabled, with_rotation_enabled, bool, 8),
+    (double_size, with_double_size, bool, 9),
+    (disabled, with_disabled, bool, 9),
+    (obj_mode, with_obj_mode, ObjMode, 10..=11),
+    (mosiac_enabled, with_mosiac_enabled, bool, 12),
+    (use_256_color, with_use_256_color, bool, 13),
 
 );
 
@@ -273,13 +273,13 @@ packed_struct_fields!(
 pub struct ObjAttr1(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    ObjAttr1, ObjAttr1Access, u16,
+    ObjAttr1, u16,
 
-    (x_coordinate, set_x_coordinate, with_x_coordinate, u32, 0..=7),
-    (rotation_id, set_rotation_id, with_rotation_id, usize, 9..=13),
-    (h_flip, set_h_flip, with_h_flip, bool, 12),
-    (v_flip, set_v_flip, with_v_flip, bool, 13),
-    (obj_shape, set_obj_shape, with_obj_shape, u8, 14..=15),
+    (x_coordinate, with_x_coordinate, u32, 0..=7),
+    (rotation_id, with_rotation_id, usize, 9..=13),
+    (h_flip, with_h_flip, bool, 12),
+    (v_flip, with_v_flip, bool, 13),
+    (obj_shape, with_obj_shape, u8, 14..=15),
 );
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
@@ -287,11 +287,11 @@ packed_struct_fields!(
 pub struct ObjAttr2(u16);
 #[rustfmt::skip]
 packed_struct_fields!(
-    ObjAttr2, ObjAttr2Access, u16,
+    ObjAttr2, u16,
 
-    (x_coordinate, set_x_coordinate, with_x_coordinate, u32, 0..=7),
-    (rotation_id, set_rotation_id, with_rotation_id, usize, 9..=13),
-    (h_flip, set_h_flip, with_h_flip, bool, 12),
-    (v_flip, set_v_flip, with_v_flip, bool, 13),
-    (obj_shape, set_obj_shape, with_obj_shape, u8, 14..=15),
+    (x_coordinate, with_x_coordinate, u32, 0..=7),
+    (rotation_id, with_rotation_id, usize, 9..=13),
+    (h_flip, with_h_flip, bool, 12),
+    (v_flip, with_v_flip, bool, 13),
+    (obj_shape, with_obj_shape, u8, 14..=15),
 );
