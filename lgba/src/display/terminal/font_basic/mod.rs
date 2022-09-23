@@ -11,12 +11,12 @@ static GLYPH_ID_LO: [u8; 512] = *include_u8!("glyph_id_lo.bin");
 static FONT_DATA: [u32; 832 * 2] = *include_u32!("font.chr");
 
 fn lookup_glyph(value: &u16) -> usize {
-    const KEY: u32 = 0x31dfd6a2;
+    const KEY: u32 = 0x499602d2;
     const DISPS: [u16; 64] = *include_u16!("phf_disps.bin");
     lgba_phf::hash::<64, 512, _>(KEY, &DISPS, value)
 }
 
-/// A basic terminal font supporting many scripts and a limited number of characters useful for rendering menus.
+/// An 8x8 basic terminal font supporting many scripts and a limited number of characters useful for rendering menus.
 /// 
 /// The data files for this font require 8.34 KiB of ROM space, not including
 /// any font-specific code that may be generated.
@@ -49,15 +49,17 @@ fn lookup_glyph(value: &u16) -> usize {
 /// * Supplemental Punctuation
 ///
 /// The following additional characters are available:
-/// * `①`, `②`, `③`, `④`, `⑤`, `⑥`, `⑦`, `⑧`, `⑨`, `■`, `□`, `●`, `≠`, `≤`, `≥`, `★`, `♪`, `⌚`, `⌛`, `⏩`, `⏪`, `█`, `▉`, `▊`, `▋`, `▌`, `▍`, `▁`, `▂`, `▃`, `▄`, `▅`, `▆`, `▇`, `▎`, `▏`, `─`, `│`, `┌`, `┐`, `└`, `┘`, `├`, `┤`, `┬`, `┴`, `┼`, `←`, `↑`, `→`, `↓`, `↔`, `↕`, `‐`, `‑`, `‒`, `–`, `—`, `―`, `†`, `‡`, `•`, `․`, `…`, `⁇`, `▲`, `▶`, `▼`, `◀`, `▀`, `▐`, `░`, `▒`, `▓`, `○`, `▖`, `▗`, `▘`, `▙`, `▚`, `▛`, `▜`, `▝`, `▞`, `▟`, `▩`, `⌘`, `♀`, `♂`
+/// * `①`, `②`, `③`, `④`, `⑤`, `⑥`, `⑦`, `⑧`, `■`, `□`, `●`, `★`, `♪`, `⌚`, `⌛`, `⏩`, `⏪`, `█`, `▉`, `▊`, `▋`, `▌`, `▍`, `▁`, `▂`, `▃`, `▄`, `▅`, `▆`, `▇`, `▎`, `▏`, `─`, `│`, `┌`, `┐`, `└`, `┘`, `├`, `┤`, `┬`, `┴`, `┼`, `←`, `↑`, `→`, `↓`, `↔`, `↕`, `‐`, `‑`, `‒`, `–`, `—`, `―`, `†`, `‡`, `•`, `․`, `…`, `⁇`, `▲`, `▶`, `▼`, `◀`, `▀`, `▐`, `░`, `▒`, `▓`, `○`, `▖`, `▗`, `▘`, `▙`, `▚`, `▛`, `▜`, `▝`, `▞`, `▟`, `▩`, `⌘`, `♀`, `♂`, `╭`, `╮`, `╯`, `╰`
 pub struct TerminalFontBasic(());
 
+const HI_MASK: u16 = (1 << 2) - 1;
+const CHAR_MASK: u16 = (1 << 8) - 1;
 fn get_font_glyph(id: char) -> (u8, u16) {
     let id = id as usize;
     if id < 768 {
         // We check the low plane bitmap to see if we have this glyph.
         let word = LO_MAP_DATA[id >> 4];
-        if word & 1 << (id & 15) != 0 {
+        if word & (1 << (id & 15)) != 0 {
             ((id & 3) as u8, (id >> 2) as u16)
         } else {
             REPLACEMENT_GLYPH
@@ -66,14 +68,9 @@ fn get_font_glyph(id: char) -> (u8, u16) {
         // Check the PHF to see if we have this glyph.
         let slot = lookup_glyph(&(id as u16));
         if id == GLYPH_CHECK[slot] as usize {
-            let hi_mask = (1 << 2) - 1;
-            let char_mask = (1 << 8) - 1;
-            
             let word = GLYPH_ID_HI[slot >> 3];
-            let hi = (word >> (2 * (slot & 7))) & hi_mask;
-            let lo = GLYPH_ID_LO[slot];
-            let packed = (hi << 8) | (lo as u16);
-            ((packed >> 8) as u8, packed & char_mask)
+            let hi = (word >> (2 * (slot & 7))) & HI_MASK;
+            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);            ((packed >> 8) as u8, packed & CHAR_MASK)
         } else {
             REPLACEMENT_GLYPH
         }

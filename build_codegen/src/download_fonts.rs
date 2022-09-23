@@ -10,6 +10,15 @@ const MISAKI_FONT_URL: &str = "https://littlelimit.net/arc/misaki/misaki_bdf_202
 pub struct CharacterInfo {
     pub ch: char,
     pub data: u64,
+    pub is_half_width: bool,
+}
+impl CharacterInfo {
+    fn new(ch: char, data: u64) -> Self {
+        let has_left = (data & 0xF0F0F0F0F0F0F0F0) != 0;
+        let has_right = (data & 0x0F0F0F0F0F0F0F0F) != 0;
+        let is_half_width = has_left && !has_right;
+        CharacterInfo { ch, data, is_half_width }
+    }
 }
 
 pub struct CharacterSets {
@@ -34,7 +43,7 @@ pub fn download_fonts() -> Result<CharacterSets> {
         let ch = char::from_u32(u32::from_str_radix(&hex_str, 16)?).unwrap();
         let data = u64::from_str_radix(&hex_bmp, 16)?;
         if ch != '\0' {
-            characters.unscii.push(CharacterInfo { ch, data });
+            characters.unscii.push(CharacterInfo::new(ch, data));
         }
     }
 
@@ -44,7 +53,9 @@ pub fn download_fonts() -> Result<CharacterSets> {
     let misaki_font = bdf::read(zip_reader.by_name("misaki_gothic_2nd.bdf")?)?;
 
     // add characters from misaki font
-    for (char, glyph) in misaki_font.glyphs() {
+    let mut vec: Vec<_> = misaki_font.glyphs().iter().map(|x| (*x.0, x.1)).collect();
+    vec.sort_by_key(|x| x.0);
+    for (ch, glyph) in vec {
         // compute the bounds of the glyph
         let x_off = glyph.bounds().x as u32;
         let y_off = if glyph.height() != 8 {
@@ -54,19 +65,17 @@ pub fn download_fonts() -> Result<CharacterSets> {
         };
 
         // copy the glyph to a `u64` format
-        let mut glyph_data = 0u64;
+        let mut data = 0u64;
         for x in 0..glyph.width() {
             for y in 0..glyph.height() {
                 let tx = x + x_off;
                 let ty = y + y_off;
-                glyph_data |= (glyph.get(x, y) as u64) << (63 - (tx + ty * 8));
+                data |= (glyph.get(x, y) as u64) << (63 - (tx + ty * 8));
             }
         }
 
         // add the glyph to the character map
-        characters
-            .misaki
-            .push(CharacterInfo { ch: *char, data: glyph_data });
+        characters.misaki.push(CharacterInfo::new(ch, data));
     }
 
     // return the downloaded characters

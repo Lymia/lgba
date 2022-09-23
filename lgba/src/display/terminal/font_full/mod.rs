@@ -16,7 +16,7 @@ fn lookup_glyph(value: &u16) -> usize {
     lgba_phf::hash::<512, 4096, _>(KEY, &DISPS, value)
 }
 
-/// A terminal font supporting most characters from the source fonts.
+/// An 8x8 terminal font supporting most characters from the source fonts.
 /// 
 /// Only kanji on the jouyou list are included. This font is not suited for rendering Chinese or Korean text.
 /// 
@@ -74,12 +74,14 @@ fn lookup_glyph(value: &u16) -> usize {
 /// * Unified Canadian Aboriginal Syllabics
 pub struct TerminalFontFull(());
 
+const HI_MASK: u16 = (1 << 4) - 1;
+const CHAR_MASK: u16 = (1 << 10) - 1;
 fn get_font_glyph(id: char) -> (u8, u16) {
     let id = id as usize;
     if id < 1024 {
         // We check the low plane bitmap to see if we have this glyph.
         let word = LO_MAP_DATA[id >> 4];
-        if word & 1 << (id & 15) != 0 {
+        if word & (1 << (id & 15)) != 0 {
             ((id & 3) as u8, (id >> 2) as u16)
         } else {
             REPLACEMENT_GLYPH
@@ -88,14 +90,9 @@ fn get_font_glyph(id: char) -> (u8, u16) {
         // Check the PHF to see if we have this glyph.
         let slot = lookup_glyph(&(id as u16));
         if id == GLYPH_CHECK[slot] as usize {
-            let hi_mask = (1 << 4) - 1;
-            let char_mask = (1 << 10) - 1;
-            
-            let word = GLYPH_ID_HI[slot >> 3];
-            let hi = (word >> (4 * (slot & 3))) & hi_mask;
-            let lo = GLYPH_ID_LO[slot];
-            let packed = (hi << 8) | (lo as u16);
-            ((packed >> 10) as u8, packed & char_mask)
+            let word = GLYPH_ID_HI[slot >> 2];
+            let hi = (word >> (4 * (slot & 3))) & HI_MASK;
+            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);            ((packed >> 10) as u8, packed & CHAR_MASK)
         } else {
             REPLACEMENT_GLYPH
         }

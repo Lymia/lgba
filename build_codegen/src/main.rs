@@ -4,14 +4,36 @@ mod gen_fonts;
 const FONT_ASCII: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_ascii",
     font_type: "TerminalFontAscii",
-    description: "A minimal terminal font supporting only 7-bit ASCII characters.",
+    description: "An 8x8 terminal font supporting only 7-bit ASCII characters.",
     low_plane_limit: 0x60,
     low_plane_dupe_limit: 0x60,
-    misaki_override_blocks: &[],
+    disable_unscii: false,
+    unscii_blocks: &[],
+    disable_misaki: false,
+    misaki_blocks: &[],
     allow_all_blocks: false,
     whitelisted_blocks: &["Basic Latin"],
-    glyph_whitelisted_blocks: &[],
     whitelisted_chars: &[],
+    allow_halfwidth_blocks: &[],
+    fallback_char: '?',
+    kanji_max_level: kanji::Level::Ten,
+    character_count: 0x60,
+    delta: 1.0,
+};
+const FONT_ASCII_HALF: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
+    font_name: "font_ascii_half",
+    font_type: "TerminalFontAsciiHalf",
+    description: "An 8x4 terminal font supporting only 7-bit ASCII characters.",
+    low_plane_limit: 0x60,
+    low_plane_dupe_limit: 0x60,
+    disable_unscii: true,
+    unscii_blocks: &[],
+    disable_misaki: false,
+    misaki_blocks: &[],
+    allow_all_blocks: false,
+    whitelisted_blocks: &["Basic Latin"],
+    whitelisted_chars: &[],
+    allow_halfwidth_blocks: &["Basic Latin"],
     fallback_char: '?',
     kanji_max_level: kanji::Level::Ten,
     character_count: 0x60,
@@ -21,12 +43,15 @@ const FONT_BASIC: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_basic",
     font_type: "TerminalFontBasic",
     description: "\
-        A basic terminal font supporting many scripts and a limited number of characters useful \
-        for rendering menus.\
+        An 8x8 basic terminal font supporting many scripts and a limited number of characters \
+        useful for rendering menus.\
     ",
     low_plane_limit: 0x300,
     low_plane_dupe_limit: 0x300,
-    misaki_override_blocks: &[],
+    disable_unscii: false,
+    unscii_blocks: &[],
+    disable_misaki: false,
+    misaki_blocks: &[],
     allow_all_blocks: false,
     whitelisted_blocks: &[
         "Basic Latin",
@@ -43,14 +68,14 @@ const FONT_BASIC: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
         "Latin-1 Supplement",
         "Supplemental Punctuation",
     ],
-    glyph_whitelisted_blocks: &["Greek Extended"],
     whitelisted_chars: &[
-        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '■', '□', '●', '≠', '≤', '≥', '★', '♪', '⌚',
-        '⌛', '⏩', '⏪', '█', '▉', '▊', '▋', '▌', '▍', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '▎',
-        '▏', '─', '│', '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '┼', '←', '↑', '→', '↓', '↔', '↕',
-        '‐', '‑', '‒', '–', '—', '―', '†', '‡', '•', '․', '…', '⁇', '▲', '▶', '▼', '◀', '▀', '▐',
-        '░', '▒', '▓', '○', '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟', '▩', '⌘', '♀', '♂',
+        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '■', '□', '●', '★', '♪', '⌚', '⌛', '⏩', '⏪',
+        '█', '▉', '▊', '▋', '▌', '▍', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '▎', '▏', '─', '│', '┌',
+        '┐', '└', '┘', '├', '┤', '┬', '┴', '┼', '←', '↑', '→', '↓', '↔', '↕', '‐', '‑', '‒', '–',
+        '—', '―', '†', '‡', '•', '․', '…', '⁇', '▲', '▶', '▼', '◀', '▀', '▐', '░', '▒', '▓', '○',
+        '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟', '▩', '⌘', '♀', '♂', '╭', '╮', '╯', '╰',
     ],
+    allow_halfwidth_blocks: &[],
     fallback_char: '⁇',
     kanji_max_level: kanji::Level::Ten,
     character_count: 0x340,
@@ -60,14 +85,17 @@ const FONT_FULL: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_full",
     font_type: "TerminalFontFull",
     description: "\
-        A terminal font supporting most characters from the source fonts.\n\
+        An 8x8 terminal font supporting most characters from the source fonts.\n\
         \n\
         Only kanji on the jouyou list are included. This font is not suited for rendering \
         Chinese or Korean text.\
     ",
     low_plane_limit: 0x400,
     low_plane_dupe_limit: 0x400,
-    misaki_override_blocks: &["Halfwidth and Fullwidth Forms"],
+    disable_unscii: false,
+    unscii_blocks: &[],
+    disable_misaki: false,
+    misaki_blocks: &["Halfwidth and Fullwidth Forms"],
     allow_all_blocks: false,
     whitelisted_blocks: &[
         "Arrows",
@@ -107,8 +135,8 @@ const FONT_FULL: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
         "Supplemental Punctuation",
         "Unified Canadian Aboriginal Syllabics",
     ],
-    glyph_whitelisted_blocks: &[],
     whitelisted_chars: &[],
+    allow_halfwidth_blocks: &["Halfwidth and Fullwidth Forms"],
     fallback_char: '⁇',
     kanji_max_level: kanji::Level::Two,
     character_count: 0xF80,
@@ -119,6 +147,7 @@ fn main() {
     let characters = download_fonts::download_fonts().expect("Could not download and parse fonts.");
     gen_fonts::print_all_blocks(&characters);
     gen_fonts::generate_fonts(&FONT_ASCII, &characters);
+    gen_fonts::generate_fonts(&FONT_ASCII_HALF, &characters);
     gen_fonts::generate_fonts(&FONT_BASIC, &characters);
     gen_fonts::generate_fonts(&FONT_FULL, &characters);
 }

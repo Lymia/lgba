@@ -15,7 +15,7 @@ fn lookup_glyph(value: &u16) -> usize {
     lgba_phf::hash::<4, 32, _>(KEY, &DISPS, value)
 }
 
-/// An 8x8 terminal font supporting only 7-bit ASCII characters.
+/// An 8x4 terminal font supporting only 7-bit ASCII characters.
 /// 
 /// The data files for this font require 0.86 KiB of ROM space, not including
 /// any font-specific code that may be generated.
@@ -34,7 +34,7 @@ fn lookup_glyph(value: &u16) -> usize {
 /// The following Unicode blocks are available in this font:
 /// 
 /// * Basic Latin
-pub struct TerminalFontAscii(());
+pub struct TerminalFontAsciiHalf(());
 
 const CHAR_MASK: u16 = (1 << 5) - 1;
 fn get_font_glyph(id: char) -> (u8, u16) {
@@ -62,9 +62,9 @@ fn get_font_glyph(id: char) -> (u8, u16) {
     }
 }
 
-impl TerminalFont for TerminalFontAscii {
+impl TerminalFont for TerminalFontAsciiHalf {
     fn instance() -> &'static Self {
-        &TerminalFontAscii(())
+        &TerminalFontAsciiHalf(())
     }
     fn get_font_glyph(&self, id: char) -> (u8, u16) {
         get_font_glyph(id)

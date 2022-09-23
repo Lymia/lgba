@@ -1,6 +1,8 @@
 #[rustfmt::skip]
 mod font_ascii;
 #[rustfmt::skip]
+mod font_ascii_half;
+#[rustfmt::skip]
 mod font_basic;
 #[rustfmt::skip]
 mod font_full;
@@ -22,8 +24,9 @@ pub trait TerminalFont {
 }
 
 pub use font_ascii::TerminalFontAscii;
+pub use font_ascii_half::TerminalFontAsciiHalf;
 pub use font_basic::TerminalFontBasic;
 pub use font_full::TerminalFontFull;
 
-/// A terminal display mode that uses a built-in font.
+/// A terminal display mode that makes it easy to display text..
 pub struct Terminal {}

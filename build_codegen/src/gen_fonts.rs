@@ -14,28 +14,53 @@ pub struct FontConfiguration {
     pub description: &'static str,
     pub low_plane_limit: usize,
     pub low_plane_dupe_limit: usize,
-    pub misaki_override_blocks: &'static [&'static str],
+    pub disable_unscii: bool,
+    pub unscii_blocks: &'static [&'static str],
+    pub disable_misaki: bool,
+    pub misaki_blocks: &'static [&'static str],
     pub allow_all_blocks: bool,
     pub whitelisted_blocks: &'static [&'static str],
-    pub glyph_whitelisted_blocks: &'static [&'static str],
     pub whitelisted_chars: &'static [char],
+    pub allow_halfwidth_blocks: &'static [&'static str],
     pub fallback_char: char,
     pub kanji_max_level: kanji::Level,
     pub character_count: usize,
     pub delta: f32,
 }
 
-const DEBUG_FONT: FontConfiguration = FontConfiguration {
+const DEBUG_FONT_UNSCII: FontConfiguration = FontConfiguration {
     font_name: "*",
-    font_type: "",
+    font_type: "unscii",
     description: "",
     low_plane_limit: 0,
     low_plane_dupe_limit: 0,
-    misaki_override_blocks: &[],
+    disable_unscii: false,
+    unscii_blocks: &[],
+    disable_misaki: true,
+    misaki_blocks: &[],
     allow_all_blocks: true,
     whitelisted_blocks: &[],
-    glyph_whitelisted_blocks: &[],
     whitelisted_chars: &[],
+    allow_halfwidth_blocks: &[],
+    fallback_char: '?',
+    kanji_max_level: kanji::Level::One,
+    character_count: 0,
+    delta: 0.0,
+};
+const DEBUG_FONT_MISAKI: FontConfiguration = FontConfiguration {
+    font_name: "*",
+    font_type: "misaki",
+    description: "",
+    low_plane_limit: 0,
+    low_plane_dupe_limit: 0,
+    disable_unscii: true,
+    unscii_blocks: &[],
+    disable_misaki: false,
+    misaki_blocks: &[],
+    allow_all_blocks: true,
+    whitelisted_blocks: &[],
+    whitelisted_chars: &[],
+    allow_halfwidth_blocks: &[],
     fallback_char: '?',
     kanji_max_level: kanji::Level::One,
     character_count: 0,
@@ -43,7 +68,10 @@ const DEBUG_FONT: FontConfiguration = FontConfiguration {
 };
 
 fn block_name(ch: char) -> &'static str {
-    Block::of(ch).unwrap().name
+    match Block::of(ch) {
+        None => "Unknown Block",
+        Some(block) => block.name,
+    }
 }
 fn list_to_set<V: Copy + Hash + Eq>(list: &[V]) -> HashSet<V> {
     let mut set = HashSet::new();
@@ -52,22 +80,31 @@ fn list_to_set<V: Copy + Hash + Eq>(list: &[V]) -> HashSet<V> {
     }
     set
 }
+fn process_char(config: &FontConfiguration, mut char: CharacterInfo) -> CharacterInfo {
+    if !config.allow_halfwidth_blocks.contains(&block_name(char.ch)) {
+        char.is_half_width = false;
+    }
+    char
+}
 
 fn parse_fonts(config: &FontConfiguration, characters: &CharacterSets) -> Vec<CharacterInfo> {
     let mut char_map = HashMap::new();
 
     // parse unscii-8
+    let unscii_blocks = list_to_set(config.unscii_blocks);
     for char in &characters.unscii {
-        if char.ch != '\0' {
-            char_map.insert(char.ch, *char);
+        let is_override = unscii_blocks.contains(block_name(char.ch));
+        if char.ch != '\0' && (!config.disable_unscii || is_override) {
+            char_map.insert(char.ch, process_char(config, *char));
         }
     }
 
     // add characters from misaki font
-    let override_blocks = list_to_set(config.misaki_override_blocks);
+    let misaki_blocks = list_to_set(config.misaki_blocks);
     for char in &characters.misaki {
-        if !char_map.contains_key(&char.ch) || override_blocks.contains(block_name(char.ch)) {
-            char_map.insert(char.ch, *char);
+        let is_override = misaki_blocks.contains(block_name(char.ch));
+        if is_override || (!config.disable_misaki && !char_map.contains_key(&char.ch)) {
+            char_map.insert(char.ch, process_char(config, *char));
         }
     }
 
@@ -88,53 +125,38 @@ fn gather_characters(
 
     let whitelisted_blocks = list_to_set(config.whitelisted_blocks);
     let whitelisted_chars = list_to_set(config.whitelisted_chars);
-    let glyph_whitelisted_blocks = list_to_set(config.glyph_whitelisted_blocks);
     let kanji_level = kanji::level_table();
 
     glyphs.insert(0);
     for char in &characters {
-        if let Some(block) = Block::of(char.ch) {
-            if whitelisted_chars.contains(&char.ch)
-                || ((config.allow_all_blocks || whitelisted_blocks.contains(block.name))
-                    && !is_control(char.ch)
-                    && !is_combining_mark(char.ch)
-                    && !BidiClass::of(char.ch).is_rtl()
-                    && (char.ch as u32) < 0x10000)
-            {
-                let is_kanji_too_advanced = if let Some(kanji) = kanji::Kanji::new(char.ch) {
-                    if let Some(level) = kanji_level.get(&kanji) {
-                        *level > config.kanji_max_level
-                    } else {
-                        config.kanji_max_level != kanji::Level::One
-                    }
+        if whitelisted_chars.contains(&char.ch)
+            || ((config.allow_all_blocks || whitelisted_blocks.contains(block_name(char.ch)))
+                && !is_control(char.ch)
+                && !is_combining_mark(char.ch)
+                && !BidiClass::of(char.ch).is_rtl()
+                && (char.ch as u32) < 0x10000)
+        {
+            let is_kanji_too_advanced = if let Some(kanji) = kanji::Kanji::new(char.ch) {
+                if let Some(level) = kanji_level.get(&kanji) {
+                    *level > config.kanji_max_level
                 } else {
-                    false
-                };
-
-                if !is_kanji_too_advanced {
-                    map_characters.insert(*char);
-                    glyphs.insert(char.data);
+                    config.kanji_max_level != kanji::Level::One
                 }
-            }
-        }
-    }
-    for char in &characters {
-        if let Some(block) = Block::of(char.ch) {
-            if glyphs.contains(&char.data)
-                && (whitelisted_blocks.contains(block.name)
-                    || glyph_whitelisted_blocks.contains(block.name))
-            {
+            } else {
+                false
+            };
+
+            if !is_kanji_too_advanced {
                 map_characters.insert(*char);
+                glyphs.insert(char.data);
             }
         }
     }
     for char in &map_characters {
-        if let Some(block) = Block::of(char.ch) {
-            blocks
-                .entry(block.name)
-                .or_insert_with(Vec::new)
-                .push(char.ch);
-        }
+        blocks
+            .entry(block_name(char.ch))
+            .or_insert_with(Vec::new)
+            .push(char.ch);
     }
 
     // print statistics
@@ -349,16 +371,17 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
     let lo_map_len = config.low_plane_limit / 16;
     let char_count = config.character_count;
     let divisor_mask = divisor - 1;
+    let divisor_shift = divisor.trailing_zeros();
     let description = config.description.replace("\n", "\n/// ");
     let mut available_blocks = String::new();
+
     for block in config.whitelisted_blocks {
         available_blocks.push_str(&format!("/// * {block}\n"))
     }
     let mut additional_characters = String::new();
     if config.whitelisted_chars.len() != 0 {
-        additional_characters.push_str(
-            "///\n/// The following additional characters are available:\n/// * "
-        );
+        additional_characters
+            .push_str("///\n/// The following additional characters are available:\n/// * ");
         let mut whitelisted_chars = config.whitelisted_chars.to_vec();
         whitelisted_chars.sort();
         for char in config.whitelisted_chars {
@@ -368,6 +391,29 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
         additional_characters.pop();
         additional_characters.push('\n');
     }
+
+    let glyph_hi_array = if hi_bits != 0 {
+        format!("static GLYPH_ID_HI: [u16; {hi_arr_size}] = *include_u16!(\"glyph_id_hi.bin\");\n")
+    } else {
+        String::new()
+    };
+    let hi_mask = if hi_bits != 0 {
+        format!("const HI_MASK: u16 = (1 << {hi_bits}) - 1;\n")
+    } else {
+        String::new()
+    };
+    let load_hi = if hi_bits != 0 {
+        format!(
+            "@            let word = GLYPH_ID_HI[slot >> {divisor_shift}];\n\
+             @            let hi = (word >> ({hi_bits} * (slot & {divisor_mask}))) & HI_MASK;\n\
+             @            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);"
+        )
+    } else {
+        format!(
+            "@            let packed = GLYPH_ID_LO[slot] as u16;\n"
+        )
+    };
+
     let raw_source = format!(
         "\
             // This file is generated by the `build_codegen` script found in the repository root.\n\
@@ -378,7 +424,7 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
             const REPLACEMENT_GLYPH: (u8, u16) = ({replacement_hi}, {replacement_lo});\n\
             static LO_MAP_DATA: [u16; {lo_map_len}] = *include_u16!(\"lo_map.bin\");\n\
             static GLYPH_CHECK: [u16; {glyph_size}] = *include_u16!(\"glyph_check.bin\");\n\
-            static GLYPH_ID_HI: [u16; {hi_arr_size}] = *include_u16!(\"glyph_id_hi.bin\");\n\
+            {glyph_hi_array}\
             static GLYPH_ID_LO: [u8; {glyph_size}] = *include_u8!(\"glyph_id_lo.bin\");\n\
             static FONT_DATA: [u32; {char_count} * 2] = *include_u32!(\"font.chr\");\n\
             \n\
@@ -406,12 +452,14 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
             {additional_characters}\
             pub struct {font_type}(());\n\
             \n\
+            {hi_mask}\
+            const CHAR_MASK: u16 = (1 << {glyph_char_bits}) - 1;\n\
             fn get_font_glyph(id: char) -> (u8, u16) {{\n\
            @    let id = id as usize;\n\
            @    if id < {lo_map_size} {{\n\
            @        // We check the low plane bitmap to see if we have this glyph.\n\
            @        let word = LO_MAP_DATA[id >> 4];\n\
-           @        if word & 1 << (id & 15) != 0 {{\n\
+           @        if word & (1 << (id & 15)) != 0 {{\n\
            @            ((id & 3) as u8, (id >> 2) as u16)\n\
            @        }} else {{\n\
            @            REPLACEMENT_GLYPH\n\
@@ -420,14 +468,8 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
            @        // Check the PHF to see if we have this glyph.\n\
            @        let slot = lookup_glyph(&(id as u16));\n\
            @        if id == GLYPH_CHECK[slot] as usize {{\n\
-           @            let hi_mask = (1 << {hi_bits}) - 1;\n\
-           @            let char_mask = (1 << {glyph_char_bits}) - 1;\n\
-           @            \n\
-           @            let word = GLYPH_ID_HI[slot >> 3];\n\
-           @            let hi = (word >> ({hi_bits} * (slot & {divisor_mask}))) & hi_mask;\n\
-           @            let lo = GLYPH_ID_LO[slot];\n\
-           @            let packed = (hi << 8) | (lo as u16);\n\
-           @            ((packed >> {glyph_char_bits}) as u8, packed & char_mask)\n\
+                        {load_hi}\
+           @            ((packed >> {glyph_char_bits}) as u8, packed & CHAR_MASK)\n\
            @        }} else {{\n\
            @            REPLACEMENT_GLYPH\n\
            @        }}\n\
@@ -459,8 +501,10 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
         .write_all(&make_u16_file(&low_plane))?;
     File::create(format!("../lgba/src/display/terminal/{}/glyph_check.bin", config.font_name))?
         .write_all(&make_u16_file(&glyph_check))?;
-    File::create(format!("../lgba/src/display/terminal/{}/glyph_id_hi.bin", config.font_name))?
-        .write_all(&make_u16_file(&glyph_id_hi))?;
+    if hi_bits != 0 {
+        File::create(format!("../lgba/src/display/terminal/{}/glyph_id_hi.bin", config.font_name))?
+            .write_all(&make_u16_file(&glyph_id_hi))?;
+    }
     File::create(format!("../lgba/src/display/terminal/{}/glyph_id_lo.bin", config.font_name))?
         .write_all(&glyph_id_lo)?;
     File::create(format!("../lgba/src/display/terminal/{}/phf_disps.bin", config.font_name))?
@@ -472,11 +516,12 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
 }
 
 pub fn print_all_blocks(characters: &CharacterSets) {
-    generate_fonts(&DEBUG_FONT, characters);
+    generate_fonts(&DEBUG_FONT_UNSCII, characters);
+    generate_fonts(&DEBUG_FONT_MISAKI, characters);
 }
 pub fn generate_fonts(config: &FontConfiguration, characters: &CharacterSets) {
     if config.font_name == "*" {
-        println!("###### Available Blocks #####");
+        println!("###### Available blocks: {} #####", config.font_type);
     } else {
         println!("###### Generating font: {} #####", config.font_name);
     }
