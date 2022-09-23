@@ -1,32 +1,29 @@
 #[rustfmt::skip]
-mod font_data;
+mod font_ascii;
+#[rustfmt::skip]
+mod font_basic;
+#[rustfmt::skip]
+mod font_full;
 
-fn get_font_glyph(id: char) -> (u8, u8) {
-    let id = id as usize;
-    if id < 256 {
-        // We check the low plane bitmap to see if we have this glyph.
-        let word = font_data::LOW_PLANE_BITMAP[id >> 4];
-        if word & 1 << (id & 15) != 0 {
-            (0, id as u8)
-        } else {
-            font_data::REPLACEMENT_GLYPH
-        }
-    } else if id < 0x10000 {
-        // Check the PHF to see if we have this glyph.
-        let slot = font_data::lookup_glyph(&(id as u16));
-        if id == font_data::GLYPH_CHECK[slot] as usize {
-            let word = font_data::GLYPH_ID_HI[slot >> 3];
-            let hi = (word >> (2 * (slot & 7))) & 3;
-            let lo = font_data::GLYPH_ID_LO[slot];
-            (hi as u8, lo)
-        } else {
-            font_data::REPLACEMENT_GLYPH
-        }
-    } else {
-        // We only support the BMP, don't bother.
-        font_data::REPLACEMENT_GLYPH
-    }
+/// Represents a font that can be rendered in a terminal.
+pub trait TerminalFont {
+    /// Returns a static instance of this font.
+    fn instance() -> &'static Self;
+    /// Returns the glyph that represents a character.
+    ///
+    /// The first value (referred to as the plane) returned represents which bit of the character
+    /// will be rendered, the second represents which character will be rendered.
+    ///
+    /// When the plane is set to `n`, the `(n+1)`th most significant bit of each pixel will
+    /// determine if the pixel is set.
+    fn get_font_glyph(&self, id: char) -> (u8, u16);
+    /// Returns the raw character data used by the font.
+    fn get_font_data(&self) -> &'static [u32];
 }
+
+pub use font_ascii::TerminalFontAscii;
+pub use font_basic::TerminalFontBasic;
+pub use font_full::TerminalFontFull;
 
 /// A terminal display mode that uses a built-in font.
 pub struct Terminal {}

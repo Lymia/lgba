@@ -9,7 +9,7 @@ fn main() {
         possible_objects.push(i.wrapping_mul(715827883));
     }
 
-    let phf = generator::generate_hash(&possible_objects);
+    let phf = generator::generate_hash(1.0, &possible_objects);
 
     println!("{}", phf.generate_rust_code("func", "u32"));
     println!("Disp count: {}", phf.disps.len());

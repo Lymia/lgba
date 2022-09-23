@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.65"
 bdf = "0.6.0"
+kanji = "2.0.0"
 reqwest = { version = "0.11.11", features = ["blocking"] }
 unic-ucd = "0.9.0"
 zip = { version = "0.6.2", default-features = false, features = ["deflate"] }

@@ -33,19 +33,48 @@ impl HashState {
         writeln!(buf, "    const DISPS: [u16; {}] = [", self.disps.len()).unwrap();
         buf.push_str(&disps);
         writeln!(buf, "    ];").unwrap();
-        writeln!(buf, "    lgba_phf::hash::<{}, {}, _>(", self.disps.len(), self.map.len())
-            .unwrap();
-        writeln!(buf, "        KEY, &DISPS, value,").unwrap();
-        writeln!(buf, "    )").unwrap();
+        writeln!(
+            buf,
+            "    lgba_phf::hash::<{}, {}, _>(KEY, &DISPS, value)",
+            self.disps.len(),
+            self.map.len()
+        )
+        .unwrap();
+        writeln!(buf, "}}").unwrap();
+        buf
+    }
+
+    pub fn generate_rust_code_include(
+        &self,
+        hash_fn_name: &str,
+        in_ty: &str,
+        include: &str,
+    ) -> String {
+        let mut buf = String::new();
+        writeln!(buf, "fn {hash_fn_name}(value: &{in_ty}) -> usize {{").unwrap();
+        writeln!(buf, "    const KEY: u32 = 0x{:08x};", self.key).unwrap();
+        writeln!(
+            buf,
+            "    const DISPS: [u16; {}] = *include_u16!(\"{include}\");",
+            self.disps.len()
+        )
+        .unwrap();
+        writeln!(
+            buf,
+            "    lgba_phf::hash::<{}, {}, _>(KEY, &DISPS, value)",
+            self.disps.len(),
+            self.map.len()
+        )
+        .unwrap();
         writeln!(buf, "}}").unwrap();
         buf
     }
 }
 
-pub fn generate_hash<H: Hash>(entries: &[H]) -> HashState {
+pub fn generate_hash<H: Hash>(delta: f32, entries: &[H]) -> HashState {
     let mut seed = 1234567890;
     loop {
-        if let Some(result) = try_generate_hash(6.0, seed, entries) {
+        if let Some(result) = try_generate_hash(delta * 6.0, seed, entries) {
             return result;
         }
         seed = seed.wrapping_mul(1588635695).wrapping_add(12345);
@@ -63,7 +92,7 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
         .map(|entry| crate::params::make_hash(key, entry))
         .collect();
 
-    let buckets_len = ((hashes.len() as f32 / delta) as usize).next_power_of_two();
+    let buckets_len = ((hashes.len() as f32 / delta) as usize - 1).next_power_of_two();
     let mut buckets = (0..buckets_len)
         .map(|i| Bucket { idx: i, keys: vec![] })
         .collect::<Vec<_>>();
@@ -77,7 +106,7 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
     // Sort descending
     buckets.sort_by(|a, b| a.keys.len().cmp(&b.keys.len()).reverse());
 
-    let table_len = hashes.len().next_power_of_two();
+    let table_len = (hashes.len() - 1).next_power_of_two();
     let mut map = vec![None; table_len];
     let mut disps = vec![0; buckets_len];
 

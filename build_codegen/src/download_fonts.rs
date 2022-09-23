@@ -48,7 +48,7 @@ pub fn download_fonts() -> Result<CharacterSets> {
         // compute the bounds of the glyph
         let x_off = glyph.bounds().x as u32;
         let y_off = if glyph.height() != 8 {
-            (8 - glyph.height()) - 1 - max(0, glyph.bounds().y as u32)
+            (8 - glyph.height()) - 1 - (max(0, glyph.bounds().y) as u32)
         } else {
             0
         };
