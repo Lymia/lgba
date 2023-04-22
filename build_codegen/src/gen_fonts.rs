@@ -1,4 +1,4 @@
-use crate::download_fonts::{data_is_half_width, CharacterInfo, CharacterSets};
+use crate::font_data::{data_is_half_width, CharacterInfo, CharacterSets};
 use anyhow::*;
 use std::{
     collections::{HashMap, HashSet},

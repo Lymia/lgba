@@ -1,4 +1,4 @@
-mod download_fonts;
+mod font_data;
 mod gen_fonts;
 
 const FONT_ASCII: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
@@ -144,7 +144,7 @@ const FONT_FULL: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
 };
 
 fn main() {
-    let characters = download_fonts::download_fonts().expect("Could not download and parse fonts.");
+    let characters = font_data::download_fonts().expect("Could not download and parse fonts.");
     gen_fonts::print_all_blocks(&characters);
     gen_fonts::generate_fonts(&FONT_ASCII, &characters);
     gen_fonts::generate_fonts(&FONT_ASCII_HALF, &characters);

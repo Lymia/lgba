@@ -1,10 +1,8 @@
 use anyhow::*;
 use std::{cmp::max, hash::Hash, io::Cursor};
-use zip::ZipArchive;
 
-// Download URLs for the source fonts
-const UNSCII_FONT_URL: &str = "http://viznut.fi/unscii/unscii-8.hex";
-const MISAKI_FONT_URL: &str = "https://littlelimit.net/arc/misaki/misaki_bdf_2021-05-05.zip";
+const UNSCII_DATA: &str = include_str!("unscii-8.hex");
+const MISAKI_DATA: &[u8] = include_bytes!("misaki_gothic_2nd.bdf");
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
 pub struct CharacterInfo {
@@ -33,12 +31,8 @@ pub struct CharacterSets {
 pub fn download_fonts() -> Result<CharacterSets> {
     let mut characters = CharacterSets { unscii: Vec::new(), misaki: Vec::new() };
 
-    // download unscii-8
-    let unscii_string =
-        String::from_utf8(reqwest::blocking::get(UNSCII_FONT_URL)?.bytes()?.to_vec())?;
-
     // parse unscii-8
-    for line in unscii_string.split('\n').filter(|x| !x.is_empty()) {
+    for line in UNSCII_DATA.split('\n').filter(|x| !x.is_empty()) {
         let mut split = line.split(':');
 
         let hex_str = split.next().unwrap();
@@ -52,9 +46,7 @@ pub fn download_fonts() -> Result<CharacterSets> {
     }
 
     // download and parse misaki font
-    let misaki_font_zip = reqwest::blocking::get(MISAKI_FONT_URL)?.bytes()?.to_vec();
-    let mut zip_reader = ZipArchive::new(Cursor::new(misaki_font_zip))?;
-    let misaki_font = bdf::read(zip_reader.by_name("misaki_gothic_2nd.bdf")?)?;
+    let misaki_font = bdf::read(Cursor::new(MISAKI_DATA))?;
 
     // add characters from misaki font
     let mut vec: Vec<_> = misaki_font.glyphs().iter().map(|x| (*x.0, x.1)).collect();
