@@ -28,7 +28,7 @@ pub struct CharacterSets {
     pub misaki: Vec<CharacterInfo>,
 }
 
-pub fn download_fonts() -> Result<CharacterSets> {
+pub fn parse_fonts() -> Result<CharacterSets> {
     let mut characters = CharacterSets { unscii: Vec::new(), misaki: Vec::new() };
 
     // parse unscii-8
