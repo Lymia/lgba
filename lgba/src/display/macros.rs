@@ -14,23 +14,7 @@ macro_rules! include_u32 {
     ($file:expr $(,)?) => {
         &{
             const BYTES: &[u8] = $crate::__macro_export::core::include_bytes!($file);
-            if BYTES.len() % 4 != 0 {
-                $crate::__macro_export::core::panic!("File length is not multiple of 4!")
-            }
-            let mut u32_data = [0u32; BYTES.len() / 4];
-
-            let mut i = 0;
-            while i < u32_data.len() {
-                u32_data[i] = u32::from_le_bytes([
-                    BYTES[i * 4],
-                    BYTES[i * 4 + 1],
-                    BYTES[i * 4 + 2],
-                    BYTES[i * 4 + 3],
-                ]);
-                i += 1;
-            }
-
-            u32_data
+            $crate::__macro_export::xfer_u8_u32::<{ BYTES.len() / 4 }>(BYTES)
         }
     };
 }
@@ -51,18 +35,7 @@ macro_rules! include_u16 {
     ($file:expr $(,)?) => {
         &{
             const BYTES: &[u8] = $crate::__macro_export::core::include_bytes!($file);
-            if BYTES.len() % 2 != 0 {
-                $crate::__macro_export::core::panic!("File length is not multiple of 2!")
-            }
-            let mut u16_data = [0u16; BYTES.len() / 2];
-
-            let mut i = 0;
-            while i < u16_data.len() {
-                u16_data[i] = u16::from_le_bytes([BYTES[i * 2], BYTES[i * 2 + 1]]);
-                i += 1;
-            }
-
-            u16_data
+            $crate::__macro_export::xfer_u8_u16::<{ BYTES.len() / 2 }>(BYTES)
         }
     };
 }

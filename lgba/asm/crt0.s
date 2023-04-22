@@ -3,8 +3,8 @@
 @
     .section .lgba.init, "ax", %progbits
     .arm
-    .global __lgba_start
-__lgba_start:
+    .global __lgba__internal_start
+__lgba__internal_start:
     @ Set IRQ stack pointer
     mov r0, #0x12
     msr CPSR_c, r0
@@ -47,6 +47,26 @@ __lgba_start:
 
     @ Trampoline for blx - we don't know if these functions are ARM or Thumb (since we support armv4t target)
 2:  bx r0
+.pool
+
+@
+@ The entry point for the ROM in multiplay transfer environments
+@
+    .section .lgba.init, "ax", %progbits
+    .arm
+    .global __lgba__internal_multiplay_start
+__lgba__internal_multiplay_start:
+    b __lgba__internal_multiplay_start
+.pool
+
+@
+@ The entry point for the ROM in joybus environments
+@
+    .section .lgba.init, "ax", %progbits
+    .arm
+    .global __lgba__internal_joybus_start
+__lgba__internal_joybus_start:
+    b __lgba__internal_joybus_start
 .pool
 
 @
