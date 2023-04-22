@@ -43,8 +43,8 @@ const FONT_BASIC: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_basic",
     font_type: "TerminalFontBasic",
     description: "\
-        An 8x8 basic terminal font supporting many scripts and a limited number of characters \
-        useful for rendering menus.\
+        An 8x8 basic terminal font supporting many scripts and a reasonable selection of \
+        graphical characters useful for rendering menus.
     ",
     low_plane_limit: 0x300,
     low_plane_dupe_limit: 0x300,
@@ -55,6 +55,7 @@ const FONT_BASIC: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     allow_all_blocks: false,
     whitelisted_blocks: &[
         "Basic Latin",
+        "Block Elements",
         "CJK Symbols and Punctuation",
         "Currency Symbols",
         "Cyrillic",
@@ -69,16 +70,15 @@ const FONT_BASIC: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
         "Supplemental Punctuation",
     ],
     whitelisted_chars: &[
-        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '■', '□', '●', '★', '♪', '⌚', '⌛', '⏩', '⏪',
-        '█', '▉', '▊', '▋', '▌', '▍', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '▎', '▏', '─', '│', '┌',
-        '┐', '└', '┘', '├', '┤', '┬', '┴', '┼', '←', '↑', '→', '↓', '↔', '↕', '‐', '‑', '‒', '–',
-        '—', '―', '†', '‡', '•', '․', '…', '⁇', '▲', '▶', '▼', '◀', '▀', '▐', '░', '▒', '▓', '○',
-        '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟', '▩', '⌘', '♀', '♂', '╭', '╮', '╯', '╰',
+        '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '■', '□', '●', '★', '♪', '⌛', '⏩', '⏪',
+        '─', '│', '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '┼', '╭', '╮', '╯', '╰', '←', '↑', '→',
+        '↓', '↔', '↕', '‐', '‑', '‒', '–', '—', '―', '†', '‡', '•', '․', '…', '⁇', '▲', '▶', '▼',
+        '◀', '▩', '⌘', '♀', '♂',
     ],
     allow_halfwidth_blocks: &[],
     fallback_char: '⁇',
     kanji_max_level: kanji::Level::Ten,
-    character_count: 0x340,
+    character_count: 0x400,
     delta: 2.0,
 };
 const FONT_FULL: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {

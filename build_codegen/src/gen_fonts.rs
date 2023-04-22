@@ -1,4 +1,4 @@
-use crate::download_fonts::{CharacterInfo, CharacterSets};
+use crate::download_fonts::{data_is_half_width, CharacterInfo, CharacterSets};
 use anyhow::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -8,6 +8,7 @@ use std::{
 };
 use unic_ucd::{block::Block, common::is_control, normal::is_combining_mark, BidiClass};
 
+#[derive(Copy, Clone)]
 pub struct FontConfiguration {
     pub font_name: &'static str,
     pub font_type: &'static str,
@@ -184,8 +185,148 @@ fn gather_characters(
 struct GlyphData {
     data: Vec<u8>,
     low_plane: Vec<bool>,
-    glyph_map: HashMap<u16, (usize, usize)>,
-    glyph_lookup: HashMap<u16, (usize, usize)>,
+    low_plane_half_width: Vec<bool>,
+    glyph_map: HashMap<u16, (usize, usize, bool)>,
+    glyph_lookup: HashMap<u16, (usize, usize, bool)>,
+}
+
+struct GlyphPlaneBuilder {
+    config: FontConfiguration,
+
+    low_plane_table: Vec<bool>,
+    low_plane_half_width: Vec<bool>,
+    low_plane_assigned: HashSet<(usize, usize)>,
+
+    available: Vec<(usize, usize)>,
+    available_half: Vec<(usize, usize)>,
+
+    glyph_planes: Vec<Vec<u64>>,
+    glyph_map: HashMap<u16, (usize, usize, bool)>,
+    glyph_lookup: HashMap<u16, (usize, usize, bool)>,
+    char_is_half: Vec<Option<bool>>,
+    glyph_needs_half: HashSet<u64>,
+    glyph_assigned: HashMap<u64, (usize, usize)>,
+
+    dupe_low: usize,
+}
+impl GlyphPlaneBuilder {
+    fn preprocess_glyph(&mut self, i: &CharacterInfo) {
+        if i.is_half_width {
+            self.glyph_needs_half.insert(i.data);
+        }
+    }
+
+    fn set_plane_width(&mut self, char: usize, data: u64, is_half_width: bool) {
+        if is_half_width {
+            assert_ne!(self.char_is_half[char], Some(false));
+            self.char_is_half[char] = Some(true);
+        } else if !data_is_half_width(data) {
+            assert_ne!(self.char_is_half[char], Some(true));
+            self.char_is_half[char] = Some(false);
+        }
+    }
+
+    fn try_insert_low_plane(&mut self, i: &CharacterInfo) {
+        if self.glyph_lookup.contains_key(&(i.ch as u16)) {
+            return;
+        }
+
+        let (plane, char) = split_plane(&self.config, i.ch);
+        let low_plane_valid = !self.low_plane_assigned.contains(&(plane, char))
+            || self.glyph_planes[plane][char] == i.data;
+        if !low_plane_valid
+            || (self.glyph_assigned.contains_key(&i.data)
+                && (i.ch as usize) >= self.config.low_plane_dupe_limit)
+            || self.char_is_half[char] == Some(!self.glyph_needs_half.contains(&i.data))
+        {
+            return;
+        }
+
+        self.low_plane_table[i.ch as usize] = true;
+        self.low_plane_half_width[i.ch as usize] = i.is_half_width;
+        self.low_plane_assigned.insert((plane, char));
+        self.glyph_planes[plane][char] = i.data;
+        self.glyph_lookup
+            .insert(i.ch as u16, (plane, char, i.is_half_width));
+        self.set_plane_width(char, i.data, i.is_half_width);
+
+        if !self.glyph_assigned.contains_key(&i.data) {
+            self.glyph_assigned.insert(i.data, (plane, char));
+        } else {
+            self.dupe_low += 1;
+        }
+    }
+
+    fn find_available(&mut self) {
+        for char in 0..self.config.character_count / 4 {
+            for plane in 0..4 {
+                if !self.low_plane_assigned.contains(&(plane, char)) {
+                    if self.char_is_half[char] != Some(true) {
+                        self.available.push((plane, char));
+                    } else {
+                        self.available_half.push((plane, char));
+                    }
+                }
+            }
+        }
+        self.available.reverse();
+        self.available_half.reverse();
+    }
+
+    fn first_available_half(&mut self, can_use_normal: bool) -> (usize, usize) {
+        for i in 0..self.available.len() {
+            if self.char_is_half[self.available[i].1] != Some(false) {
+                return self.available.remove(i);
+            }
+        }
+        if can_use_normal {
+            self.available
+                .pop()
+                .or_else(|| self.available_half.pop())
+                .expect("Ran out of glyph slots!!")
+        } else {
+            panic!("Ran out of glyph slots!!")
+        }
+    }
+    fn next_available(&mut self, is_half: bool, data: u64) -> (usize, usize) {
+        if is_half {
+            if let Some(slot) = self.available_half.pop() {
+                slot
+            } else {
+                self.first_available_half(false)
+            }
+        } else if data_is_half_width(data) {
+            self.first_available_half(true)
+        } else {
+            while let Some((plane, char)) = self.available.pop() {
+                if self.char_is_half[char] == Some(true) {
+                    self.available_half.push((plane, char))
+                } else {
+                    return (plane, char);
+                }
+            }
+            panic!("Ran out of glyph slots!!")
+        }
+    }
+
+    fn try_assign_character(&mut self, i: &CharacterInfo) {
+        if self.glyph_lookup.contains_key(&(i.ch as u16)) {
+            return;
+        }
+        if let Some((plane, char)) = self.glyph_assigned.get(&i.data) {
+            let map_slot = (*plane, *char, i.is_half_width);
+            self.glyph_map.insert(i.ch as u16, map_slot);
+            self.glyph_lookup.insert(i.ch as u16, map_slot);
+        } else {
+            let (plane, char) = self.next_available(i.is_half_width, i.data);
+            let map_slot = (plane, char, i.is_half_width);
+            self.glyph_map.insert(i.ch as u16, map_slot);
+            self.glyph_lookup.insert(i.ch as u16, map_slot);
+            self.glyph_planes[plane][char] = i.data;
+            self.glyph_assigned.insert(i.data, (plane, char));
+            self.set_plane_width(char, i.data, i.is_half_width);
+        }
+    }
 }
 
 fn split_plane(config: &FontConfiguration, id: char) -> (usize, usize) {
@@ -193,90 +334,72 @@ fn split_plane(config: &FontConfiguration, id: char) -> (usize, usize) {
     (id as usize % 4, id as usize / 4)
 }
 fn build_planes(config: &FontConfiguration, characters: Vec<CharacterInfo>) -> GlyphData {
-    let mut low_plane_table = vec![false; config.low_plane_limit];
-    let mut low_plane_assigned = HashSet::new();
-    let mut glyph_planes = vec![vec![0u64; config.character_count / 4]; 4];
-    let mut glyph_map = HashMap::new();
-    let mut glyph_lookup = HashMap::new();
-    let mut assigned = HashMap::new();
+    let mut builder = GlyphPlaneBuilder {
+        config: *config,
+        low_plane_table: vec![false; config.low_plane_limit],
+        low_plane_half_width: vec![false; config.low_plane_limit],
+        low_plane_assigned: Default::default(),
+        available: vec![],
+        available_half: vec![],
+        glyph_planes: vec![vec![0u64; config.character_count / 4]; 4],
+        glyph_map: Default::default(),
+        glyph_lookup: Default::default(),
+        char_is_half: vec![None; config.character_count / 4],
+        glyph_needs_half: Default::default(),
+        glyph_assigned: Default::default(),
+        dupe_low: 0,
+    };
 
-    // space is always placed in ' '
-    if config.low_plane_limit > ' ' as usize {
-        low_plane_table[' ' as usize] = true;
-        let (plane, char) = split_plane(config, ' ');
-        assigned.insert(0, (plane, char));
+    // preprocess glyphs
+    for i in &characters {
+        builder.preprocess_glyph(i);
     }
 
-    // Assign characters < 256 to plane 0 at a position equaling the character id
-    let mut dupe_low = 0;
+    // assign low plane
     for i in &characters {
         if i.ch == ' ' {
-            continue;
+            builder.try_insert_low_plane(i);
         }
+    }
+    for i in &characters {
         if i.ch as usize >= config.low_plane_limit {
             break;
         }
-
-        let (plane, char) = split_plane(config, i.ch);
-        if (low_plane_assigned.contains(&(plane, char))
-            && assigned.get(&i.data) != Some(&(plane, char)))
-            || (assigned.contains_key(&i.data) && (i.ch as usize) >= config.low_plane_dupe_limit)
-        {
-            continue;
-        }
-
-        low_plane_table[i.ch as usize] = true;
-        low_plane_assigned.insert((plane, char));
-        glyph_planes[plane][char] = i.data;
-        glyph_lookup.insert(i.ch as u16, (plane, char));
-
-        if !assigned.contains_key(&i.data) {
-            assigned.insert(i.data, (plane, char));
-        } else {
-            dupe_low += 1;
+        if builder.glyph_needs_half.contains(&i.data) {
+            builder.try_insert_low_plane(i);
         }
     }
-    println!("Low character slots used: {}", low_plane_table.iter().filter(|x| **x).count());
-    println!("Duplicated low characters: {dupe_low}");
+    for i in &characters {
+        if i.ch as usize >= config.low_plane_limit {
+            break;
+        }
+        builder.try_insert_low_plane(i);
+    }
+    println!(
+        "Low character slots used: {}",
+        builder.low_plane_table.iter().filter(|x| **x).count()
+    );
+    println!("Duplicated low characters: {}", builder.dupe_low);
 
     // build table of available glyph locations
-    let mut available = Vec::new();
-    for plane in 0..4 {
-        for char in 0..config.character_count / 4 {
-            if !low_plane_assigned.contains(&(plane, char)) {
-                available.push((plane, char));
-            }
-        }
-    }
-    available.reverse();
+    builder.find_available();
 
     // assign remaining characters to the glyph planes
     for i in &characters {
-        if (i.ch as usize) < config.low_plane_limit && low_plane_table[i.ch as usize] {
-            continue;
-        }
-
-        if assigned.contains_key(&i.data) {
-            let slot = *assigned.get(&i.data).unwrap();
-            glyph_map.insert(i.ch as u16, slot);
-            glyph_lookup.insert(i.ch as u16, slot);
-        } else {
-            let slot = available.pop().expect("Ran out of glyph slots!!");
-            glyph_map.insert(i.ch as u16, slot);
-            glyph_lookup.insert(i.ch as u16, slot);
-            glyph_planes[slot.0][slot.1] = i.data;
-            assigned.insert(i.data, slot);
-        }
+        builder.try_assign_character(i);
     }
-    println!("Glyph table size: {}", glyph_map.len());
-    println!("Remaining glyph slots: {}", available.len());
+    println!("Glyph table size: {}", builder.glyph_map.len());
+    println!(
+        "Remaining glyph slots: {}",
+        builder.available.len() + builder.available_half.len()
+    );
 
     // Interlace planes into something the GBA can use.
     let mut data = vec![0u8; ((config.character_count / 4) * 8 * 8 * 4) / 8];
     for plane in 0..4 {
         for char in 0..config.character_count / 4 {
             // iterate through the glyph's pixels
-            let glyph = glyph_planes[plane][char];
+            let glyph = builder.glyph_planes[plane][char];
             for x in 0..8 {
                 for y in 0..8 {
                     // check if the pixel is on
@@ -291,8 +414,21 @@ fn build_planes(config: &FontConfiguration, characters: Vec<CharacterInfo>) -> G
         }
     }
 
+    // Ensure all characters are assigned successfully
+    for i in &characters {
+        let glyph = builder.glyph_lookup.get(&(i.ch as u16)).unwrap();
+        assert_eq!(i.data, builder.glyph_planes[glyph.0][glyph.1]);
+        assert_eq!(i.is_half_width, glyph.2);
+    }
+
     // Returns the glyph data
-    GlyphData { data, low_plane: low_plane_table, glyph_map, glyph_lookup }
+    GlyphData {
+        data,
+        low_plane: builder.low_plane_table,
+        low_plane_half_width: builder.low_plane_half_width,
+        glyph_map: builder.glyph_map,
+        glyph_lookup: builder.glyph_lookup,
+    }
 }
 
 fn make_u16_file(data: &[u16]) -> Vec<u8> {
@@ -342,7 +478,7 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
         let glyph = entries[*map];
         glyph_check[i] = glyph;
 
-        let (plane, char) = glyphs.glyph_map.get(&glyph).unwrap();
+        let (plane, char, _) = glyphs.glyph_map.get(&glyph).unwrap();
         let packed = (*plane << glyph_char_bits) | *char;
 
         if hi_bits != 0 {
@@ -353,7 +489,7 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
     }
 
     // Find the replacement glyph
-    let (replacement_hi, replacement_lo) = glyphs.glyph_lookup[&(config.fallback_char as u16)];
+    let (fallback_hi, fallback_lo, _) = glyphs.glyph_lookup[&(config.fallback_char as u16)];
 
     // Calculate statistics
     let bytes = glyphs.data.len()
@@ -373,11 +509,13 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
     let divisor_mask = divisor - 1;
     let divisor_shift = divisor.trailing_zeros();
     let description = config.description.replace("\n", "\n/// ");
-    let mut available_blocks = String::new();
+    let has_half_width = !config.allow_halfwidth_blocks.is_empty();
 
+    let mut available_blocks = String::new();
     for block in config.whitelisted_blocks {
         available_blocks.push_str(&format!("/// * {block}\n"))
     }
+
     let mut additional_characters = String::new();
     if config.whitelisted_chars.len() != 0 {
         additional_characters
@@ -409,9 +547,7 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
              @            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);"
         )
     } else {
-        format!(
-            "@            let packed = GLYPH_ID_LO[slot] as u16;\n"
-        )
+        format!("@            let packed = GLYPH_ID_LO[slot] as u16;\n")
     };
 
     let raw_source = format!(
@@ -421,7 +557,7 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
             \n\
             use super::*;\n\
             \n\
-            const REPLACEMENT_GLYPH: (u8, u16) = ({replacement_hi}, {replacement_lo});\n\
+            const FALLBACK_GLYPH: (u8, u16, bool) = ({fallback_hi}, {fallback_lo}, false);\n\
             static LO_MAP_DATA: [u16; {lo_map_len}] = *include_u16!(\"lo_map.bin\");\n\
             static GLYPH_CHECK: [u16; {glyph_size}] = *include_u16!(\"glyph_check.bin\");\n\
             {glyph_hi_array}\
@@ -454,28 +590,28 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
             \n\
             {hi_mask}\
             const CHAR_MASK: u16 = (1 << {glyph_char_bits}) - 1;\n\
-            fn get_font_glyph(id: char) -> (u8, u16) {{\n\
+            fn get_font_glyph(id: char) -> (u8, u16, bool) {{\n\
            @    let id = id as usize;\n\
            @    if id < {lo_map_size} {{\n\
            @        // We check the low plane bitmap to see if we have this glyph.\n\
            @        let word = LO_MAP_DATA[id >> 4];\n\
            @        if word & (1 << (id & 15)) != 0 {{\n\
-           @            ((id & 3) as u8, (id >> 2) as u16)\n\
+           @            ((id & 3) as u8, (id >> 2) as u16, false)\n\
            @        }} else {{\n\
-           @            REPLACEMENT_GLYPH\n\
+           @            FALLBACK_GLYPH\n\
            @        }}\n\
            @    }} else if id < 0x10000 {{\n\
            @        // Check the PHF to see if we have this glyph.\n\
            @        let slot = lookup_glyph(&(id as u16));\n\
            @        if id == GLYPH_CHECK[slot] as usize {{\n\
                         {load_hi}\
-           @            ((packed >> {glyph_char_bits}) as u8, packed & CHAR_MASK)\n\
+           @            ((packed >> {glyph_char_bits}) as u8, packed & CHAR_MASK, false)\n\
            @        }} else {{\n\
-           @            REPLACEMENT_GLYPH\n\
+           @            FALLBACK_GLYPH\n\
            @        }}\n\
            @    }} else {{\n\
            @        // We only support the BMP, don't bother.\n\
-           @        REPLACEMENT_GLYPH\n\
+           @        FALLBACK_GLYPH\n\
            @    }}\n\
             }}\n\
             \n\
@@ -483,11 +619,14 @@ fn make_glyphs_file(config: &FontConfiguration, glyphs: GlyphData) -> Result<()>
            @    fn instance() -> &'static Self {{\n\
            @        &{font_type}(())\n\
            @    }}\n\
-           @    fn get_font_glyph(&self, id: char) -> (u8, u16) {{\n\
+           @    fn get_font_glyph(&self, id: char) -> (u8, u16, bool) {{\n\
            @        get_font_glyph(id)\n\
            @    }}\n\
            @    fn get_font_data(&self) -> &'static [u32] {{\n\
            @        &FONT_DATA\n\
+           @    }}\n\
+           @    fn has_half_width(&self) -> bool {{\n\
+           @        {has_half_width}\n\
            @    }}\n\
             }}\n\
         "

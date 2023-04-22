@@ -21,6 +21,10 @@ impl CharacterInfo {
     }
 }
 
+pub fn data_is_half_width(data: u64) -> bool {
+    (data & 0x0F0F0F0F0F0F0F0F) == 0
+}
+
 pub struct CharacterSets {
     pub unscii: Vec<CharacterInfo>,
     pub misaki: Vec<CharacterInfo>,

@@ -1,7 +1,10 @@
 //! A module allowing use of the GBA's DMA hardware.
 
 use crate::{
-    mmio::{reg::*, sys::DmaCnt},
+    mmio::{
+        reg::*,
+        sys::{DmaAddrCnt, DmaCnt},
+    },
     sync::{RawMutex, RawMutexGuard},
 };
 use core::{
@@ -88,6 +91,55 @@ impl DmaChannel {
         self
     }
 
+    /// Sets all values of a slice to a given value using DMA.
+    ///
+    /// `T` must have one of the following memory layouts:
+    /// * A size of two bytes, and an alignment of two bytes.
+    /// * A size of four bytes and an alignment of four bytes.
+    #[inline]
+    pub fn set<T: Copy>(&mut self, src: T, dst: &mut [T]) -> &mut Self {
+        unsafe {
+            self.unsafe_set(src, dst.as_mut_ptr(), dst.len());
+        }
+        self
+    }
+
+    /// Sets all values of a pointer to a given value using DMA.
+    ///
+    /// Both the start of `src` and `dst` must be aligned to a multiple of `2` bytes. If it is not,
+    /// this function will panic.
+    #[inline]
+    pub unsafe fn unsafe_set<T: Copy>(
+        &mut self,
+        src: T,
+        dst: *mut T,
+        word_count: usize,
+    ) -> &mut Self {
+        let is_u32 = if core::mem::size_of::<T>() == 2 && core::mem::align_of::<T>() == 2 {
+            false
+        } else if core::mem::size_of::<T>() == 4 && core::mem::align_of::<T>() == 4 {
+            true
+        } else {
+            dma_invalid_size()
+        };
+        if word_count >= 0x10000 {
+            dma_too_large()
+        }
+        let cnt = DmaCnt::default()
+            .with_src_ctl(DmaAddrCnt::Fixed)
+            .with_send_irq(self.irq_notify)
+            .with_transfer_u32(is_u32)
+            .with_enabled(true);
+        raw_tx(
+            self.channel,
+            &src as *const T as *const c_void,
+            dst as *mut c_void,
+            word_count as u16,
+            cnt,
+        );
+        self
+    }
+
     /// Transfers data from one slice into another via DMA.
     ///
     /// Both the start of `src` and `dst` must be aligned to a multiple of `2` bytes. If it is not,
@@ -142,6 +194,11 @@ fn dma_not_aligned() -> ! {
 #[inline(never)]
 fn dma_too_large() -> ! {
     crate::panic_handler::static_panic("DMA transfer is too large!")
+}
+
+#[inline(never)]
+fn dma_invalid_size() -> ! {
+    crate::panic_handler::static_panic("Cannot use `set` on objects of this size!")
 }
 
 #[inline(never)]

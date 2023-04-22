@@ -3,7 +3,7 @@
 @ Put here even partly just to zero the temptation to copy this into code...
 @
     .section .text, "ax", %progbits
-    .thumb
+    .thumb_func
     .global __sync_synchronize
 __sync_synchronize:
     bx lr
@@ -14,7 +14,7 @@ __sync_synchronize:
 @ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
 @
     .section .text, "ax", %progbits
-    .thumb
+    .thumb_func
     .global __lgba_abort
 __lgba_abort:
     mov r0, #0           @ r0 = 0

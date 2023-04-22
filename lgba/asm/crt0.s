@@ -55,7 +55,7 @@ __lgba_start:
 @ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
 @
     .section .lgba.init, "ax", %progbits
-    .thumb
+    .thumb_func
     .global __lgba_init_memory
 __lgba_init_memory:
     push {r4,lr}

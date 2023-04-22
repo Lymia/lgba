@@ -3,7 +3,7 @@
 
 use super::*;
 
-const REPLACEMENT_GLYPH: (u8, u16) = (0, 519);
+const FALLBACK_GLYPH: (u8, u16, bool) = (1, 208, false);
 static LO_MAP_DATA: [u16; 64] = *include_u16!("lo_map.bin");
 static GLYPH_CHECK: [u16; 4096] = *include_u16!("glyph_check.bin");
 static GLYPH_ID_HI: [u16; 1024] = *include_u16!("glyph_id_hi.bin");
@@ -76,15 +76,15 @@ pub struct TerminalFontFull(());
 
 const HI_MASK: u16 = (1 << 4) - 1;
 const CHAR_MASK: u16 = (1 << 10) - 1;
-fn get_font_glyph(id: char) -> (u8, u16) {
+fn get_font_glyph(id: char) -> (u8, u16, bool) {
     let id = id as usize;
     if id < 1024 {
         // We check the low plane bitmap to see if we have this glyph.
         let word = LO_MAP_DATA[id >> 4];
         if word & (1 << (id & 15)) != 0 {
-            ((id & 3) as u8, (id >> 2) as u16)
+            ((id & 3) as u8, (id >> 2) as u16, false)
         } else {
-            REPLACEMENT_GLYPH
+            FALLBACK_GLYPH
         }
     } else if id < 0x10000 {
         // Check the PHF to see if we have this glyph.
@@ -92,13 +92,13 @@ fn get_font_glyph(id: char) -> (u8, u16) {
         if id == GLYPH_CHECK[slot] as usize {
             let word = GLYPH_ID_HI[slot >> 2];
             let hi = (word >> (4 * (slot & 3))) & HI_MASK;
-            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);            ((packed >> 10) as u8, packed & CHAR_MASK)
+            let packed = (hi << 8) | (GLYPH_ID_LO[slot] as u16);            ((packed >> 10) as u8, packed & CHAR_MASK, false)
         } else {
-            REPLACEMENT_GLYPH
+            FALLBACK_GLYPH
         }
     } else {
         // We only support the BMP, don't bother.
-        REPLACEMENT_GLYPH
+        FALLBACK_GLYPH
     }
 }
 
@@ -106,10 +106,13 @@ impl TerminalFont for TerminalFontFull {
     fn instance() -> &'static Self {
         &TerminalFontFull(())
     }
-    fn get_font_glyph(&self, id: char) -> (u8, u16) {
+    fn get_font_glyph(&self, id: char) -> (u8, u16, bool) {
         get_font_glyph(id)
     }
     fn get_font_data(&self) -> &'static [u32] {
         &FONT_DATA
+    }
+    fn has_half_width(&self) -> bool {
+        true
     }
 }
