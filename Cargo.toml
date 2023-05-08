@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "build_codegen",
     "lgba",
     "lgba_macros",
     "lgba_phf",

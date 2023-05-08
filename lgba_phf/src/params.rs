@@ -10,6 +10,7 @@ pub struct Hashes {
 }
 
 pub type DisplacementData = u16;
+
 #[cfg(feature = "generator")]
 pub const MAX_DISP: u32 = 256;
 

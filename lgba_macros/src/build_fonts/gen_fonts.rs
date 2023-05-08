@@ -1,4 +1,4 @@
-use crate::font_data::{data_is_half_width, CharacterInfo, CharacterSets};
+use lgba_macros::font_derive::::{data_is_half_width, CharacterInfo, CharacterSets};
 use anyhow::*;
 use std::{
     collections::{HashMap, HashSet},

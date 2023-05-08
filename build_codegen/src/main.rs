@@ -1,5 +1,4 @@
-mod font_data;
-mod gen_fonts;
+use lgba_macros::font_derive::;
 
 const FONT_ASCII: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_ascii",
@@ -144,7 +143,7 @@ const FONT_FULL: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
 };
 
 fn main() {
-    let characters = font_data::parse_fonts().expect("Could not parse included fonts??");
+    let characters = ::parse_fonts().expect("Could not parse included fonts??");
     gen_fonts::print_all_blocks(&characters);
     gen_fonts::generate_fonts(&FONT_ASCII, &characters);
     gen_fonts::generate_fonts(&FONT_ASCII_HALF, &characters);

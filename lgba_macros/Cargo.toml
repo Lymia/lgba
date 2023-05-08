@@ -16,7 +16,11 @@ license = "MIT/Apache-2.0"
 proc-macro = true
 
 [dependencies]
-darling = { version = "0.14", default-features = false }
-syn = "1"
+darling = { version = "0.20", default-features = false }
+syn = "2"
 quote = "1"
 proc-macro2 = "1"
+
+[dev-dependencies]
+anyhow = "1"
+bdf = "0.6"

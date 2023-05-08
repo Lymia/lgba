@@ -16,7 +16,11 @@ pub mod sync;
 pub mod sys;
 
 // public reexports
-pub use lgba_macros::{entry, ewram, iwram};
+pub use lgba_macros::entry;
+// public reexports
+pub use lgba_macros::ewram;
+// public reexports
+pub use lgba_macros::iwram;
 
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
@@ -24,6 +28,7 @@ pub mod __macro_export {
     pub use crate::gba_header::*;
     pub use core;
 
+    //noinspection RsAssertEqual
     pub const fn xfer_u8_u16<const N: usize>(data: &[u8]) -> [u16; N] {
         assert!(data.len() == N * 2, "Array length is not a multiple of 2.");
 
@@ -38,6 +43,7 @@ pub mod __macro_export {
         u16_data
     }
 
+    //noinspection RsAssertEqual
     pub const fn xfer_u8_u32<const N: usize>(data: &[u8]) -> [u32; N] {
         assert!(data.len() == N * 4, "Array length is not a multiple of 4.");
 
