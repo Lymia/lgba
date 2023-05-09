@@ -29,9 +29,9 @@ impl HashState {
 
         quote! {
             fn #fn_name(value: #in_ty) -> usize {
-                const KEY: u32 = #key,
-                static DISPS: [u16, #disps_len] = [#(#disps,)*];
-                #path_lgba_phf::hash::<#disps_len, #map_len>(KEY, &DISPS, value)
+                const KEY: u32 = #key;
+                static DISPS: [u16; #disps_len] = [#(#disps,)*];
+                #path_lgba_phf::hash::<#disps_len, #map_len, _>(KEY, &DISPS, value)
             }
         }
     }

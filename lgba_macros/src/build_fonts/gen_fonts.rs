@@ -22,12 +22,12 @@ pub struct FontConfig {
     #[darling(multiple)]
     disable_misaki: Vec<String>,
     #[darling(multiple)]
-    whitelisted_chars: Vec<String>,
+    chars: Vec<String>,
     #[darling(multiple)]
     block: Vec<String>,
     #[darling(multiple)]
     allow_halfwidth_blocks: Vec<String>,
-    enable_halfwidth_ascii: bool,
+    enable_halfwidth_ascii: Option<bool>,
     fallback_char: Option<char>,
     kanji_max_level: Option<String>,
     delta: Option<f32>,
@@ -62,7 +62,7 @@ struct DecodedFontConfig {
     low_plane_limit: usize,
     disable_unscii: DecodedMap,
     disable_misaki: DecodedMap,
-    whitelisted_chars: HashSet<char>,
+    chars: HashSet<char>,
     block: DecodedMap,
     allow_halfwidth_blocks: DecodedMap,
     enable_halfwidth_ascii: bool,
@@ -73,7 +73,7 @@ struct DecodedFontConfig {
 impl DecodedFontConfig {
     fn from_config(config: FontConfig) -> Result<DecodedFontConfig> {
         let mut whitelisted_chars = HashSet::new();
-        for string in config.whitelisted_chars {
+        for string in config.chars {
             for char in string.chars() {
                 whitelisted_chars.insert(char);
             }
@@ -83,10 +83,10 @@ impl DecodedFontConfig {
             low_plane_limit: config.low_plane_limit.unwrap_or(0x100),
             disable_unscii: DecodedMap::from_list(config.disable_unscii),
             disable_misaki: DecodedMap::from_list(config.disable_misaki),
-            whitelisted_chars,
+            chars: whitelisted_chars,
             block: DecodedMap::from_list(config.block),
             allow_halfwidth_blocks: DecodedMap::from_list(config.allow_halfwidth_blocks),
-            enable_halfwidth_ascii: config.enable_halfwidth_ascii,
+            enable_halfwidth_ascii: config.enable_halfwidth_ascii.unwrap_or(true),
             fallback_char: config.fallback_char.unwrap_or('?'),
             kanji_max_level: match config
                 .kanji_max_level
@@ -129,8 +129,9 @@ fn process_char(config: &DecodedFontConfig, mut char: CharacterInfo) -> Characte
     }
     char
 }
-fn is_pua_half_width(ch: char) -> bool {
-    (ch as u32) >= 0xF400 && (ch as u32) < 0xF500
+fn is_lgba_private_use(ch: char) -> bool {
+    let ch = ch as u32;
+    (ch >= 0xF400 && ch < 0xF480) || ch == 0xF500
 }
 
 fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> Vec<CharacterInfo> {
@@ -151,9 +152,19 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
             char_map.insert(char.ch, process_char(config, *char));
         }
         if (char.ch as u32) < 0x80 && config.enable_halfwidth_ascii {
-            char_map.insert(char::from_u32(0xF400 + char.ch as u32).unwrap(), *char);
+            let new_ch = char::from_u32(0xF400 + char.ch as u32).unwrap();
+            let mut new_char = *char;
+            new_char.ch = new_ch;
+            char_map.insert(new_ch, new_char);
         }
     }
+
+    // add technical character for background rendering
+    char_map.insert('\u{F500}', CharacterInfo {
+        ch: '\u{F500}',
+        data: !0,
+        is_half_width: false,
+    });
 
     // return the downloaded characters
     let mut characters: Vec<_> = char_map.values().cloned().collect();
@@ -174,8 +185,8 @@ fn filter_characters(config: &DecodedFontConfig, characters: Vec<CharacterInfo>)
     glyphs.insert(0);
 
     for char in characters {
-        if config.whitelisted_chars.contains(&char.ch)
-            || is_pua_half_width(char.ch)
+        if config.chars.contains(&char.ch)
+            || is_lgba_private_use(char.ch)
             || (config.block.contains(block_name(char.ch))
                 && !is_control(char.ch)
                 && !is_combining_mark(char.ch)
@@ -250,7 +261,7 @@ impl GlyphPlaneBuilder {
     }
 
     fn split_plane(&self, id: char) -> (usize, usize) {
-        assert!((id as usize) < self.tile_count);
+        assert!((id as usize) < self.low_plane_table.len());
         (id as usize % 4, id as usize / 4)
     }
 
@@ -357,8 +368,26 @@ impl GlyphPlaneBuilder {
     }
 }
 
-fn build_planes(config: &DecodedFontConfig, ch_data: CharacterData) -> GlyphData {
-    let tile_count = (ch_data.glyph_count + 15) / 16;
+fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> GlyphData {
+    let tile_count = ((ch_data.glyph_count + 4 /* allow for half-width waste */ + 15) / 16) * 16;
+    if config.low_plane_limit > tile_count {
+        config.low_plane_limit = tile_count;
+    }
+
+    let dupe_count = {
+        let mut ch_count = 0;
+        let mut low_plane_dupe_check = HashSet::new();
+        for ch in &ch_data.characters {
+            if ch.ch as usize > config.low_plane_limit {
+                break;
+            }
+            low_plane_dupe_check.insert(ch.data);
+            ch_count += 1;
+        }
+        ch_count - low_plane_dupe_check.len()
+    };
+    let tile_count = ((ch_data.glyph_count + dupe_count + 4 + 15) / 16) * 16;
+
 
     // create a new glyph builder
     let mut builder = GlyphPlaneBuilder {
@@ -376,6 +405,7 @@ fn build_planes(config: &DecodedFontConfig, ch_data: CharacterData) -> GlyphData
         glyph_assigned: Default::default(),
         dupe_low: 0,
     };
+    builder.glyph_needs_half.insert(0); // spaces are important!
 
     // preprocess glyphs
     for i in &ch_data.characters {
@@ -451,7 +481,7 @@ fn build_planes(config: &DecodedFontConfig, ch_data: CharacterData) -> GlyphData
 
 fn make_u8_literal(data: &[u8]) -> SynTokenStream {
     let literal_data = Literal::byte_string(data);
-    quote! { #literal_data }
+    quote! { *#literal_data }
 }
 fn make_u16_literal(data: &[u16]) -> SynTokenStream {
     quote! { [#(#data,)*] }
@@ -482,7 +512,7 @@ fn make_glyphs_file(
     let entries: Vec<_> = glyphs.glyph_map.keys().cloned().collect();
     let phf = lgba_phf::generator::generate_hash(config.delta, &entries);
     let phf_func =
-        phf.generate_syn_code(quote! { lookup_glyph }, quote! { u16 }, quote! { lgba_phf });
+        phf.generate_syn_code(quote! { lookup_glyph }, quote! { &u16 }, quote! { lgba_phf });
 
     // Build the PHF glyph data
     let glyph_size = (glyphs.glyph_map.len() - 1).next_power_of_two();
@@ -547,10 +577,10 @@ fn make_glyphs_file(
         }
         documentation.push('\n');
 
-        if !config.whitelisted_chars.is_empty() {
-            documentation.push_str("The following additional characters are available:\n");
+        if !config.chars.is_empty() {
+            documentation.push_str("The following additional characters are available:\n* ");
 
-            let mut whitelisted_chars: Vec<_> = config.whitelisted_chars.iter().cloned().collect();
+            let mut whitelisted_chars: Vec<_> = config.chars.iter().cloned().collect();
             whitelisted_chars.sort();
             for char in whitelisted_chars {
                 documentation.push_str(&format!("`{char}`, "))
@@ -596,7 +626,7 @@ fn make_glyphs_file(
         })
     };
     let impl_content = quote! {
-        const FALLBACK_GLYPH: (u8, u16, bool) = (#fallback_hi, #fallback_lo, false);
+        const FALLBACK_GLYPH: (u8, u16, bool) = (#fallback_hi as u8, #fallback_lo as u16, false);
         const LO_MAP_DATA: [u16; #lo_map_len] = #lo_map_data;
         const GLYPH_CHECK: [u16; #glyph_size] = #glyph_check_data;
         const GLYPH_ID_LO: [u8; #glyph_size] = #glyph_id_lo_data;
@@ -621,7 +651,7 @@ fn make_glyphs_file(
                 let slot = lookup_glyph(&(id as u16));
                 if id == GLYPH_CHECK[slot] as usize {
                     #load_hi
-                    ((packed >> {glyph_char_bits}) as u8, packed & CHAR_MASK, false)
+                    ((packed >> #glyph_char_bits) as u8, packed & CHAR_MASK, false)
                 } else {
                     FALLBACK_GLYPH
                 }
@@ -637,7 +667,7 @@ fn make_glyphs_file(
                 get_font_glyph(id)
             }
             fn get_font_data() -> &'static [u32] {
-                FONT_DATA
+                &FONT_DATA
             }
             fn has_half_width() -> bool {
                 #has_half_width
@@ -645,11 +675,15 @@ fn make_glyphs_file(
         }
     };
 
+    if std::env::var("LGBA_DUMP_FONT_DATA").is_ok() {
+        std::fs::write(format!("font_data_{target_ty}.bin"), &glyphs.data).unwrap();
+    }
+
     quote! {
         const _: () = {
             #impl_content
             ()
-        }
+        };
     }
 }
 
@@ -657,10 +691,10 @@ pub fn generate_fonts(config: FontConfig, target_ty: SynTokenStream) -> Result<S
     let paths = Paths::new()?;
     let characters = load_fonts();
 
-    let config = DecodedFontConfig::from_config(config)?;
+    let mut config = DecodedFontConfig::from_config(config)?;
     let characters = build_from_fonts(&config, &characters);
     let character_list = filter_characters(&config, characters);
-    let glyphs = build_planes(&config, character_list);
+    let glyphs = build_planes(&mut config, character_list);
     let tokens = make_glyphs_file(&paths, &config, glyphs, target_ty);
 
     Ok(tokens)
