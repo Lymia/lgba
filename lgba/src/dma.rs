@@ -76,6 +76,7 @@ unsafe fn raw_tx(
     crate::sync::memory_write_hint(dst);
 }
 
+/// A DMA channel.
 #[derive(Debug)]
 pub struct DmaChannel {
     channel: DmaChannelId,
@@ -256,14 +257,35 @@ pub fn pause_dma<R>(func: impl FnOnce() -> R) -> R {
         let dma2_cnt = DMA2CNT_H.read();
         let dma3_cnt = DMA3CNT_H.read();
 
+        if dma0_cnt.enabled() {
+            DMA0CNT_H.write(dma0_cnt.with_enabled(false));
+        }
+        if dma1_cnt.enabled() {
+            DMA1CNT_H.write(dma1_cnt.with_enabled(false));
+        }
+        if dma2_cnt.enabled() {
+            DMA2CNT_H.write(dma2_cnt.with_enabled(false));
+        }
+        if dma3_cnt.enabled() {
+            DMA3CNT_H.write(dma3_cnt.with_enabled(false));
+        }
+
         compiler_fence(Ordering::Acquire);
         let result = func();
         compiler_fence(Ordering::Release);
 
-        DMA0CNT_H.write(dma0_cnt);
-        DMA1CNT_H.write(dma1_cnt);
-        DMA2CNT_H.write(dma2_cnt);
-        DMA3CNT_H.write(dma3_cnt);
+        if dma0_cnt.enabled() {
+            DMA0CNT_H.write(dma0_cnt);
+        }
+        if dma1_cnt.enabled() {
+            DMA1CNT_H.write(dma1_cnt);
+        }
+        if dma2_cnt.enabled() {
+            DMA2CNT_H.write(dma2_cnt);
+        }
+        if dma3_cnt.enabled() {
+            DMA3CNT_H.write(dma3_cnt);
+        }
 
         result
     }

@@ -16,17 +16,17 @@ pub mod sync;
 pub mod sys;
 
 // public reexports
-pub use lgba_macros::entry;
-// public reexports
-pub use lgba_macros::ewram;
-// public reexports
-pub use lgba_macros::iwram;
+pub use lgba_macros::{entry, ewram, iwram};
 
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {
-    pub use crate::gba_header::*;
     pub use core;
+    pub use lgba_phf;
+
+    pub mod gba_header {
+        pub use crate::gba_header::*;
+    }
 
     //noinspection RsAssertEqual
     pub const fn xfer_u8_u16<const N: usize>(data: &[u8]) -> [u16; N] {

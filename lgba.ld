@@ -15,6 +15,8 @@ SECTIONS {
         *(.lgba.header.dynamic);
         KEEP(*(.lgba.header.multiboot));
         *(.lgba.header.multiboot);
+        KEEP(*(.lgba.header.exheader));
+        *(.lgba.header.exheader);
 
         KEEP(*(.lgba.markers));
         *(.lgba.markers);

@@ -2,8 +2,11 @@ use crate::{
     params,
     params::{DisplacementData, HashKey},
 };
-use alloc::{string::String, vec, vec::Vec};
-use core::{cmp::min, fmt::Write, hash::Hash};
+use alloc::{vec, vec::Vec};
+use core::{cmp::min, hash::Hash};
+
+#[cfg(feature = "generator_proc_macro")]
+use {proc_macro2::TokenStream as SynTokenStream, quote::quote};
 
 #[derive(Clone, Debug)]
 pub struct HashState {
@@ -12,62 +15,25 @@ pub struct HashState {
     pub map: Vec<usize>,
 }
 impl HashState {
-    pub fn generate_rust_code(&self, hash_fn_name: &str, in_ty: &str) -> String {
-        let mut disps = String::new();
-        for (i, disp) in self.disps.iter().enumerate() {
-            if i % 12 == 0 {
-                disps.push_str("        ");
-            }
-            write!(disps, "0x{disp:04x},").unwrap();
-            if i % 12 == 11 {
-                disps.push_str("\n");
-            }
-        }
-        if self.disps.len() % 12 != 0 {
-            disps.push_str("\n");
-        }
-
-        let mut buf = String::new();
-        writeln!(buf, "fn {hash_fn_name}(value: &{in_ty}) -> usize {{").unwrap();
-        writeln!(buf, "    const KEY: u32 = 0x{:08x};", self.key).unwrap();
-        writeln!(buf, "    const DISPS: [u16; {}] = [", self.disps.len()).unwrap();
-        buf.push_str(&disps);
-        writeln!(buf, "    ];").unwrap();
-        writeln!(
-            buf,
-            "    lgba_phf::hash::<{}, {}, _>(KEY, &DISPS, value)",
-            self.disps.len(),
-            self.map.len()
-        )
-        .unwrap();
-        writeln!(buf, "}}").unwrap();
-        buf
-    }
-
-    pub fn generate_rust_code_include(
+    #[cfg(feature = "generator_proc_macro")]
+    pub fn generate_syn_code(
         &self,
-        hash_fn_name: &str,
-        in_ty: &str,
-        include: &str,
-    ) -> String {
-        let mut buf = String::new();
-        writeln!(buf, "fn {hash_fn_name}(value: &{in_ty}) -> usize {{").unwrap();
-        writeln!(buf, "    const KEY: u32 = 0x{:08x};", self.key).unwrap();
-        writeln!(
-            buf,
-            "    const DISPS: [u16; {}] = *include_u16!(\"{include}\");",
-            self.disps.len()
-        )
-        .unwrap();
-        writeln!(
-            buf,
-            "    lgba_phf::hash::<{}, {}, _>(KEY, &DISPS, value)",
-            self.disps.len(),
-            self.map.len()
-        )
-        .unwrap();
-        writeln!(buf, "}}").unwrap();
-        buf
+        fn_name: SynTokenStream,
+        in_ty: SynTokenStream,
+        path_lgba_phf: SynTokenStream,
+    ) -> SynTokenStream {
+        let key = self.key;
+        let disps = &self.disps;
+        let disps_len = self.disps.len();
+        let map_len = self.map.len();
+
+        quote! {
+            fn #fn_name(value: #in_ty) -> usize {
+                const KEY: u32 = #key,
+                static DISPS: [u16, #disps_len] = [#(#disps,)*];
+                #path_lgba_phf::hash::<#disps_len, #map_len>(KEY, &DISPS, value)
+            }
+        }
     }
 }
 

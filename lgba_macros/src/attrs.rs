@@ -1,3 +1,4 @@
+use crate::Paths;
 use darling::FromAttributes;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as SynTokenStream};
@@ -61,6 +62,9 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> {
+    let paths = Paths::new()?;
+    let internal = &paths.internal;
+
     // Check function signature
     match &input.sig.output {
         ReturnType::Type(_, ty) if matches!(**ty, Type::Never(_)) => {} // ok
@@ -146,7 +150,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
-            use lgba::__macro_export::*;
+            use #internal::gba_header::*;
 
             #[no_mangle]
             #[link_section = ".lgba.header.dynamic"]

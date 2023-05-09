@@ -25,3 +25,15 @@ __lgba_header_multiboot:
     b __lgba__internal_multiplay_start
     .space 0x1C
     b __lgba__internal_joybus_start @ joybus entry point; not currently supported
+
+    .section .lgba.header.exheader, "ax", %progbits
+    .arm
+    .global __lgba_header_exheader
+__lgba_header_exheader:
+    .ascii "lgba_exh"
+    .short 1
+    .short 0
+    .word __lgba_exh_rom_cname
+    .word __lgba_exh_rom_cver
+    .word __lgba_exh_rom_repository
+    .word __lgba_exh_lgba_version

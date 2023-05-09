@@ -1,7 +1,5 @@
-use std::cmp::max;
-use std::fs::File;
-use std::path::PathBuf;
 use anyhow::*;
+use std::{cmp::max, fs::File, path::PathBuf};
 
 fn convert_bdf() -> Result<()> {
     let mut directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

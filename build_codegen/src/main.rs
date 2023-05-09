@@ -1,5 +1,3 @@
-use lgba_macros::font_derive::;
-
 const FONT_ASCII: gen_fonts::FontConfiguration = gen_fonts::FontConfiguration {
     font_name: "font_ascii",
     font_type: "TerminalFontAscii",
