@@ -107,7 +107,9 @@ pub const BLDY: Register<u16> = unsafe { Register::new(0x4000054) };
 pub const BG_PALETTE_RAM: RegArray<u16, 256> = unsafe { RegArray::new(0x5000000) };
 pub const OBJ_PALETTE_RAM: RegArray<u16, 256> = unsafe { RegArray::new(0x5000200) };
 pub const VRAM_BASE: usize = 0x6000000;
+pub const VRAM_END: usize = 06010000;
 pub const VRAM_OBJ_BASE: usize = 0x6010000;
+pub const VRAM_OBJ_END: usize = 06018000;
 
 //
 // DMA Transfer Registers

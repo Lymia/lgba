@@ -3,11 +3,13 @@
 #[macro_use]
 mod macros;
 
-#[cfg(feature = "terminal")]
+mod layers;
+mod modes;
 mod terminal;
 mod vram;
 
-#[cfg(feature = "terminal")]
-pub use terminal::*;
-
-pub use vram::*;
+pub use layers::{ActiveTileLayer, ActiveTileLayerEditGuard, TileLayer};
+pub use terminal::{
+    Terminal, TerminalFont, TerminalFontAscii, TerminalFontBasic, TerminalFontFull,
+};
+pub use vram::{CharAccess, CharData, VramTile};

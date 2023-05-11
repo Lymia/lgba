@@ -1,5 +1,5 @@
 # Width options
-max_width = 100
+max_width = 99
 fn_call_width = 80
 attr_fn_like_width = 80
 struct_lit_width = 80

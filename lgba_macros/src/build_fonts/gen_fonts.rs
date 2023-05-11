@@ -159,12 +159,9 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
         }
     }
 
-    // add technical character for background rendering
-    char_map.insert('\u{F500}', CharacterInfo {
-        ch: '\u{F500}',
-        data: !0,
-        is_half_width: false,
-    });
+    // add technical characters for background rendering
+    char_map.insert(' ', CharacterInfo { ch: ' ', data: 0, is_half_width: false });
+    char_map.insert('\u{F500}', CharacterInfo { ch: '\u{F500}', data: !0, is_half_width: false });
 
     // return the downloaded characters
     let mut characters: Vec<_> = char_map.values().cloned().collect();
@@ -387,7 +384,6 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
         ch_count - low_plane_dupe_check.len()
     };
     let tile_count = ((ch_data.glyph_count + dupe_count + 4 + 15) / 16) * 16;
-
 
     // create a new glyph builder
     let mut builder = GlyphPlaneBuilder {

@@ -86,6 +86,7 @@ pub enum TerminalFontBasic {}
 #[font(block = "Superscripts and Subscripts")]
 #[font(block = "Supplemental Punctuation")]
 #[font(block = "Unified Canadian Aboriginal Syllabics")]
+#[font(disable_unscii = "Halfwidth and Fullwidth Forms")]
 #[font(allow_halfwidth_blocks = "Halfwidth and Fullwidth Forms")]
 #[font(kanji_max_level = "2")]
 #[font(fallback_char = "⁇")]
