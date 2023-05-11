@@ -224,7 +224,7 @@ pub fn dma0() -> DmaChannel {
 pub fn dma1() -> DmaChannel {
     DmaChannel {
         channel: DmaChannelId::Dma1,
-        src_internal: true,
+        src_internal: false,
         dst_internal: true,
         irq_notify: false,
         mutex: DMA1_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
@@ -233,7 +233,7 @@ pub fn dma1() -> DmaChannel {
 pub fn dma2() -> DmaChannel {
     DmaChannel {
         channel: DmaChannelId::Dma2,
-        src_internal: true,
+        src_internal: false,
         dst_internal: true,
         irq_notify: false,
         mutex: DMA2_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
@@ -242,8 +242,8 @@ pub fn dma2() -> DmaChannel {
 pub fn dma3() -> DmaChannel {
     DmaChannel {
         channel: DmaChannelId::Dma3,
-        src_internal: true,
-        dst_internal: true,
+        src_internal: false,
+        dst_internal: false,
         irq_notify: false,
         mutex: DMA3_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
     }

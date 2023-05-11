@@ -18,6 +18,9 @@ pub mod sys;
 // public reexports
 pub use lgba_macros::{entry, ewram, iwram};
 
+// hack for the procedural macros
+use crate as lgba;
+
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {

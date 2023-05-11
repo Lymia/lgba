@@ -1,6 +1,7 @@
 use crate::{
     display::{vram::MapAccess, CharAccess},
     mmio::{display::BgCnt, reg::*},
+    println,
 };
 
 const BG_CNT: [Register<BgCnt, SafeReg>; 4] = [BG0CNT, BG1CNT, BG2CNT, BG3CNT];
@@ -294,7 +295,7 @@ impl TileLayer {
 
     /// The tile map size for this layer.
     pub fn tile_map_size(&self) -> TileLayerSize {
-        match self.cnt.tile_map_base() {
+        match self.cnt.screen_size() {
             0 => TileLayerSize::Map256x256,
             1 => TileLayerSize::Map512x256,
             2 => TileLayerSize::Map256x512,

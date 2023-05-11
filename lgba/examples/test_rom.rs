@@ -5,31 +5,14 @@
 extern crate lgba;
 
 use core::alloc::{GlobalAlloc, Layout};
+use lgba::display::{Terminal, TerminalFontBasic};
 
 #[inline(never)]
 #[lgba::iwram]
 fn main_impl() -> ! {
-    unsafe {
-        let mut i = 0;
-        let mut rng = 1u32;
-        /*DISPCNT.write(
-            DispCnt::default()
-                .with_mode(DispMode::Mode3)
-                .with_display_bg2(true),
-        );*/
-        // TODO Fix me
-        loop {
-            (0x06000000 as *mut u16)
-                .offset(i)
-                .write_volatile((rng >> 16) as u16);
-            i += 1;
-            if i > 0xA000 {
-                //i = 0
-                lgba::sys::abort();
-            }
-            rng = rng.wrapping_mul(2891336453).wrapping_add(1234561);
-        }
-    }
+    let mut terminal = Terminal::new();
+    let terminal = terminal.activate::<TerminalFontBasic>();
+    loop {}
 }
 
 #[lgba::entry]

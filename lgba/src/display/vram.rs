@@ -97,7 +97,12 @@ impl CharAccess {
     }
 
     /// Writes 4bpp character data to the given character ID.
-    pub fn write_char_4bpp_dma(&self, channel: DmaChannel, id: usize, data: &impl CharData) {
+    pub fn write_char_4bpp_dma(
+        &self,
+        channel: DmaChannel,
+        id: usize,
+        data: &(impl CharData + ?Sized),
+    ) {
         unsafe {
             self.check_bounds(id, data.char_count_4bpp());
             let offset = self.base_index(id);
@@ -118,7 +123,12 @@ impl CharAccess {
     }
 
     /// Writes 8bpp character data to the given character ID.
-    pub fn write_char_8bpp_dma(&self, channel: DmaChannel, id: usize, data: &impl CharData) {
+    pub fn write_char_8bpp_dma(
+        &self,
+        channel: DmaChannel,
+        id: usize,
+        data: &(impl CharData + ?Sized),
+    ) {
         unsafe {
             if id % 2 != 0 {
                 char_id_is_odd();

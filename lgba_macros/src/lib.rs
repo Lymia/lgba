@@ -25,7 +25,7 @@ struct Paths {
 impl Paths {
     fn new() -> Result<Paths> {
         let root_crate = match proc_macro_crate::crate_name("lgba") {
-            Ok(FoundCrate::Itself) => quote! { crate },
+            Ok(FoundCrate::Itself) => quote! { crate::lgba },
             Ok(FoundCrate::Name(name)) => {
                 let literal = Ident::new(name.as_str(), Span::call_site());
                 quote! { #literal }
