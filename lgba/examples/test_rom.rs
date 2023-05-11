@@ -12,6 +12,12 @@ use lgba::display::{Terminal, TerminalFontBasic};
 fn main_impl() -> ! {
     let mut terminal = Terminal::new();
     let terminal = terminal.activate::<TerminalFontBasic>();
+
+    for (i, char) in "Hello, world!".chars().enumerate() {
+        println!("{} {}", i, char);
+        terminal.set_char(1 + i, 1, char, 0);
+    }
+
     loop {}
 }
 

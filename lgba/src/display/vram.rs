@@ -159,32 +159,32 @@ fn char_id_is_odd() {
 #[derive(Copy, Clone, Debug)]
 pub struct MapAccess {
     base: usize,
-    map_scale: usize,
-    map_mask: usize,
-    map_size: usize,
+    map_length: usize,
+    map_shift: usize,
+    map_area: usize,
 }
 impl MapAccess {
-    pub(crate) fn new(base: usize, scale_shift: usize) -> Self {
-        let scale = 1 << scale_shift;
-        MapAccess { base, map_scale: scale, map_mask: scale - 1, map_size: scale * scale }
+    pub(crate) fn new(base: usize, shift: usize) -> Self {
+        let scale = 1 << shift;
+        MapAccess { base, map_length: scale, map_shift: shift, map_area: scale * scale }
     }
 
     fn index(&self, x: usize, y: usize) -> usize {
-        if x >= self.map_scale || y >= self.map_scale {
-            invalid_tile_map_coordinate(self.map_scale);
+        if x >= self.map_length || y >= self.map_length {
+            invalid_tile_map_coordinate(self.map_length);
         }
-        x + (y << self.map_mask)
+        x + (y << self.map_shift)
     }
     fn check_bounds(&self, x: usize, y: usize, count: usize) {
         let start_idx = self.index(x, y);
         let end_idx = start_idx + count;
 
-        if end_idx >= self.map_size {
-            invalid_tile_map_coordinate(self.map_scale);
+        if end_idx >= self.map_area {
+            invalid_tile_map_coordinate(self.map_length);
         }
     }
     fn base_index(&self, x: usize, y: usize) -> *mut VramTile {
-        (self.base + self.index(x, y)) as *mut VramTile
+        unsafe { (self.base as *mut VramTile).offset(self.index(x, y) as isize) }
     }
 
     /// Sets a coordinate to a given tile.

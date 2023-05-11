@@ -13,6 +13,8 @@ use crate::{
 };
 use core::fmt::{Arguments, Debug, Error, Write};
 
+// TODO: Handle format!("{i}");
+
 /// A debug level that a log message may be emitted at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs)]
