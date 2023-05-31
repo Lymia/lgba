@@ -559,6 +559,17 @@ fn make_glyphs_file(
         }
     }
 
+    // Creates the low plane half-width table bitset
+    let mut low_plane_half = vec![0u16; config.low_plane_limit / 16];
+    for (i, is_half) in glyphs.low_plane_half_width.iter().enumerate() {
+        if *is_half {
+            low_plane_half[i >> 4] |= 1 << (i % 16);
+        }
+    }
+    if low_plane_half.iter().all(|x| *x == 0) {
+        low_plane_half.clear();
+    }
+
     // Compute the raw PHF for the high planes
     let entries: Vec<_> = glyphs.glyph_map.keys().cloned().collect();
     let phf = lgba_phf::generator::generate_hash(config.delta, &entries);
@@ -570,7 +581,7 @@ fn make_glyphs_file(
     let glyph_char_bits = (glyphs.tile_count / 4 - 1)
         .next_power_of_two()
         .trailing_zeros();
-    let (hi_bits, divisor) = match glyph_char_bits + 2 {
+    let (hi_bits, divisor) = match glyph_char_bits + 3 {
         x if x <= 8 => (0, 0xFFFFFFFF),
         x if x <= 9 => (1, 16),
         x if x <= 10 => (2, 8),
@@ -591,8 +602,9 @@ fn make_glyphs_file(
         let glyph = entries[*map];
         glyph_check[i] = glyph;
 
-        let (plane, char, _) = glyphs.glyph_map.get(&glyph).unwrap();
-        let packed = (*plane << glyph_char_bits) | *char;
+        let (plane, char, is_half) = glyphs.glyph_map.get(&glyph).unwrap();
+        let meta = ((*is_half as usize) << 2) | *plane;
+        let packed = (meta << glyph_char_bits) | *char;
 
         if hi_bits != 0 {
             let hi = (packed >> 8) as u16;
@@ -607,6 +619,7 @@ fn make_glyphs_file(
     // Calculate statistics
     let bytes = glyphs.data.len()
         + low_plane.len() * 2
+        + low_plane_half.len() * 2
         + glyph_check.len() * 2
         + glyph_id_hi.len() * 2
         + glyph_id_lo.len()
@@ -644,8 +657,10 @@ fn make_glyphs_file(
 
     // Create the new implementation for the type
     let lo_map_data = make_u16_literal(&low_plane);
+    let lo_map_len = low_plane.len();
+    let lo_map_half_data = make_u16_literal(&low_plane_half);
+    let lo_map_half_len = low_plane_half.len();
     let lo_map_size = config.low_plane_limit;
-    let lo_map_len = config.low_plane_limit / 16;
 
     let glyph_check_data = make_u16_literal(&glyph_check);
     let glyph_id_lo_data = make_u8_literal(&glyph_id_lo);
@@ -677,8 +692,9 @@ fn make_glyphs_file(
         })
     };
     let impl_content = quote! {
-        const FALLBACK_GLYPH: (u8, u16, bool) = (#fb_hi as u8, #fb_lo as u16, #fb_high);
+        const FALLBACK_GLYPH: (u8, u16, bool) = (#fb_hi as u8, #fb_lo as u16, #fb_half);
         const LO_MAP_DATA: [u16; #lo_map_len] = #lo_map_data;
+        const LO_MAP_HALF_DATA: [u16; #lo_map_half_len] = #lo_map_half_data;
         const GLYPH_CHECK: [u16; #glyph_size] = #glyph_check_data;
         const GLYPH_ID_LO: [u8; #glyph_size] = #glyph_id_lo_data;
         const FONT_DATA: [u32; #font_data_size] = #font_data;
@@ -691,7 +707,11 @@ fn make_glyphs_file(
             let slot = lookup_glyph(&(id as u16));
             if id == GLYPH_CHECK[slot] as usize {
                 #load_hi
-                ((packed >> #glyph_char_bits) as u8, packed & CHAR_MASK, false)
+
+                let plane = ((packed >> #glyph_char_bits) & 3) as u8;
+                let char = packed & CHAR_MASK;
+                let is_half = ((packed >> (#glyph_char_bits + 2)) & 1) as u8;
+                (plane, char, is_half != 0)
             } else {
                 FALLBACK_GLYPH
             }
@@ -702,7 +722,9 @@ fn make_glyphs_file(
                 // We check the low plane bitmap to see if we have this glyph.
                 let word = LO_MAP_DATA[id >> 4];
                 if word & (1 << (id & 15)) != 0 {
-                    ((id & 3) as u8, (id >> 2) as u16, false)
+                    let half_word = *LO_MAP_HALF_DATA.get(id >> 4).unwrap_or(&0);
+                    let is_half = half_word & (1 << (id & 15)) != 0;
+                    ((id & 3) as u8, (id >> 2) as u16, is_half)
                 } else {
                     // half-width shenanigans can cause this to be in the PHF instead
                     get_font_glyph_phf(id)

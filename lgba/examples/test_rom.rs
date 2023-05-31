@@ -12,7 +12,8 @@ use lgba::display::{Terminal, TerminalFontFull};
 fn main_impl() -> ! {
     let mut terminal = Terminal::new();
     let mut terminal = terminal.activate::<TerminalFontFull>();
-    terminal.set_color(1, 0, 0x7F1C);
+    terminal.set_color(0, 0x7E25, !0);
+    terminal.set_color(1, 0, 0x731F);
     terminal.set_color(2, !0, 0);
 
     for (j, str) in [

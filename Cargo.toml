@@ -3,6 +3,7 @@ members = [
     "lgba",
     "lgba_macros",
     "lgba_phf",
+    "lgba_romtool",
 ]
 resolver = "2"
 

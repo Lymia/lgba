@@ -6,7 +6,7 @@ use crate::{
     },
     dma::dma3,
     mmio::reg::BG_PALETTE_RAM,
-    sync::Static,
+    sync::{Mutex, Static},
 };
 use core::marker::PhantomData;
 
@@ -113,6 +113,7 @@ impl Terminal {
                 ActiveTerminal::<T>::tile_for_ch('\u{F501}', 2),
                 ActiveTerminal::<T>::tile_for_ch('\u{F501}', 3),
             ],
+            state: Mutex::new(Default::default()),
             _phantom: Default::default(),
         };
 
@@ -129,13 +130,35 @@ pub struct ActiveTerminal<'a, T: TerminalFont> {
     mode: ActiveMode0<'a>,
     terminal_colors: &'a [Static<(u16, u16)>; 4],
     map: [MapAccess; 4],
+
     space_ch: [VramTile; 4],
     half_bg_ch: [VramTile; 4],
     full_bg_ch: [VramTile; 4],
+
+    state: Mutex<ActiveTerminalState>,
+
     _phantom: PhantomData<T>,
+}
+#[derive(Default)]
+struct ActiveTerminalState {
+    cursor_x: u8,
+    cursor_y: u8,
+    color: u8,
+    line_advance: u8,
+}
+impl ActiveTerminalState {
+    fn apply_advance(&self, y: usize) -> usize {
+        let ny = y + (self.line_advance as usize);
+        if ny >= 19 {
+            ny - 19
+        } else {
+            ny
+        }
+    }
 }
 impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
     pub fn set_color(&self, id: usize, background: u16, foreground: u16) {
+        let _lock = self.state.lock();
         if id >= 4 {
             terminal_color_out_of_range();
         }
@@ -155,6 +178,9 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
         Self::data_for_ch(ch, color).0
     }
     pub fn clear(&self) {
+        let mut lock = self.state.lock();
+        *lock = Default::default();
+
         let tile = self.space_ch[0];
         self.map[0].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
         self.map[1].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
@@ -162,18 +188,33 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
         self.map[3].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
     }
 
+    fn check_coordinate(&self, x: usize, y: usize) {
+        if x >= 58 && y >= 19 {
+            terminal_coord_out_of_range();
+        }
+    }
+
     pub fn set_char(&self, x: usize, y: usize, ch: char, color: usize) {
+        let lock = self.state.lock();
+        let y = lock.apply_advance(y);
+
+        self.check_coordinate(x * 2, y);
+
         self.map[0].set_tile(x, y, Self::tile_for_ch(ch, color));
         self.map[1].set_tile(x, y, self.space_ch[color]);
         self.map[2].set_tile(x, y, self.full_bg_ch[color]);
     }
     pub fn set_char_hw(&self, x: usize, y: usize, mut ch: char, color: usize) {
-        self.set_char_hw_0(x, y, ch, color);
-    }
-    fn set_char_hw_0(&self, x: usize, y: usize, mut ch: char, color: usize) -> bool {
+        let lock = self.state.lock();
+        let y = lock.apply_advance(y);
+
         if ch.is_ascii() {
             ch = char::from_u32((ch as u32) + 0xF400).unwrap();
         }
+        self.set_char_hw_0(x, y, ch, color);
+    }
+    fn set_char_hw_0(&self, x: usize, y: usize, ch: char, color: usize) -> bool {
+        self.check_coordinate(x, y);
 
         let (plane, tile_x) = (x % 2, x / 2);
         let (tile, is_half) = Self::data_for_ch(ch, color);
@@ -196,6 +237,18 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
 
         is_half
     }
+
+    pub fn write_string(&self, x: usize, y: usize, str: &str) {
+        self.check_coordinate(x, y);
+    }
+}
+
+#[inline(never)]
+fn terminal_coord_out_of_range() -> ! {
+    crate::panic_handler::static_panic(
+        "Terminal coordinates are from (0,0) to (57,18) inclusive in half-width mode and between\
+        (0,0) to (28,18) inclusive in full-width mode.",
+    )
 }
 
 #[inline(never)]

@@ -1,7 +1,7 @@
 [package]
 name = "lgba_phf"
 version = "0.1.0"
-authors = ["Alissa Rao <lymia@lymiahugs.com>"]
+authors = ["Lymia Kanokawa <lymia@lymia.moe>"]
 edition = "2021"
 
 description = "A PHF library optimized specifically for the GBA."
