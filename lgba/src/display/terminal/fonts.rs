@@ -16,6 +16,13 @@ pub trait TerminalFont {
 }
 pub use lgba_macros::TerminalFont; // allow users to make custom terminal fonts
 
+/// A terminal font supporting only half-width 7-bit ASCII characters.
+#[derive(TerminalFont)]
+#[font(block = "Basic Latin")]
+#[font(disable_unscii = "*")]
+#[font(allow_halfwidth_blocks = "Basic Latin")]
+pub enum TerminalFontAsciiHalf {}
+
 /// A terminal font supporting only 7-bit ASCII characters.
 #[derive(TerminalFont)]
 #[font(block = "Basic Latin")]

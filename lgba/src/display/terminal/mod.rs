@@ -143,13 +143,16 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
         update_palette(id, self.terminal_colors[id].read());
     }
 
-    fn tile_for_ch(ch: char, color: usize) -> VramTile {
+    fn data_for_ch(ch: char, color: usize) -> (VramTile, bool) {
         if color >= 4 {
             terminal_color_out_of_range();
         }
-        let (plane, tile, _) = T::get_font_glyph(ch);
+        let (plane, tile, is_half) = T::get_font_glyph(ch);
         let pal = color as u8 * 4 + plane;
-        VramTile::default().with_char(tile).with_palette(pal as u8)
+        (VramTile::default().with_char(tile).with_palette(pal as u8), is_half)
+    }
+    fn tile_for_ch(ch: char, color: usize) -> VramTile {
+        Self::data_for_ch(ch, color).0
     }
     pub fn clear(&self) {
         let tile = self.space_ch[0];
@@ -165,13 +168,33 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
         self.map[2].set_tile(x, y, self.full_bg_ch[color]);
     }
     pub fn set_char_hw(&self, x: usize, y: usize, mut ch: char, color: usize) {
+        self.set_char_hw_0(x, y, ch, color);
+    }
+    fn set_char_hw_0(&self, x: usize, y: usize, mut ch: char, color: usize) -> bool {
         if ch.is_ascii() {
             ch = char::from_u32((ch as u32) + 0xF400).unwrap();
         }
 
         let (plane, tile_x) = (x % 2, x / 2);
-        self.map[plane + 0].set_tile(tile_x, y, Self::tile_for_ch(ch, color));
-        self.map[plane + 2].set_tile(tile_x, y, self.half_bg_ch[color]);
+        let (tile, is_half) = Self::data_for_ch(ch, color);
+        if is_half && plane == 0 {
+            self.map[0].set_tile(tile_x, y, tile);
+            self.map[2].set_tile(tile_x, y, self.half_bg_ch[color]);
+        } else if is_half {
+            self.map[1].set_tile(tile_x, y, tile);
+            self.map[3].set_tile(tile_x, y, self.half_bg_ch[color]);
+        } else if plane == 0 {
+            self.map[0].set_tile(tile_x, y, tile);
+            self.map[1].set_tile(tile_x, y, self.space_ch[color]);
+            self.map[2].set_tile(tile_x, y, self.full_bg_ch[color]);
+        } else {
+            self.map[0].set_tile(tile_x + 1, y, self.space_ch[color]);
+            self.map[1].set_tile(tile_x, y, tile);
+            self.map[2].set_tile(tile_x + 1, y, self.space_ch[color]);
+            self.map[3].set_tile(tile_x, y, self.full_bg_ch[color]);
+        }
+
+        is_half
     }
 }
 

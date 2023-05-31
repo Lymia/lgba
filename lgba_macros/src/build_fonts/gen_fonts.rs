@@ -602,7 +602,7 @@ fn make_glyphs_file(
     }
 
     // Find the replacement glyph
-    let (fallback_hi, fallback_lo, _) = glyphs.glyph_lookup[&(config.fallback_char as u16)];
+    let (fb_hi, fb_lo, fb_half) = glyphs.glyph_lookup[&(config.fallback_char as u16)];
 
     // Calculate statistics
     let bytes = glyphs.data.len()
@@ -677,7 +677,7 @@ fn make_glyphs_file(
         })
     };
     let impl_content = quote! {
-        const FALLBACK_GLYPH: (u8, u16, bool) = (#fallback_hi as u8, #fallback_lo as u16, false);
+        const FALLBACK_GLYPH: (u8, u16, bool) = (#fb_hi as u8, #fb_lo as u16, #fb_high);
         const LO_MAP_DATA: [u16; #lo_map_len] = #lo_map_data;
         const GLYPH_CHECK: [u16; #glyph_size] = #glyph_check_data;
         const GLYPH_ID_LO: [u8; #glyph_size] = #glyph_id_lo_data;
