@@ -52,16 +52,26 @@ impl Terminal {
 
     pub fn activate<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
         // configure all layers
-        self.mode.layers[0].set_enabled(true).set_tile_base(28);
+        self.mode.layers[0]
+            .set_enabled(true)
+            .set_tile_base(28)
+            .set_h_offset(4)
+            .set_v_offset(4);
         self.mode.layers[1]
             .set_enabled(true)
             .set_tile_base(29)
-            .set_h_offset(256 - 4);
-        self.mode.layers[2].set_enabled(true).set_tile_base(30);
+            .set_h_offset(8)
+            .set_v_offset(4);
+        self.mode.layers[2]
+            .set_enabled(true)
+            .set_tile_base(30)
+            .set_h_offset(4)
+            .set_v_offset(4);
         self.mode.layers[3]
             .set_enabled(true)
             .set_tile_base(31)
-            .set_h_offset(256 - 4);
+            .set_h_offset(8)
+            .set_v_offset(4);
 
         // upload font
         self.mode.layers[0]
@@ -86,10 +96,22 @@ impl Terminal {
             terminal_colors: &self.terminal_colors,
             map,
             space_ch: [
-                ActiveTerminal::<T>::tile_for_ch(' ', 0),
-                ActiveTerminal::<T>::tile_for_ch(' ', 1),
-                ActiveTerminal::<T>::tile_for_ch(' ', 2),
-                ActiveTerminal::<T>::tile_for_ch(' ', 3),
+                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 0),
+                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 1),
+                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 2),
+                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 3),
+            ],
+            half_bg_ch: [
+                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 0),
+                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 1),
+                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 2),
+                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 3),
+            ],
+            full_bg_ch: [
+                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 0),
+                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 1),
+                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 2),
+                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 3),
             ],
             _phantom: Default::default(),
         };
@@ -108,6 +130,8 @@ pub struct ActiveTerminal<'a, T: TerminalFont> {
     terminal_colors: &'a [Static<(u16, u16)>; 4],
     map: [MapAccess; 4],
     space_ch: [VramTile; 4],
+    half_bg_ch: [VramTile; 4],
+    full_bg_ch: [VramTile; 4],
     _phantom: PhantomData<T>,
 }
 impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
@@ -128,7 +152,7 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
         VramTile::default().with_char(tile).with_palette(pal as u8)
     }
     pub fn clear(&self) {
-        let tile = Self::tile_for_ch(' ', 0);
+        let tile = self.space_ch[0];
         self.map[0].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
         self.map[1].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
         self.map[2].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
@@ -138,8 +162,7 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
     pub fn set_char(&self, x: usize, y: usize, ch: char, color: usize) {
         self.map[0].set_tile(x, y, Self::tile_for_ch(ch, color));
         self.map[1].set_tile(x, y, self.space_ch[color]);
-        self.map[2].set_tile(x, y, self.space_ch[color]);
-        self.map[3].set_tile(x, y, self.space_ch[color]);
+        self.map[2].set_tile(x, y, self.full_bg_ch[color]);
     }
     pub fn set_char_hw(&self, x: usize, y: usize, mut ch: char, color: usize) {
         if ch.is_ascii() {
@@ -148,7 +171,7 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
 
         let (plane, tile_x) = (x % 2, x / 2);
         self.map[plane + 0].set_tile(tile_x, y, Self::tile_for_ch(ch, color));
-        self.map[plane + 2].set_tile(tile_x, y, self.space_ch[color]);
+        self.map[plane + 2].set_tile(tile_x, y, self.half_bg_ch[color]);
     }
 }
 

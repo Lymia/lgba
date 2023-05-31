@@ -5,8 +5,8 @@ use crate::{
 };
 
 const BG_CNT: [Register<BgCnt, SafeReg>; 4] = [BG0CNT, BG1CNT, BG2CNT, BG3CNT];
-const BG_HOFS: [Register<u16, SafeReg>; 4] = [BG0HOFS, BG1HOFS, BG2HOFS, BG3HOFS];
-const BG_VOFS: [Register<u16, SafeReg>; 4] = [BG0VOFS, BG1VOFS, BG2VOFS, BG3VOFS];
+const BG_HOFS: [Register<i16, SafeReg>; 4] = [BG0HOFS, BG1HOFS, BG2HOFS, BG3HOFS];
+const BG_VOFS: [Register<i16, SafeReg>; 4] = [BG0VOFS, BG1VOFS, BG2VOFS, BG3VOFS];
 
 // TODO: Introduce a autogenerating procedural macro to this module.
 
@@ -54,34 +54,34 @@ macro_rules! standard_ops_inactive {
         }
 
         /// Whether the horizontal offset of this layer.
-        pub fn h_offsets(&self) -> u16 {
+        pub fn h_offsets(&self) -> i16 {
             self.h_offset
         }
 
         /// Sets the horizontal offset of this layer.
-        pub fn set_h_offset(&mut self, value: u16) -> &mut Self {
+        pub fn set_h_offset(&mut self, value: i16) -> &mut Self {
             self.h_offset = value;
             self
         }
 
         /// Whether the vertical offset of this layer.
-        pub fn v_offset(&self) -> u16 {
+        pub fn v_offset(&self) -> i16 {
             self.v_offset
         }
 
         /// Sets the vertical offset of this layer.
-        pub fn set_v_offset(&mut self, value: u16) -> &mut Self {
+        pub fn set_v_offset(&mut self, value: i16) -> &mut Self {
             self.v_offset = value;
             self
         }
 
         /// Returns the offset of this layer
-        pub fn offset(&self) -> (u16, u16) {
+        pub fn offset(&self) -> (i16, i16) {
             (self.h_offset, self.v_offset)
         }
 
         /// Sets the offset of this layer.
-        pub fn set_offset(&mut self, x: u16, y: u16) -> &mut Self {
+        pub fn set_offset(&mut self, x: i16, y: i16) -> &mut Self {
             self.set_h_offset(x);
             self.set_v_offset(y);
             self
@@ -102,34 +102,34 @@ macro_rules! standard_ops_active {
         }
 
         /// Whether the horizontal offset of this layer.
-        pub fn h_offsets(&self) -> u16 {
+        pub fn h_offsets(&self) -> i16 {
             self.layer.h_offsets()
         }
 
         /// Sets the horizontal offset of this layer.
-        pub fn set_h_offset<'b>(&'b mut self, value: u16) -> $guard<'b, $lt> {
+        pub fn set_h_offset<'b>(&'b mut self, value: i16) -> $guard<'b, $lt> {
             self.layer.set_h_offset(value);
             $guard::new(self).mark_hoff_dirty()
         }
 
         /// Whether the vertical offset of this layer.
-        pub fn v_offset(&self) -> u16 {
+        pub fn v_offset(&self) -> i16 {
             self.layer.v_offset()
         }
 
         /// Sets the vertical offset of this layer.
-        pub fn set_v_offset<'b>(&'b mut self, value: u16) -> $guard<'b, $lt> {
+        pub fn set_v_offset<'b>(&'b mut self, value: i16) -> $guard<'b, $lt> {
             self.layer.set_v_offset(value);
             $guard::new(self).mark_voff_dirty()
         }
 
         /// Returns the offset of this layer
-        pub fn offset(&self) -> (u16, u16) {
+        pub fn offset(&self) -> (i16, i16) {
             self.layer.offset()
         }
 
         /// Sets the offset of this layer.
-        pub fn set_offset<'b>(&'b mut self, x: u16, y: u16) -> $guard<'b, $lt> {
+        pub fn set_offset<'b>(&'b mut self, x: i16, y: i16) -> $guard<'b, $lt> {
             self.layer.set_offset(x, y);
             $guard::new(self).mark_hoff_dirty().mark_voff_dirty()
         }
@@ -144,19 +144,19 @@ macro_rules! standard_ops_guard {
         }
 
         /// Sets the horizontal offset of this layer.
-        pub fn set_h_offset(self, value: u16) -> Self {
+        pub fn set_h_offset(self, value: i16) -> Self {
             self.layer.layer.set_h_offset(value);
             self.mark_hoff_dirty()
         }
 
         /// Sets the vertical offset of this layer.
-        pub fn set_v_offset(self, value: u16) -> Self {
+        pub fn set_v_offset(self, value: i16) -> Self {
             self.layer.layer.set_v_offset(value);
             self.mark_voff_dirty()
         }
 
         /// Sets the offset of this layer.
-        pub fn set_offset(self, x: u16, y: u16) -> Self {
+        pub fn set_offset(self, x: i16, y: i16) -> Self {
             self.layer.layer.set_offset(x, y);
             self.mark_hoff_dirty().mark_voff_dirty()
         }
@@ -168,8 +168,8 @@ macro_rules! standard_ops_guard {
 pub struct TileLayer {
     pub(crate) id: LayerId,
     cnt: BgCnt,
-    h_offset: u16,
-    v_offset: u16,
+    h_offset: i16,
+    v_offset: i16,
     is_enabled: bool,
 }
 impl TileLayer {
@@ -181,10 +181,10 @@ impl TileLayer {
         BG_CNT[self.id as usize].write(self.cnt);
     }
     fn write_hoff(&self) {
-        BG_HOFS[self.id as usize].write(self.h_offset);
+        BG_HOFS[self.id as usize].write(-self.h_offset);
     }
     fn write_voff(&self) {
-        BG_VOFS[self.id as usize].write(self.v_offset);
+        BG_VOFS[self.id as usize].write(-self.v_offset);
     }
     pub(crate) fn write_enabled_from_guard(&self) {
         // TODO: Cleanup

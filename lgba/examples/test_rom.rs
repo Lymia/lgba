@@ -37,32 +37,29 @@ fn main_impl() -> ! {
     .enumerate()
     {
         for (i, char) in str.chars().enumerate() {
-            terminal.set_char(1 + i, 1 + j, char, 0);
+            terminal.set_char(i, j, char, 0);
         }
     }
     for (i, char) in "Hello, world! (but it's in half-width characters)"
         .chars()
         .enumerate()
     {
-        terminal.set_char_hw(2 + i, 2, char, 0);
+        terminal.set_char_hw(i, 1, char, 0);
     }
     for (i, char) in "Hello, world! (but it's both pink and half-width)"
         .chars()
         .enumerate()
     {
-        terminal.set_char_hw(2 + i, 3, char, 1);
+        terminal.set_char_hw(i, 2, char, 1);
     }
-    for (i, char) in "Reverse text! Reverse text!"
-        .chars()
-        .enumerate()
-    {
-        terminal.set_char(1 + i, 4, char, 2);
+    for (i, char) in "Reverse text! Reverse text!".chars().enumerate() {
+        terminal.set_char(i, 3, char, 2);
     }
     for (i, char) in "Half-width reverse text! Half-width reverse text!"
         .chars()
         .enumerate()
     {
-        terminal.set_char_hw(2 + i, 5, char, 2);
+        terminal.set_char_hw(i, 4, char, 2);
     }
 
     loop {}

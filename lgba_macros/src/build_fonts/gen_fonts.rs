@@ -129,9 +129,17 @@ fn process_char(config: &DecodedFontConfig, mut char: CharacterInfo) -> Characte
     }
     char
 }
+
+const TECHNICAL_CHAR_BLANK: u64 = 0;
+const TECHNICAL_CHAR_HALF: u64 = 0xF0F0F0F0F0F0F0F0;
+const TECHNICAL_CHAR_FULL: u64 = !0;
+
+fn is_technical_char(data: u64) -> bool {
+    data == TECHNICAL_CHAR_BLANK || data == TECHNICAL_CHAR_FULL || data == TECHNICAL_CHAR_FULL
+}
 fn is_lgba_private_use(ch: char) -> bool {
     let ch = ch as u32;
-    (ch >= 0xF400 && ch < 0xF480) || ch == 0xF500
+    (ch >= 0xF400 && ch < 0xF480) || (ch >= 0xF500 && ch < 0xF510)
 }
 
 fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> Vec<CharacterInfo> {
@@ -159,16 +167,15 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
         }
     }
 
-    // add technical characters for background rendering
-    char_map.insert(' ', CharacterInfo { ch: ' ', data: 0, is_half_width: false });
-    char_map.insert('\u{F500}', CharacterInfo { ch: '\u{F500}', data: !0, is_half_width: false });
-    if config.enable_halfwidth_ascii {
-        char_map.insert('\u{F420}', CharacterInfo {
-            ch: '\u{F420}',
-            data: 0,
+    // add technical characters that are always needed
+    char_map.insert(
+        ' ',
+        process_char(config, CharacterInfo {
+            ch: ' ',
+            data: TECHNICAL_CHAR_BLANK,
             is_half_width: true,
-        });
-    }
+        }),
+    );
 
     // return the downloaded characters
     let mut characters: Vec<_> = char_map.values().cloned().collect();
@@ -237,6 +244,7 @@ struct GlyphPlaneBuilder {
 
     available: Vec<(usize, usize)>,
     available_half: Vec<(usize, usize)>,
+    technical_reserved: Vec<usize>,
 
     glyph_planes: Vec<Vec<u64>>,
     glyph_map: HashMap<u16, (usize, usize, bool)>,
@@ -280,6 +288,7 @@ impl GlyphPlaneBuilder {
         if !low_plane_valid
             || (self.glyph_assigned.contains_key(&i.data)
                 && (i.ch as usize) >= self.low_plane_table.len())
+            || is_technical_char(i.data)
             || self.char_is_half[char] == Some(!self.glyph_needs_half.contains(&i.data))
         {
             return;
@@ -305,17 +314,34 @@ impl GlyphPlaneBuilder {
     }
 
     fn find_available(&mut self) {
+        let mut technical_reserved = 0;
         for char in 0..self.tile_count / 4 {
+            let mut any_assigned = false;
             for plane in 0..4 {
-                if !self.low_plane_assigned.contains(&(plane, char)) {
-                    if self.char_is_half[char] != Some(true) {
-                        self.available.push((plane, char));
-                    } else {
-                        self.available_half.push((plane, char));
+                if self.low_plane_assigned.contains(&(plane, char)) {
+                    any_assigned = true;
+                }
+            }
+
+            if !any_assigned && technical_reserved != 3 {
+                self.technical_reserved.push(char);
+                technical_reserved += 1;
+            } else {
+                for plane in 0..4 {
+                    if !self.low_plane_assigned.contains(&(plane, char)) {
+                        if self.char_is_half[char] != Some(true) {
+                            self.available.push((plane, char));
+                        } else {
+                            self.available_half.push((plane, char));
+                        }
                     }
                 }
             }
         }
+        if technical_reserved != 3 {
+            panic!("Could not reserve sufficient technical character slots!");
+        }
+
         self.available.reverse();
         self.available_half.reverse();
     }
@@ -374,10 +400,18 @@ impl GlyphPlaneBuilder {
             self.set_plane_width(char, i.data, i.is_half_width);
         }
     }
+
+    fn assign_technical(&mut self, ch: char, data: Option<u64>, plane: usize, char: usize) {
+        self.glyph_map.insert(ch as u16, (plane, char, false));
+        self.glyph_lookup.insert(ch as u16, (plane, char, false));
+        if let Some(data) = data {
+            self.glyph_assigned.insert(data, (plane, char));
+        }
+    }
 }
 
 fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> GlyphData {
-    let tile_count = ((ch_data.glyph_count + 4 /* allow for half-width waste */ + 15) / 16) * 16;
+    let tile_count = ((ch_data.glyph_count + 4 + 15) / 16) * 16;
     if config.low_plane_limit > tile_count {
         config.low_plane_limit = tile_count;
     }
@@ -394,7 +428,8 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
         }
         ch_count - low_plane_dupe_check.len()
     };
-    let tile_count = ((ch_data.glyph_count + dupe_count + 4 + 15) / 16) * 16;
+    let tile_count = ((ch_data.glyph_count + dupe_count + 4 + 15) / 16) * 16 + 16;
+    assert!(tile_count <= 4096);
 
     // create a new glyph builder
     let mut builder = GlyphPlaneBuilder {
@@ -404,6 +439,7 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
         low_plane_assigned: Default::default(),
         available: vec![],
         available_half: vec![],
+        technical_reserved: vec![],
         glyph_planes: vec![vec![0u64; tile_count / 4]; 4],
         glyph_map: Default::default(),
         glyph_lookup: Default::default(),
@@ -419,11 +455,6 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
     }
 
     // assign low plane
-    for i in &ch_data.characters {
-        if i.ch == ' ' {
-            builder.try_insert_low_plane(i);
-        }
-    }
     for i in &ch_data.characters {
         if i.ch as usize >= config.low_plane_limit {
             break;
@@ -441,6 +472,20 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
 
     // build table of available glyph locations
     builder.find_available();
+
+    // assign technical characters to the glyph planes
+    let technical_full = builder.technical_reserved.pop().unwrap();
+    builder.glyph_planes[0][technical_full] = TECHNICAL_CHAR_FULL;
+    builder.assign_technical('\u{F500}', Some(TECHNICAL_CHAR_FULL), 0, technical_full);
+    builder.assign_technical('\u{F501}', None, 1, technical_full);
+
+    let technical_half = builder.technical_reserved.pop().unwrap();
+    builder.glyph_planes[0][technical_half] = TECHNICAL_CHAR_HALF;
+    builder.assign_technical('\u{F504}', Some(TECHNICAL_CHAR_HALF), 0, technical_half);
+    builder.assign_technical('\u{F505}', None, 1, technical_half);
+
+    let technical_blank = builder.technical_reserved.pop().unwrap();
+    builder.assign_technical('\u{F508}', Some(TECHNICAL_CHAR_BLANK), 0, technical_blank);
 
     // assign remaining characters to the glyph planes
     for i in &ch_data.characters {
