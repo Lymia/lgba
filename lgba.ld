@@ -25,12 +25,12 @@ SECTIONS {
 
         *(.text .text.*);
         . = ALIGN(4);
-    } >rom = 0xff
+    } >rom
 
     .rodata : {
         *(.rodata .rodata.*);
         . = ALIGN(4);
-    } >rom = 0xff
+    } >rom
 
     __ewram_lma = .;
     .ewram : {
@@ -38,16 +38,17 @@ SECTIONS {
         *(.ewram .ewram.*);
         . = ALIGN(4);
         __ewram_end = ABSOLUTE(.);
-    } >ewram AT>rom = 0xff
+    } >ewram AT>rom
 
-    __iwram_lma = __ewram_lma + (__ewram_end - __ewram_start);
+    . = __ewram_lma + (__ewram_end - __ewram_start);
+    __iwram_lma = .;
     .iwram : {
         __iwram_start = ABSOLUTE(.);
         *(.data .data.*);
         *(.iwram .iwram.*);
         . = ALIGN(4);
         __iwram_end = ABSOLUTE(.);
-    } >iwram AT>rom = 0xff
+    } >iwram AT>rom
 
     .bss : {
         __bss_start = ABSOLUTE(.);

@@ -1,6 +1,7 @@
 //! A module allowing use of the GBA's DMA hardware.
 
 use crate::{
+    dbg,
     mmio::{
         reg::*,
         sys::{DmaAddrCnt, DmaCnt},

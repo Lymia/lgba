@@ -179,7 +179,7 @@ impl MapAccess {
         let start_idx = self.index(x, y);
         let end_idx = start_idx + count;
 
-        if end_idx >= self.map_area {
+        if end_idx > self.map_area {
             invalid_tile_map_coordinate(self.map_length);
         }
     }
@@ -200,6 +200,39 @@ impl MapAccess {
         self.check_bounds(x, y, tile.len());
         unsafe {
             copy_volatile(tile.as_ptr(), self.base_index(x, y), tile.len());
+        }
+    }
+
+    /// Sets the data in the tile map starting at a given coordinate to a single tile.
+    ///
+    /// The list of tiles is laid out horizontally, and will roll over to the start of the next
+    /// row if it reaches the end of a row.
+    pub fn set_tile_dma(
+        &self,
+        mut channel: DmaChannel,
+        x: usize,
+        y: usize,
+        tile: VramTile,
+        count: usize,
+    ) {
+        self.check_bounds(x, y, count);
+        unsafe {
+            channel.unsafe_set(tile, self.base_index(x, y), count);
+        }
+    }
+
+    /// Sets the data in the tile map starting at a given coordinate.
+    ///
+    /// The list of tiles is laid out horizontally, and will roll over to the start of the next
+    /// row if it reaches the end of a row.
+    pub fn set_tiles_dma(&self, mut channel: DmaChannel, x: usize, y: usize, tile: &[VramTile]) {
+        self.check_bounds(x, y, tile.len());
+        unsafe {
+            channel.unsafe_transfer(
+                tile.as_ptr() as *const _,
+                self.base_index(x, y) as *mut _,
+                tile.len() * 2,
+            );
         }
     }
 }

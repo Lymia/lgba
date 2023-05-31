@@ -30,8 +30,9 @@ packed_struct_fields!(
     (dst_ctl, with_dst_ctl, DmaAddrCnt, 5..=6),
     (src_ctl, with_src_ctl, DmaAddrCnt, 7..=8),
     (repeat, with_repeat, bool, 9),
-    (transfer_u32, with_transfer_u32, bool, 11),
-    (game_pak_drq, with_game_pak_drq, bool, 12),
+    (transfer_u32, with_transfer_u32, bool, 10),
+    (game_pak_drq, with_game_pak_drq, bool, 11),
+    (start_timing, with_start_timing, DmaStartTiming, 12..=13),
     (send_irq, with_send_irq, bool, 14),
     (enabled, with_enabled, bool, 15),
 );

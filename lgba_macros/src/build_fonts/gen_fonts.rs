@@ -162,6 +162,13 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
     // add technical characters for background rendering
     char_map.insert(' ', CharacterInfo { ch: ' ', data: 0, is_half_width: false });
     char_map.insert('\u{F500}', CharacterInfo { ch: '\u{F500}', data: !0, is_half_width: false });
+    if config.enable_halfwidth_ascii {
+        char_map.insert('\u{F420}', CharacterInfo {
+            ch: '\u{F420}',
+            data: 0,
+            is_half_width: true,
+        });
+    }
 
     // return the downloaded characters
     let mut characters: Vec<_> = char_map.values().cloned().collect();
@@ -284,7 +291,11 @@ impl GlyphPlaneBuilder {
         self.glyph_planes[plane][char] = i.data;
         self.glyph_lookup
             .insert(i.ch as u16, (plane, char, i.is_half_width));
-        self.set_plane_width(char, i.data, i.is_half_width);
+        self.set_plane_width(
+            char,
+            i.data,
+            i.is_half_width || self.glyph_needs_half.contains(&i.data),
+        );
 
         if !self.glyph_assigned.contains_key(&i.data) {
             self.glyph_assigned.insert(i.data, (plane, char));
@@ -401,7 +412,6 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
         glyph_assigned: Default::default(),
         dupe_low: 0,
     };
-    builder.glyph_needs_half.insert(0); // spaces are important!
 
     // preprocess glyphs
     for i in &ch_data.characters {
@@ -632,6 +642,15 @@ fn make_glyphs_file(
         #phf_func
 
         const CHAR_MASK: u16 = (1 << #glyph_char_bits) - 1;
+        fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
+            let slot = lookup_glyph(&(id as u16));
+            if id == GLYPH_CHECK[slot] as usize {
+                #load_hi
+                ((packed >> #glyph_char_bits) as u8, packed & CHAR_MASK, false)
+            } else {
+                FALLBACK_GLYPH
+            }
+        }
         fn get_font_glyph(id: char) -> (u8, u16, bool) {
             let id = id as usize;
             if id < #lo_map_size {
@@ -640,17 +659,12 @@ fn make_glyphs_file(
                 if word & (1 << (id & 15)) != 0 {
                     ((id & 3) as u8, (id >> 2) as u16, false)
                 } else {
-                    FALLBACK_GLYPH
+                    // half-width shenanigans can cause this to be in the PHF instead
+                    get_font_glyph_phf(id)
                 }
             } else if id < 0x10000 {
                 // Check the PHF to see if we have this glyph.
-                let slot = lookup_glyph(&(id as u16));
-                if id == GLYPH_CHECK[slot] as usize {
-                    #load_hi
-                    ((packed >> #glyph_char_bits) as u8, packed & CHAR_MASK, false)
-                } else {
-                    FALLBACK_GLYPH
-                }
+                get_font_glyph_phf(id)
             } else {
                 // We only support the BMP, don't bother.
                 FALLBACK_GLYPH
