@@ -4,6 +4,7 @@ use crate::{
 };
 use darling::FromAttributes;
 use kanji::Level;
+use lgba_phf::generator::SpecialTy;
 use proc_macro2::{Literal, Span, TokenStream as SynTokenStream};
 use quote::quote;
 use std::collections::{HashMap, HashSet};
@@ -173,14 +174,11 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
             is_half_width: true,
         }),
     );
-    char_map.insert(
-        '\u{F420}',
-        CharacterInfo {
-            ch: '\u{F420}',
-            data: TECHNICAL_CHAR_BLANK,
-            is_half_width: true,
-        },
-    );
+    char_map.insert('\u{F420}', CharacterInfo {
+        ch: '\u{F420}',
+        data: TECHNICAL_CHAR_BLANK,
+        is_half_width: true,
+    });
 
     // return the downloaded characters
     let mut characters: Vec<_> = char_map.values().cloned().collect();
@@ -578,8 +576,12 @@ fn make_glyphs_file(
     // Compute the raw PHF for the high planes
     let entries: Vec<_> = glyphs.glyph_map.keys().cloned().collect();
     let phf = lgba_phf::generator::generate_hash(config.delta, &entries);
-    let phf_func =
-        phf.generate_syn_code(quote! { lookup_glyph }, quote! { &u16 }, quote! { lgba_phf });
+    let phf_func = phf.generate_syn_code(
+        quote! { lookup_glyph },
+        quote! { &u16 },
+        quote! { lgba_phf },
+        Some(SpecialTy::U16),
+    );
 
     // Build the PHF glyph data
     let glyph_size = (glyphs.glyph_map.len() - 1).next_power_of_two();
@@ -680,7 +682,7 @@ fn make_glyphs_file(
 
         (
             quote! {
-                static GLYPH_ID_HI: [u16; #hi_arr_size] = #glyph_id_hi_data;
+                const GLYPH_ID_HI: [u16; #hi_arr_size] = #glyph_id_hi_data;
                 const HI_MASK: u16 = (1 << #hi_bits) - 1;
             },
             quote! {
@@ -706,7 +708,9 @@ fn make_glyphs_file(
         #phf_func
 
         const CHAR_MASK: u16 = (1 << #glyph_char_bits) - 1;
-        fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
+
+        #[inline(never)]
+        const fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
             let slot = lookup_glyph(&(id as u16));
             if id == GLYPH_CHECK[slot] as usize {
                 #load_hi
@@ -719,13 +723,19 @@ fn make_glyphs_file(
                 FALLBACK_GLYPH
             }
         }
-        fn get_font_glyph(id: char) -> (u8, u16, bool) {
+        #[inline(never)]
+        const fn get_font_glyph(id: char) -> (u8, u16, bool) {
             let id = id as usize;
             if id < #lo_map_size {
                 // We check the low plane bitmap to see if we have this glyph.
                 let word = LO_MAP_DATA[id >> 4];
                 if word & (1 << (id & 15)) != 0 {
-                    let half_word = *LO_MAP_HALF_DATA.get(id >> 4).unwrap_or(&0);
+                    let target_i = id >> 4;
+                    let half_word = if target_i < LO_MAP_HALF_DATA.len() {
+                        LO_MAP_HALF_DATA[target_i]
+                    } else {
+                        0
+                    };
                     let is_half = half_word & (1 << (id & 15)) != 0;
                     ((id & 3) as u8, (id >> 2) as u16, is_half)
                 } else {

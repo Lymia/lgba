@@ -8,6 +8,11 @@ use core::{cmp::min, hash::Hash};
 #[cfg(feature = "generator_proc_macro")]
 use {proc_macro2::TokenStream as SynTokenStream, quote::quote};
 
+#[derive(Copy, Clone, Debug)]
+pub enum SpecialTy {
+    U16,
+}
+
 #[derive(Clone, Debug)]
 pub struct HashState {
     pub key: HashKey,
@@ -21,17 +26,23 @@ impl HashState {
         fn_name: SynTokenStream,
         in_ty: SynTokenStream,
         path_lgba_phf: SynTokenStream,
+        special_ty: Option<SpecialTy>,
     ) -> SynTokenStream {
         let key = self.key;
         let disps = &self.disps;
         let disps_len = self.disps.len();
         let map_len = self.map.len();
 
+        let (can_const, special_fn, ty_wc) = match special_ty {
+            None => (quote! {}, quote! { hash }, quote! { _ }),
+            Some(SpecialTy::U16) => (quote! { const }, quote! { hash_u16 }, quote! {}),
+        };
+
         quote! {
-            fn #fn_name(value: #in_ty) -> usize {
+            #can_const fn #fn_name(value: #in_ty) -> usize {
                 const KEY: u32 = #key;
-                static DISPS: [u16; #disps_len] = [#(#disps,)*];
-                #path_lgba_phf::hash::<#disps_len, #map_len, _>(KEY, &DISPS, value)
+                const DISPS: [u16; #disps_len] = [#(#disps,)*];
+                #path_lgba_phf::#special_fn::<#disps_len, #map_len, #ty_wc>(KEY, &DISPS, value)
             }
         }
     }

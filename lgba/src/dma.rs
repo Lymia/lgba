@@ -1,7 +1,6 @@
 //! A module allowing use of the GBA's DMA hardware.
 
 use crate::{
-    dbg,
     mmio::{
         reg::*,
         sys::{DmaAddrCnt, DmaCnt},
@@ -84,7 +83,7 @@ pub struct DmaChannel {
     src_internal: bool,
     dst_internal: bool,
     irq_notify: bool,
-    mutex: RawMutexGuard<'static>,
+    _lock: RawMutexGuard<'static>,
 }
 impl DmaChannel {
     /// Triggers an IRQ whenever this DMA transfer completes successfully.
@@ -219,7 +218,7 @@ pub fn dma0() -> DmaChannel {
         src_internal: true,
         dst_internal: true,
         irq_notify: false,
-        mutex: DMA0_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
+        _lock: DMA0_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
     }
 }
 pub fn dma1() -> DmaChannel {
@@ -228,7 +227,7 @@ pub fn dma1() -> DmaChannel {
         src_internal: false,
         dst_internal: true,
         irq_notify: false,
-        mutex: DMA1_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
+        _lock: DMA1_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
     }
 }
 pub fn dma2() -> DmaChannel {
@@ -237,7 +236,7 @@ pub fn dma2() -> DmaChannel {
         src_internal: false,
         dst_internal: true,
         irq_notify: false,
-        mutex: DMA2_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
+        _lock: DMA2_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
     }
 }
 pub fn dma3() -> DmaChannel {
@@ -246,7 +245,7 @@ pub fn dma3() -> DmaChannel {
         src_internal: false,
         dst_internal: false,
         irq_notify: false,
-        mutex: DMA3_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
+        _lock: DMA3_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
     }
 }
 

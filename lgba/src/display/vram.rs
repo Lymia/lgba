@@ -259,11 +259,5 @@ fn invalid_tile_map_coordinate(scale_max: usize) {
     panic!("Tile map coordinate out of range: 0..{scale_max}");
 }
 
-#[inline(never)]
-#[track_caller]
-fn invalid_screen_block() {
-    panic!("Screen block out of range: 0..=31");
-}
-
 #[doc(inline)]
 pub use crate::mmio::display::VramTile;

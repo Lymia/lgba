@@ -35,7 +35,7 @@ impl Mode0 {
             .with_display_bg3(layer3.enabled());
         let active_mode = ActiveMode0 {
             layers: [layer0.activate(), layer1.activate(), layer2.activate(), layer3.activate()],
-            lock,
+            _lock: lock,
         };
         DISPCNT.write(new_disp_cnt);
         active_mode
@@ -68,7 +68,7 @@ impl Mode0 {
 
 pub struct ActiveMode0<'a> {
     pub layers: [ActiveTileLayer<'a>; 4],
-    lock: Option<RawMutexGuard<'static>>,
+    _lock: Option<RawMutexGuard<'static>>,
 }
 impl<'a> Drop for ActiveMode0<'a> {
     fn drop(&mut self) {

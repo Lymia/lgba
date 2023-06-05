@@ -11,7 +11,7 @@ use lgba::display::{Terminal, TerminalFontFull};
 #[lgba::iwram]
 fn main_impl() -> ! {
     let mut terminal = Terminal::new();
-    let terminal = terminal.activate::<TerminalFontFull>();
+    let terminal = terminal.activate::<TerminalFontFull>(true);
     let mut terminal = terminal.lock();
 
     terminal.set_color(0, lgba::display::rgb_24bpp(54, 131, 255), !0);
@@ -42,7 +42,7 @@ fn main_impl() -> ! {
     terminal.set_active_color(0);
     terminal.write_str("Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi!");
 
-    loop {}
+    panic!("??? this is a long-winded error message that doesn't really mean anything, that exists entirely to test the panic handler screen. yep yep hello!");
 }
 
 #[lgba::entry]

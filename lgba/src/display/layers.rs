@@ -1,7 +1,6 @@
 use crate::{
     display::{vram::MapAccess, CharAccess},
     mmio::{display::BgCnt, reg::*},
-    println,
 };
 
 const BG_CNT: [Register<BgCnt, SafeReg>; 4] = [BG0CNT, BG1CNT, BG2CNT, BG3CNT];

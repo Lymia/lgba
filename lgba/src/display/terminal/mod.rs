@@ -8,7 +8,7 @@ use crate::{
     mmio::reg::BG_PALETTE_RAM,
     sync::{Mutex, MutexGuard, Static},
 };
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 
 pub mod fonts;
 
@@ -50,7 +50,7 @@ impl Terminal {
         update_palette(id, self.terminal_colors[id].read());
     }
 
-    fn active_raw<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
+    fn active_raw<T: TerminalFont>(&mut self, use_dma: bool, no_lock: bool) -> ActiveTerminal<T> {
         // configure all layers
         self.mode.layers[0]
             .set_enabled(true)
@@ -90,7 +90,11 @@ impl Terminal {
         }
 
         // create an appropriate active terminal object
-        let mut active_mode = self.mode.activate();
+        let active_mode = if no_lock {
+            self.mode.activate_no_lock()
+        } else {
+            self.mode.activate()
+        };
         let map = [
             active_mode.layers[0].map_access(0),
             active_mode.layers[1].map_access(0),
@@ -136,11 +140,11 @@ impl Terminal {
         terminal
     }
 
-    pub fn activate<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
-        self.active_raw(true)
+    pub fn activate<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
+        self.active_raw(use_dma, false)
     }
-    pub fn activate_no_dma<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
-        self.active_raw(false)
+    pub fn activate_no_lock<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
+        self.active_raw(use_dma, true)
     }
 }
 
@@ -331,10 +335,6 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
         self.term.set_color(id, background, foreground);
     }
 
-    fn is_half(ch: char) -> bool {
-        let (_, _, is_half) = T::get_font_glyph(ch);
-        is_half
-    }
     #[track_caller]
     fn data_for_ch(ch: char, color: usize) -> (VramTile, bool) {
         if color >= 4 {
@@ -359,7 +359,7 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
 
     fn process_hw(ch: char) -> char {
         if ch.is_ascii() {
-            char::from_u32((ch as u32) + 0xF400).unwrap()
+            unsafe { char::from_u32_unchecked((ch as u32) + 0xF400) }
         } else {
             ch
         }
@@ -419,7 +419,8 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
             self.term.set_char_half(x, y, data, color);
             self.term.cursor_hw && data.1
         } else {
-            self.term.set_char_full(x / 2, y, Self::tile_for_ch(ch, color), color);
+            self.term
+                .set_char_full(x / 2, y, Self::tile_for_ch(ch, color), color);
             false
         };
 
@@ -428,64 +429,112 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
             self.new_line();
         }
     }
-    pub fn write_str(&mut self, mut str: &str) {
-        while !str.is_empty() {
-            // check for special characters
-            match str.chars().next().unwrap() {
-                ' ' => {
-                    if self.term.cursor_x != 0 {
-                        self.write_char(' ');
-                    }
-                    str = &str[1..];
-                    continue;
-                },
-                '\t' => {
-                    if !self.term.cursor_hw && self.term.cursor_x % 2 != 0 {
-                        self.term.cursor_hw = true;
-                        self.write_char(' ');
-                        self.term.cursor_hw = false;
-                    }
-                    while self.term.cursor_x % 8 == 0 {
-                        self.write_char(' ');
-                    }
-                    str = &str[1..];
-                    continue;
-                }
-                '\n' => {
-                    self.new_line();
-                    str = &str[1..];
-                    continue;
-                },
-                _ => {},
-            }
-
-            // advance until the end of the next word
-            let (end_word, word_len) = 'find_word: {
-                let mut word_len = 0;
-                for (idx, ch) in str.char_indices() {
-                    if ch == ' ' || ch == '\n' || ch == '\t' {
-                        break 'find_word (idx, word_len);
-                    }
-                    let ch = self.process_hw_conditional(ch);
-                    word_len += 2 - Self::is_half(ch) as usize;
-                }
-                (str.len(), word_len)
-            };
-            let word = &str[..end_word];
-
-            // check if we can fit the word
-            let fits_on_line = word_len < (58 - self.term.cursor_x as usize);
-            let fits_on_next_line = word_len < 58;
-            if !fits_on_line && fits_on_next_line {
-                self.new_line();
-            }
-            for ch in word.chars() {
-                self.write_char(ch);
-            }
-
-            // advance the state
-            str = &str[end_word..];
+    pub fn write<'x>(&'x mut self) -> ActiveTerminalWrite<'x, 'a, 'b, T>
+    where
+        'a: 'x,
+        'b: 'x,
+    {
+        ActiveTerminalWrite {
+            access: self,
+            buffer: [0; 60],
+            buffer_idx: 0,
+            passthrough_mode: false,
         }
+    }
+    pub fn write_str(&mut self, str: &str) {
+        self.write().write_str(str);
+    }
+}
+
+pub struct ActiveTerminalWrite<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> {
+    access: &'a mut ActiveTerminalAccess<'b, 'c, T>,
+    buffer: [u16; 60],
+    buffer_idx: usize,
+    passthrough_mode: bool,
+}
+impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T> {
+    fn dump_buffers(&mut self) {
+        for ch in &self.buffer[..self.buffer_idx] {
+            let ch = unsafe { char::from_u32_unchecked(*ch as u32) };
+            self.access.write_char(ch);
+        }
+    }
+    fn flush_buffers(&mut self) {
+        if self.passthrough_mode {
+            self.passthrough_mode = false;
+        } else {
+            let fits_on_line = self.buffer_idx < (58 - self.access.term.cursor_x as usize);
+            let fits_on_next_line = self.buffer_idx < 58;
+            if !fits_on_line && fits_on_next_line {
+                self.access.new_line();
+            }
+            self.dump_buffers();
+        }
+        self.buffer_idx = 0;
+    }
+    fn push_char(&mut self, ch: char) {
+        if self.passthrough_mode {
+            self.access.write_char(ch);
+        } else if self.buffer_idx == 60 {
+            self.passthrough_mode = true;
+            self.dump_buffers();
+            self.access.write_char(ch);
+        } else {
+            let glyph = if ch as u32 >= 0x10000 {
+                0xF50F // guaranteed non-existant
+            } else {
+                ch as u16
+            };
+            self.buffer[self.buffer_idx] = glyph;
+            self.buffer_idx += 1;
+        }
+    }
+    fn write_char(&mut self, ch: char) {
+        match ch {
+            ' ' => {
+                self.flush_buffers();
+                if self.access.term.cursor_x != 0 {
+                    self.access.write_char(' ');
+                }
+            }
+            '\t' => {
+                self.flush_buffers();
+
+                if !self.access.term.cursor_hw && self.access.term.cursor_x % 2 != 0 {
+                    self.access.term.cursor_hw = true;
+                    self.access.write_char(' ');
+                    self.access.term.cursor_hw = false;
+                }
+                while self.access.term.cursor_x % 8 == 0 {
+                    self.access.write_char(' ');
+                }
+            }
+            '\n' => {
+                self.flush_buffers();
+                self.access.new_line();
+            }
+            _ => self.push_char(ch),
+        }
+    }
+    fn write_str(&mut self, s: &str) {
+        for char in s.chars() {
+            self.write_char(char);
+        }
+    }
+}
+impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> fmt::Write for ActiveTerminalWrite<'a, 'b, 'c, T> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_str(s);
+        Ok(())
+    }
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        self.write_char(c);
+        Ok(())
+    }
+}
+impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> Drop for ActiveTerminalWrite<'a, 'b, 'c, T> {
+    fn drop(&mut self) {
+        self.flush_buffers();
     }
 }
 
