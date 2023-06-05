@@ -11,57 +11,36 @@ use lgba::display::{Terminal, TerminalFontFull};
 #[lgba::iwram]
 fn main_impl() -> ! {
     let mut terminal = Terminal::new();
-    let mut terminal = terminal.activate::<TerminalFontFull>();
-    terminal.set_color(0, 0x7E25, !0);
-    terminal.set_color(1, 0, 0x731F);
+    let terminal = terminal.activate::<TerminalFontFull>();
+    let mut terminal = terminal.lock();
+
+    terminal.set_color(0, lgba::display::rgb_24bpp(54, 131, 255), !0);
+    terminal.set_color(1, 0, lgba::display::rgb_24bpp(255, 194, 211));
     terminal.set_color(2, !0, 0);
 
-    for (j, str) in [
-        "Hello, world!",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "こんにちは、世界!",
-        "",
-        "色は匂えど",
-        "散りぬるを",
-        "我が世誰ぞ",
-        "常ならん",
-        "有為の奥山",
-        "今日越えて",
-        "浅き夢見じ",
-        "酔いもせず",
-    ]
-    .iter()
-    .enumerate()
-    {
-        for (i, char) in str.chars().enumerate() {
-            terminal.set_char(i, j, char, 0);
-        }
-    }
-    for (i, char) in "Hello, world! (but it's in half-width characters)"
-        .chars()
-        .enumerate()
-    {
-        terminal.set_char_hw(i, 1, char, 0);
-    }
-    for (i, char) in "Hello, world! (but it's both pink and half-width)"
-        .chars()
-        .enumerate()
-    {
-        terminal.set_char_hw(i, 2, char, 1);
-    }
-    for (i, char) in "Reverse text! Reverse text!".chars().enumerate() {
-        terminal.set_char(i, 3, char, 2);
-    }
-    for (i, char) in "Half-width reverse text! Half-width reverse text!"
-        .chars()
-        .enumerate()
-    {
-        terminal.set_char_hw(i, 4, char, 2);
-    }
+    terminal.write_str("Hello, world!");
+    terminal.new_line();
+
+    terminal.set_half_width(true);
+    terminal.write_str("Hello, world! (but it's in half-width characters)");
+    terminal.new_line();
+
+    terminal.set_active_color(1);
+    terminal.write_str("Hello, world! (but it's both pink and half-width)");
+    terminal.new_line();
+
+    terminal.set_half_width(false);
+    terminal.set_active_color(2);
+    terminal.write_str("Reverse text! Reverse text!");
+    terminal.new_line();
+
+    terminal.set_half_width(true);
+    terminal.write_str("Half-width reverse text! Half-width reverse text!");
+    terminal.new_line();
+
+    terminal.new_line();
+    terminal.set_active_color(0);
+    terminal.write_str("Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi!");
 
     loop {}
 }

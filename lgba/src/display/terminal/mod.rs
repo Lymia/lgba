@@ -6,7 +6,7 @@ use crate::{
     },
     dma::dma3,
     mmio::reg::BG_PALETTE_RAM,
-    sync::{Mutex, Static},
+    sync::{Mutex, MutexGuard, Static},
 };
 use core::marker::PhantomData;
 
@@ -50,7 +50,7 @@ impl Terminal {
         update_palette(id, self.terminal_colors[id].read());
     }
 
-    pub fn activate<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
+    fn active_raw<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
         // configure all layers
         self.mode.layers[0]
             .set_enabled(true)
@@ -74,9 +74,15 @@ impl Terminal {
             .set_v_offset(4);
 
         // upload font
-        self.mode.layers[0]
-            .char_access()
-            .write_char_4bpp_dma(dma3(), 0, T::get_font_data());
+        if use_dma {
+            self.mode.layers[0]
+                .char_access()
+                .write_char_4bpp_dma(dma3(), 0, T::get_font_data());
+        } else {
+            self.mode.layers[0]
+                .char_access()
+                .write_char_4bpp(0, T::get_font_data());
+        }
 
         // upload palette
         for i in 0..4 {
@@ -92,28 +98,34 @@ impl Terminal {
             active_mode.layers[3].map_access(0),
         ];
         let terminal = ActiveTerminal {
-            mode: active_mode,
-            terminal_colors: &self.terminal_colors,
-            map,
-            space_ch: [
-                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 0),
-                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 1),
-                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 2),
-                ActiveTerminal::<T>::tile_for_ch('\u{F508}', 3),
-            ],
-            half_bg_ch: [
-                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 0),
-                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 1),
-                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 2),
-                ActiveTerminal::<T>::tile_for_ch('\u{F505}', 3),
-            ],
-            full_bg_ch: [
-                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 0),
-                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 1),
-                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 2),
-                ActiveTerminal::<T>::tile_for_ch('\u{F501}', 3),
-            ],
-            state: Mutex::new(Default::default()),
+            state: Mutex::new(ActiveTerminalState {
+                cursor_x: 0,
+                cursor_y: 0,
+                cursor_hw: false,
+                color: 0,
+                line_advance: 0,
+                mode: active_mode,
+                terminal_colors: &self.terminal_colors,
+                map,
+                space_ch: [
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F508}', 0),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F508}', 1),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F508}', 2),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F508}', 3),
+                ],
+                half_bg_ch: [
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F505}', 0),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F505}', 1),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F505}', 2),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F505}', 3),
+                ],
+                full_bg_ch: [
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 0),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 1),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 2),
+                    ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 3),
+                ],
+            }),
             _phantom: Default::default(),
         };
 
@@ -123,10 +135,70 @@ impl Terminal {
         // return the terminal
         terminal
     }
+
+    pub fn activate<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
+        self.active_raw(true)
+    }
+    pub fn activate_no_dma<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
+        self.active_raw(false)
+    }
 }
 
 /// An active terminal display mode.
 pub struct ActiveTerminal<'a, T: TerminalFont> {
+    state: Mutex<ActiveTerminalState<'a>>,
+    _phantom: PhantomData<T>,
+}
+impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
+    /// Locks this active terminal ahead of time, allowing for faster terminal access.
+    pub fn lock<'x>(&'x self) -> ActiveTerminalAccess<'x, 'a, T>
+    where 'a: 'x {
+        ActiveTerminalAccess {
+            term: match self.state.try_lock() {
+                None => terminal_lock_failure(),
+                Some(x) => x,
+            },
+            no_dma: false,
+            _phantom: Default::default(),
+        }
+    }
+
+    /// Sets the color for this terminal.
+    #[track_caller]
+    pub fn set_color(&self, id: usize, background: u16, foreground: u16) {
+        self.lock().set_color(id, background, foreground)
+    }
+    pub fn clear(&self) {
+        self.lock().clear();
+    }
+
+    #[track_caller]
+    pub fn set_cursor(&self, x: usize, y: usize) {
+        self.lock().set_cursor(x, y);
+    }
+
+    pub fn set_cursor_half_width(&self, half_width: bool) {
+        self.lock().set_half_width(half_width);
+    }
+
+    #[track_caller]
+    pub fn set_char_full(&self, x: usize, y: usize, ch: char, color: usize) {
+        self.lock().set_char_full(x, y, ch, color);
+    }
+
+    #[track_caller]
+    pub fn set_char_half(&self, x: usize, y: usize, ch: char, color: usize) {
+        self.lock().set_char_half(x, y, ch, color);
+    }
+}
+
+struct ActiveTerminalState<'a> {
+    cursor_x: u8,
+    cursor_y: u8,
+    cursor_hw: bool,
+    color: u8,
+    line_advance: u8,
+
     mode: ActiveMode0<'a>,
     terminal_colors: &'a [Static<(u16, u16)>; 4],
     map: [MapAccess; 4],
@@ -134,19 +206,8 @@ pub struct ActiveTerminal<'a, T: TerminalFont> {
     space_ch: [VramTile; 4],
     half_bg_ch: [VramTile; 4],
     full_bg_ch: [VramTile; 4],
-
-    state: Mutex<ActiveTerminalState>,
-
-    _phantom: PhantomData<T>,
 }
-#[derive(Default)]
-struct ActiveTerminalState {
-    cursor_x: u8,
-    cursor_y: u8,
-    color: u8,
-    line_advance: u8,
-}
-impl ActiveTerminalState {
+impl<'a> ActiveTerminalState<'a> {
     fn apply_advance(&self, y: usize) -> usize {
         let ny = y + (self.line_advance as usize);
         if ny >= 19 {
@@ -155,69 +216,59 @@ impl ActiveTerminalState {
             ny
         }
     }
-}
-impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
-    pub fn set_color(&self, id: usize, background: u16, foreground: u16) {
-        let _lock = self.state.lock();
-        if id >= 4 {
-            terminal_color_out_of_range();
-        }
-        self.terminal_colors[id].write((background, foreground));
-        update_palette(id, self.terminal_colors[id].read());
-    }
-
-    fn data_for_ch(ch: char, color: usize) -> (VramTile, bool) {
-        if color >= 4 {
-            terminal_color_out_of_range();
-        }
-        let (plane, tile, is_half) = T::get_font_glyph(ch);
-        let pal = color as u8 * 4 + plane;
-        (VramTile::default().with_char(tile).with_palette(pal as u8), is_half)
-    }
-    fn tile_for_ch(ch: char, color: usize) -> VramTile {
-        Self::data_for_ch(ch, color).0
-    }
-    pub fn clear(&self) {
-        let mut lock = self.state.lock();
-        *lock = Default::default();
-
-        let tile = self.space_ch[0];
-        self.map[0].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
-        self.map[1].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
-        self.map[2].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
-        self.map[3].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
-    }
-
-    fn check_coordinate(&self, x: usize, y: usize) {
+    #[track_caller]
+    fn check_coordinate(x: usize, y: usize) {
         if x >= 58 && y >= 19 {
             terminal_coord_out_of_range();
         }
     }
 
-    pub fn set_char(&self, x: usize, y: usize, ch: char, color: usize) {
-        let lock = self.state.lock();
-        let y = lock.apply_advance(y);
+    fn set_color(&self, id: usize, background: u16, foreground: u16) {
+        self.terminal_colors[id].write((background, foreground));
+        update_palette(id, self.terminal_colors[id].read());
+    }
+    fn clear(&mut self) {
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.color = 0;
+        self.line_advance = 0;
 
-        self.check_coordinate(x * 2, y);
+        let tile = self.space_ch[0];
+        for i in 0..4 {
+            self.map[i].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
+        }
+    }
+    fn clear_no_dma(&mut self) {
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.color = 0;
+        self.line_advance = 0;
 
-        self.map[0].set_tile(x, y, Self::tile_for_ch(ch, color));
+        let tile = self.space_ch[0];
+        for i in 0..4 {
+            for x in 0..32 {
+                for y in 0..32 {
+                    self.map[i].set_tile(x, y, tile);
+                }
+            }
+        }
+    }
+
+    #[track_caller]
+    fn set_char_full(&self, x: usize, y: usize, tile: VramTile, color: usize) {
+        let y = self.apply_advance(y);
+
+        Self::check_coordinate(x * 2, y);
+
+        self.map[0].set_tile(x, y, tile);
         self.map[1].set_tile(x, y, self.space_ch[color]);
         self.map[2].set_tile(x, y, self.full_bg_ch[color]);
     }
-    pub fn set_char_hw(&self, x: usize, y: usize, mut ch: char, color: usize) {
-        let lock = self.state.lock();
-        let y = lock.apply_advance(y);
-
-        if ch.is_ascii() {
-            ch = char::from_u32((ch as u32) + 0xF400).unwrap();
-        }
-        self.set_char_hw_0(x, y, ch, color);
-    }
-    fn set_char_hw_0(&self, x: usize, y: usize, ch: char, color: usize) -> bool {
-        self.check_coordinate(x, y);
+    #[track_caller]
+    fn set_char_half(&self, x: usize, y: usize, (tile, is_half): (VramTile, bool), color: usize) {
+        Self::check_coordinate(x, y);
 
         let (plane, tile_x) = (x % 2, x / 2);
-        let (tile, is_half) = Self::data_for_ch(ch, color);
         if is_half && plane == 0 {
             self.map[0].set_tile(tile_x, y, tile);
             self.map[2].set_tile(tile_x, y, self.half_bg_ch[color]);
@@ -234,24 +285,227 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
             self.map[2].set_tile(tile_x + 1, y, self.space_ch[color]);
             self.map[3].set_tile(tile_x, y, self.full_bg_ch[color]);
         }
-
-        is_half
     }
 
-    pub fn write_string(&self, x: usize, y: usize, str: &str) {
-        self.check_coordinate(x, y);
+    #[track_caller]
+    fn set_cursor(&mut self, x: usize, y: usize) {
+        Self::check_coordinate(x, y);
+        self.cursor_x = x as u8;
+        self.cursor_y = y as u8;
+    }
+    fn set_half_width(&mut self, half_width: bool) {
+        self.cursor_hw = half_width;
+    }
+
+    fn advance_screen(&mut self) {
+        self.line_advance += 1;
+        for i in 0..4 {
+            for x in 0..29 {
+                self.map[i].set_tile(x, self.line_advance as usize, self.space_ch[0]);
+            }
+            self.mode.layers[i].set_v_offset(4 - self.line_advance as i16 * 8);
+        }
+    }
+    fn advance_cursor(&mut self) {
+        self.cursor_x = 0;
+        if self.cursor_y == 19 {
+            self.advance_screen();
+        } else {
+            self.cursor_y += 1;
+        }
+    }
+}
+
+/// A lock on an [`ActiveTerminal`], allowing for faster terminal writes.
+pub struct ActiveTerminalAccess<'a, 'b: 'a, T: TerminalFont> {
+    term: MutexGuard<'a, ActiveTerminalState<'b>>,
+    no_dma: bool,
+    _phantom: PhantomData<T>,
+}
+impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
+    #[track_caller]
+    pub fn set_color(&self, id: usize, background: u16, foreground: u16) {
+        if id >= 4 {
+            terminal_color_out_of_range();
+        }
+        self.term.set_color(id, background, foreground);
+    }
+
+    fn is_half(ch: char) -> bool {
+        let (_, _, is_half) = T::get_font_glyph(ch);
+        is_half
+    }
+    #[track_caller]
+    fn data_for_ch(ch: char, color: usize) -> (VramTile, bool) {
+        if color >= 4 {
+            terminal_color_out_of_range();
+        }
+        let (plane, tile, is_half) = T::get_font_glyph(ch);
+        let pal = color as u8 * 4 + plane;
+        (VramTile::default().with_char(tile).with_palette(pal as u8), is_half)
+    }
+    #[track_caller]
+    fn tile_for_ch(ch: char, color: usize) -> VramTile {
+        Self::data_for_ch(ch, color).0
+    }
+
+    pub fn clear(&mut self) {
+        if self.no_dma {
+            self.term.clear();
+        } else {
+            self.term.clear_no_dma();
+        }
+    }
+
+    fn process_hw(ch: char) -> char {
+        if ch.is_ascii() {
+            char::from_u32((ch as u32) + 0xF400).unwrap()
+        } else {
+            ch
+        }
+    }
+    fn process_hw_conditional(&self, ch: char) -> char {
+        if self.term.cursor_hw {
+            Self::process_hw(ch)
+        } else {
+            ch
+        }
+    }
+
+    #[track_caller]
+    pub fn set_char_full(&self, x: usize, y: usize, ch: char, color: usize) {
+        let tile = Self::tile_for_ch(ch, color);
+        self.term.set_char_full(x, y, tile, color);
+    }
+    #[track_caller]
+    pub fn set_char_half(&self, x: usize, y: usize, ch: char, color: usize) {
+        let ch = Self::process_hw(ch);
+        self.term
+            .set_char_half(x, y, Self::data_for_ch(ch, color), color);
+    }
+
+    #[track_caller]
+    pub fn set_cursor(&mut self, x: usize, y: usize) {
+        self.term.set_cursor(x, y);
+    }
+
+    #[track_caller]
+    pub fn set_active_color(&mut self, color: usize) {
+        if color >= 4 {
+            terminal_color_out_of_range();
+        }
+        self.term.color = color as u8;
+    }
+
+    pub fn set_half_width(&mut self, half_width: bool) {
+        self.term.set_half_width(half_width);
+    }
+
+    pub fn new_line(&mut self) {
+        self.term.advance_cursor();
+    }
+
+    pub fn write_char(&mut self, ch: char) {
+        let ch = self.process_hw_conditional(ch);
+
+        let x = self.term.cursor_x as usize;
+        let y = self.term.cursor_y as usize;
+        let color = self.term.color as usize;
+
+        // TODO: Better handling for edge cases.
+
+        let wrote_hw = if self.term.cursor_hw || self.term.cursor_x % 2 == 0 {
+            let data = Self::data_for_ch(ch, color);
+            self.term.set_char_half(x, y, data, color);
+            self.term.cursor_hw && data.1
+        } else {
+            self.term.set_char_full(x / 2, y, Self::tile_for_ch(ch, color), color);
+            false
+        };
+
+        self.term.cursor_x += 2 - wrote_hw as u8;
+        if self.term.cursor_x >= 57 + self.term.cursor_hw as u8 {
+            self.new_line();
+        }
+    }
+    pub fn write_str(&mut self, mut str: &str) {
+        while !str.is_empty() {
+            // check for special characters
+            match str.chars().next().unwrap() {
+                ' ' => {
+                    if self.term.cursor_x != 0 {
+                        self.write_char(' ');
+                    }
+                    str = &str[1..];
+                    continue;
+                },
+                '\t' => {
+                    if !self.term.cursor_hw && self.term.cursor_x % 2 != 0 {
+                        self.term.cursor_hw = true;
+                        self.write_char(' ');
+                        self.term.cursor_hw = false;
+                    }
+                    while self.term.cursor_x % 8 == 0 {
+                        self.write_char(' ');
+                    }
+                    str = &str[1..];
+                    continue;
+                }
+                '\n' => {
+                    self.new_line();
+                    str = &str[1..];
+                    continue;
+                },
+                _ => {},
+            }
+
+            // advance until the end of the next word
+            let (end_word, word_len) = 'find_word: {
+                let mut word_len = 0;
+                for (idx, ch) in str.char_indices() {
+                    if ch == ' ' || ch == '\n' || ch == '\t' {
+                        break 'find_word (idx, word_len);
+                    }
+                    let ch = self.process_hw_conditional(ch);
+                    word_len += 2 - Self::is_half(ch) as usize;
+                }
+                (str.len(), word_len)
+            };
+            let word = &str[..end_word];
+
+            // check if we can fit the word
+            let fits_on_line = word_len < (58 - self.term.cursor_x as usize);
+            let fits_on_next_line = word_len < 58;
+            if !fits_on_line && fits_on_next_line {
+                self.new_line();
+            }
+            for ch in word.chars() {
+                self.write_char(ch);
+            }
+
+            // advance the state
+            str = &str[end_word..];
+        }
     }
 }
 
 #[inline(never)]
+#[track_caller]
 fn terminal_coord_out_of_range() -> ! {
     crate::panic_handler::static_panic(
-        "Terminal coordinates are from (0,0) to (57,18) inclusive in half-width mode and between\
+        "Terminal coordinates are from (0,0) to (57,18) inclusive in half-width mode and between \
         (0,0) to (28,18) inclusive in full-width mode.",
     )
 }
 
 #[inline(never)]
+#[track_caller]
 fn terminal_color_out_of_range() -> ! {
     crate::panic_handler::static_panic("Terminals only support up to 4 colors (0-3)!")
+}
+
+#[inline(never)]
+#[track_caller]
+fn terminal_lock_failure() -> ! {
+    crate::panic_handler::static_panic("Terminal is already locked!")
 }

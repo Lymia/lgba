@@ -23,7 +23,7 @@ impl Mode0 {
         }
     }
 
-    pub fn activate(&mut self) -> ActiveMode0 {
+    fn activate_raw(&mut self, lock: Option<RawMutexGuard<'static>>) -> ActiveMode0 {
         let [layer0, layer1, layer2, layer3] = &mut self.layers;
         let new_disp_cnt = DISPCNT
             .read()
@@ -35,18 +35,40 @@ impl Mode0 {
             .with_display_bg3(layer3.enabled());
         let active_mode = ActiveMode0 {
             layers: [layer0.activate(), layer1.activate(), layer2.activate(), layer3.activate()],
-            lock: MAIN_GFX_LOCK
-                .try_lock()
-                .unwrap_or_else(|| graphics_in_use()),
+            lock,
         };
         DISPCNT.write(new_disp_cnt);
         active_mode
+    }
+
+    /// Activates this mode.
+    ///
+    /// This checks a global lock to avoid situations where two graphics modes are active at the
+    /// same time.
+    pub fn activate(&mut self) -> ActiveMode0 {
+        let lock = Some(
+            MAIN_GFX_LOCK
+                .try_lock()
+                .unwrap_or_else(|| graphics_in_use()),
+        );
+        self.activate_raw(lock)
+    }
+
+    /// Activates this mode without locking the screen.
+    ///
+    /// This should not be used except in very special circumstances, such as in a panic handler
+    /// that may need to be called in a context where the graphics are already locked.
+    ///
+    /// There is no risk of memory unsafety while using this, but a great risk of very glitchy
+    /// graphics problems.
+    pub fn activate_no_lock(&mut self) -> ActiveMode0 {
+        self.activate_raw(None)
     }
 }
 
 pub struct ActiveMode0<'a> {
     pub layers: [ActiveTileLayer<'a>; 4],
-    lock: RawMutexGuard<'static>,
+    lock: Option<RawMutexGuard<'static>>,
 }
 impl<'a> Drop for ActiveMode0<'a> {
     fn drop(&mut self) {

@@ -11,8 +11,6 @@ pub trait TerminalFont {
     fn get_font_glyph(id: char) -> (u8, u16, bool);
     /// Returns the raw character data used by the font.
     fn get_font_data() -> &'static [u32];
-    /// Returns whether the font has any half-width characters.
-    fn has_half_width() -> bool;
 }
 pub use lgba_macros::TerminalFont; // allow users to make custom terminal fonts
 
@@ -46,8 +44,7 @@ pub enum TerminalFontAscii {}
 #[font(block = "Latin Extended-B")]
 #[font(block = "Latin-1 Supplement")]
 #[font(block = "Supplemental Punctuation")]
-#[font(chars = "①②③④⑤⑥⑦⑧⑨■□●★♪⌛⏩⏪↓↔↕‐‑‒–—―†‡•․…⁇▲▶▼◀▩⌘♀♂←↑→")]
-#[font(chars = "─│┌┐└┘├┤┬┴┼╭╮╯╰")]
+#[font(chars = "①②③④⑤⑥⑦⑧⑨■□●★♪⌛⏩⏪↓↔↕‐‑‒–—―†‡•․…⁇▲▶▼◀▩⌘♀♂←↑→─│┌┐└┘├┤┬┴┼╭╮╯╰")]
 #[font(fallback_char = "⁇")]
 pub enum TerminalFontBasic {}
 

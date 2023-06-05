@@ -27,7 +27,6 @@ pub struct FontConfig {
     block: Vec<String>,
     #[darling(multiple)]
     allow_halfwidth_blocks: Vec<String>,
-    enable_halfwidth_ascii: Option<bool>,
     fallback_char: Option<char>,
     kanji_max_level: Option<String>,
     delta: Option<f32>,
@@ -65,7 +64,6 @@ struct DecodedFontConfig {
     chars: HashSet<char>,
     block: DecodedMap,
     allow_halfwidth_blocks: DecodedMap,
-    enable_halfwidth_ascii: bool,
     fallback_char: char,
     kanji_max_level: Level,
     delta: f32,
@@ -86,7 +84,6 @@ impl DecodedFontConfig {
             chars: whitelisted_chars,
             block: DecodedMap::from_list(config.block),
             allow_halfwidth_blocks: DecodedMap::from_list(config.allow_halfwidth_blocks),
-            enable_halfwidth_ascii: config.enable_halfwidth_ascii.unwrap_or(true),
             fallback_char: config.fallback_char.unwrap_or('?'),
             kanji_max_level: match config
                 .kanji_max_level
@@ -159,7 +156,7 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
         if char.ch != '\0' && is_disabled && !char_map.contains_key(&char.ch) {
             char_map.insert(char.ch, process_char(config, *char));
         }
-        if (char.ch as u32) < 0x80 && config.enable_halfwidth_ascii {
+        if (char.ch as u32) < 0x80 {
             let new_ch = char::from_u32(0xF400 + char.ch as u32).unwrap();
             let mut new_char = *char;
             new_char.ch = new_ch;
@@ -167,7 +164,7 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
         }
     }
 
-    // add technical characters that are always needed
+    // add space characters
     char_map.insert(
         ' ',
         process_char(config, CharacterInfo {
@@ -175,6 +172,14 @@ fn build_from_fonts(config: &DecodedFontConfig, characters: &CharacterSets) -> V
             data: TECHNICAL_CHAR_BLANK,
             is_half_width: true,
         }),
+    );
+    char_map.insert(
+        '\u{F420}',
+        CharacterInfo {
+            ch: '\u{F420}',
+            data: TECHNICAL_CHAR_BLANK,
+            is_half_width: true,
+        },
     );
 
     // return the downloaded characters
@@ -668,8 +673,6 @@ fn make_glyphs_file(
     let font_data = make_u32_data_literal(paths, &glyphs.data);
     let font_data_size = glyphs.tile_count * 2;
 
-    let has_half_width = config.enable_halfwidth_ascii;
-
     let (load_hi_defines, load_hi) = if hi_bits != 0 {
         let glyph_id_hi_data = make_u16_literal(&glyph_id_hi);
         let divisor_mask = divisor - 1;
@@ -745,9 +748,6 @@ fn make_glyphs_file(
             }
             fn get_font_data() -> &'static [u32] {
                 &FONT_DATA
-            }
-            fn has_half_width() -> bool {
-                #has_half_width
             }
         }
     };
