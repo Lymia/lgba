@@ -9,6 +9,7 @@ resolver = "2"
 
 [profile.dev]
 opt-level = 2
+debug = 1
 lto = false
 
 [profile.release]

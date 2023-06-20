@@ -11,7 +11,7 @@ mod vram;
 pub use layers::{ActiveTileLayer, ActiveTileLayerEditGuard, TileLayer};
 pub use terminal::{
     fonts::{TerminalFont, TerminalFontAscii, TerminalFontBasic, TerminalFontFull},
-    Terminal,
+    ActiveTerminal, ActiveTerminalAccess, ActiveTerminalWrite, Terminal,
 };
 pub use vram::{CharAccess, CharData, VramTile};
 

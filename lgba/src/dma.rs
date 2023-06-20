@@ -18,14 +18,10 @@ static DMA1_LOCK: RawMutex = RawMutex::new();
 static DMA2_LOCK: RawMutex = RawMutex::new();
 static DMA3_LOCK: RawMutex = RawMutex::new();
 
-const DMA_SAD: [Register<*const c_void, UnsafeReg>; 4] = [DMA0SAD, DMA1SAD, DMA2SAD, DMA3SAD];
-const DMA_DAD: [Register<*mut c_void, UnsafeReg>; 4] = [DMA0DAD, DMA1DAD, DMA2DAD, DMA3DAD];
-const DMA_CNT_L: [Register<u16, UnsafeReg>; 4] = [DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L];
-const DMA_CNT_H: [Register<DmaCnt, UnsafeReg>; 4] = [DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H];
-
-#[derive(Copy, Clone, Debug)]
+/// Used to specify a particular DMA channel ID.
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
 #[repr(u8)]
-enum DmaChannelId {
+pub enum DmaChannelId {
     Dma0,
     Dma1,
     Dma2,
@@ -68,10 +64,10 @@ unsafe fn raw_tx(
     cnt: DmaCnt,
 ) {
     crate::sync::memory_read_hint(src);
-    DMA_SAD[ch as usize].write(src);
-    DMA_DAD[ch as usize].write(dst);
-    DMA_CNT_L[ch as usize].write(word_count);
-    DMA_CNT_H[ch as usize].write(cnt);
+    DMA_SAD.index(ch as usize).write(src);
+    DMA_DAD.index(ch as usize).write(dst);
+    DMA_CNT_L.index(ch as usize).write(word_count);
+    DMA_CNT_H.index(ch as usize).write(cnt);
     asm!("nop", "nop"); // wait for the DMA to begin.
     crate::sync::memory_write_hint(dst);
 }
@@ -252,39 +248,24 @@ pub fn dma3() -> DmaChannel {
 /// Pauses running DMAs and restores them afterwards.
 pub fn pause_dma<R>(func: impl FnOnce() -> R) -> R {
     unsafe {
-        let dma0_cnt = DMA0CNT_H.read();
-        let dma1_cnt = DMA1CNT_H.read();
-        let dma2_cnt = DMA2CNT_H.read();
-        let dma3_cnt = DMA3CNT_H.read();
-
-        if dma0_cnt.enabled() {
-            DMA0CNT_H.write(dma0_cnt.with_enabled(false));
+        let mut dma_cnt = [DmaCnt::default(); 4];
+        for i in 0..4 {
+            dma_cnt[i] = DMA_CNT_H.index(i).read();
         }
-        if dma1_cnt.enabled() {
-            DMA1CNT_H.write(dma1_cnt.with_enabled(false));
-        }
-        if dma2_cnt.enabled() {
-            DMA2CNT_H.write(dma2_cnt.with_enabled(false));
-        }
-        if dma3_cnt.enabled() {
-            DMA3CNT_H.write(dma3_cnt.with_enabled(false));
+        for i in 0..4 {
+            if dma_cnt[i].enabled() {
+                DMA_CNT_H.index(i).write(dma_cnt[i].with_enabled(false));
+            }
         }
 
         compiler_fence(Ordering::Acquire);
         let result = func();
         compiler_fence(Ordering::Release);
 
-        if dma0_cnt.enabled() {
-            DMA0CNT_H.write(dma0_cnt);
-        }
-        if dma1_cnt.enabled() {
-            DMA1CNT_H.write(dma1_cnt);
-        }
-        if dma2_cnt.enabled() {
-            DMA2CNT_H.write(dma2_cnt);
-        }
-        if dma3_cnt.enabled() {
-            DMA3CNT_H.write(dma3_cnt);
+        for i in 0..4 {
+            if dma_cnt[i].enabled() {
+                DMA_CNT_H.index(i).write(dma_cnt[i]);
+            }
         }
 
         result

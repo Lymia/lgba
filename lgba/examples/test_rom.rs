@@ -8,7 +8,6 @@ use core::alloc::{GlobalAlloc, Layout};
 use lgba::display::{Terminal, TerminalFontFull};
 
 #[inline(never)]
-#[lgba::iwram]
 fn main_impl() -> ! {
     let mut terminal = Terminal::new();
     let terminal = terminal.activate::<TerminalFontFull>(true);
@@ -42,7 +41,13 @@ fn main_impl() -> ! {
     terminal.set_active_color(0);
     terminal.write_str("Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi!");
 
-    panic!("??? this is a long-winded error message that doesn't really mean anything, that exists entirely to test the panic handler screen. yep yep hello!");
+    loop {}
+}
+
+#[inline(never)]
+fn dbg_long_div(a: u64, b: u64) {
+    println!("long div: {} / {} = {}", a, b, a / b);
+    println!("long div: {} * {} = {}", a, b, a * b);
 }
 
 #[lgba::entry]
@@ -57,6 +62,11 @@ fn rom_entry() -> ! {
     debug!("debug~");
     dbg!();
     dbg!(dbg!(3) + 3);
+
+    dbg_long_div(100000, 1000);
+    dbg_long_div(100000, 10000);
+    dbg_long_div(100000, 100000);
+
     main_impl()
 }
 

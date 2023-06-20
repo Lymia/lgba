@@ -8,10 +8,12 @@ pub mod debug;
 mod gba_header;
 mod mmio;
 mod panic_handler;
+mod timer;
 
 pub mod display;
 pub mod dma;
 pub mod irq;
+//pub mod save;
 pub mod sync;
 pub mod sys;
 

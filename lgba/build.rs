@@ -1,19 +1,45 @@
-fn arm_as(source: &str, out_name: &str, o_files: &mut Vec<String>) {
+use std::{fs, process::Command};
+
+fn arm_as_0(
+    source: &str,
+    out_name: &str,
+    o_files: &mut Vec<String>,
+    exflag: impl FnOnce(&mut Command) -> &mut Command,
+) {
     println!("cargo:rerun-if-changed={source}");
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let out_dir_file = format!("{out_dir}/{out_name}");
-    let as_output = std::process::Command::new("arm-none-eabi-as")
-        .args(&["-o", out_dir_file.as_str()])
-        .arg("-mthumb-interwork")
-        .arg("-mcpu=arm7tdmi")
-        .arg("-g")
-        .arg(source)
-        .output()
-        .expect("failed to run arm-none-eabi-as");
+    let as_output = exflag(
+        Command::new("arm-none-eabi-as")
+            .args(&["-o", out_dir_file.as_str()])
+            .arg("-mthumb-interwork")
+            .arg("-mcpu=arm7tdmi"),
+    )
+    .arg("-g")
+    .arg(source)
+    .output()
+    .expect("failed to run arm-none-eabi-as");
     if !as_output.status.success() {
         panic!("{}", String::from_utf8_lossy(&as_output.stderr));
     }
     o_files.push(out_dir_file);
+}
+fn arm_as(source: &str, out_name: &str, o_files: &mut Vec<String>) {
+    arm_as_0(source, out_name, o_files, |x| x)
+}
+fn arm_as_agbabi(source: &str, out_name: &str, o_files: &mut Vec<String>, allow_iwram: bool) {
+    let source = if allow_iwram {
+        source.to_string()
+    } else {
+        let out_dir = std::env::var("OUT_DIR").unwrap();
+        let out_dir_file = format!("{out_dir}/{out_name}_noiwran.s");
+
+        let contents = fs::read_to_string(source).unwrap();
+        fs::write(&out_dir_file, contents.replace(".iwram.", ".text.")).unwrap();
+
+        out_dir_file
+    };
+    arm_as_0(&source, out_name, o_files, |x| x.arg("-I").arg("agbabi/source"))
 }
 
 fn main() {
@@ -26,11 +52,22 @@ fn main() {
 
         arm_as("asm/crt0.s", "crt0.o", &mut o_files);
         arm_as("asm/header.s", "header.o", &mut o_files);
+        arm_as("asm/save.s", "save.o", &mut o_files);
         arm_as("asm/sys.s", "sys.o", &mut o_files);
+
+        arm_as_agbabi("agbabi/source/memcpy.s", "agbabi_memcpy.o", &mut o_files, true);
+        arm_as_agbabi("agbabi/source/memset.s", "agbabi_memset.o", &mut o_files, true);
+
+        arm_as_agbabi("agbabi/source/idiv.s", "agbabi_idiv.o", &mut o_files, false);
+        arm_as_agbabi("agbabi/source/ldiv.s", "agbabi_ldiv.o", &mut o_files, false);
+        arm_as_agbabi("agbabi/source/lmul.s", "agbabi_lmul.o", &mut o_files, false);
+        arm_as_agbabi("agbabi/source/uidiv.s", "agbabi_uidiv.o", &mut o_files, false);
+        arm_as_agbabi("agbabi/source/uldiv.s", "agbabi_uldiv.o", &mut o_files, false);
+        arm_as_agbabi("agbabi/source/uluidiv.s", "agbabi_uluidiv.o", &mut o_files, false);
 
         let archive_name = format!("{out_dir}/liblgba_as.a");
         std::fs::remove_file(&archive_name).ok();
-        let ar_out = std::process::Command::new("arm-none-eabi-ar")
+        let ar_out = Command::new("arm-none-eabi-ar")
             .arg("-crs")
             .arg(&archive_name)
             .args(&o_files)

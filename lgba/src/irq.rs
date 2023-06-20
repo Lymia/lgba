@@ -1,7 +1,11 @@
 //! Module containing code useful for working with interrupts.
 
-// TODO: Document
+use crate::mmio::reg::IME;
+
+// Executes a closure with interrupts disabled in its body.
 pub fn disable<R>(func: impl FnOnce() -> R) -> R {
-    // TODO: Actually disable IRQs
-    func()
+    let prev_ime = IME.read();
+    let result = func();
+    IME.write(prev_ime);
+    result
 }

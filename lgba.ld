@@ -1,4 +1,8 @@
 ENTRY  (__start)
+
+EXTERN (__agbabi_memset)
+EXTERN (__agbabi_memcpy)
+
 INPUT  (liblgba_as.a)
 
 MEMORY {
@@ -81,7 +85,7 @@ SECTIONS {
     .debug_funcnames 0 : { *(.debug_funcnames) }
     .debug_typenames 0 : { *(.debug_typenames) }
     .debug_varnames  0 : { *(.debug_varnames) }
-    
+
     /* required sections */
     .shstrtab  0 : { *(.shstrtab) }
 

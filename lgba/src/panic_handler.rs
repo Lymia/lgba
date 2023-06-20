@@ -1,10 +1,15 @@
 use crate::{
-    debug::DebugLevel,
-    display::{Terminal, TerminalFontAscii},
+    display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
     eprintln,
     sync::Static,
 };
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+use core::{
+    alloc::Layout,
+    fmt::Write,
+    panic::{Location, PanicInfo},
+};
+
+// TODO: Prevent long messages from scrolling off the screen.
 
 extern "Rust" {
     pub static __lgba_exh_lgba_version: &'static str;
@@ -13,27 +18,18 @@ extern "Rust" {
     pub static __lgba_exh_rom_repository: &'static str;
 }
 
-static PANICKING: Static<bool> = Static::new(false);
-
-#[panic_handler]
-fn handle_panic(error: &PanicInfo) -> ! {
-    // TODO: Prevent long messages from scrolling off the screen.
-
+#[inline(never)]
+fn panic_start() {
+    static PANICKING: Static<bool> = Static::new(false);
     // detect double panic
     if PANICKING.replace(true) {
         eprintln!("Panicked while panicking. Aborting!");
         crate::sys::abort();
     }
+}
 
-    // print the panic message to debug terminal, if we have one
-    eprintln!("ROM panicked: {}", error);
-
-    // set up the graphical terminal with a basic font
-    let mut terminal = Terminal::new();
-    terminal.set_color(0, crate::display::rgb_24bpp(150, 0, 0), !0);
-    let terminal = terminal.activate_no_lock::<TerminalFontAscii>(false);
-    let mut terminal = terminal.lock();
-
+#[inline(never)]
+fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
     // print a common message for simple UX
     terminal.write_str("Fatal Error!\n\n");
     terminal.set_half_width(true);
@@ -58,36 +54,100 @@ fn handle_panic(error: &PanicInfo) -> ! {
     unsafe {
         write!(
             terminal.write(),
-            "Version: {} {} / lgba {}\n",
+            "Version : {} {} / lgba {}\n",
             __lgba_exh_rom_cname,
             __lgba_exh_rom_cver,
             __lgba_exh_lgba_version,
         )
         .unwrap();
     }
-
-    // write panic location
-    match error.location() {
+}
+#[inline(never)]
+fn write_location(
+    terminal: &mut ActiveTerminalAccess<TerminalFontAscii>,
+    location: Option<&Location>,
+) {
+    match location {
         None => terminal.write_str("Location: <unknown>\n"),
         Some(location) => write!(terminal.write(), "Location: {}\n", location).unwrap(),
     }
+}
 
-    // write panic message
-    match error.message() {
-        None => terminal.write_str("Message: <unknown>\n"),
-        Some(error) => write!(terminal.write(), "Message: {}\n", error).unwrap(),
+fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii>)) -> ! {
+    // set up the graphical terminal with a basic font
+    let mut terminal = Terminal::new();
+    terminal.set_color(0, crate::display::rgb_24bpp(200, 0, 0), !0);
+    let terminal = terminal.activate_no_lock::<TerminalFontAscii>(false);
+    let mut terminal = terminal.lock();
+
+    // run the actual function
+    func(&mut terminal);
+
+    // abort cleanly
+    crate::sys::abort()
+}
+
+#[inline(never)]
+fn handle_static_panic(message: &str, location: Option<&Location>) -> ! {
+    crate::irq::disable(|| crate::dma::pause_dma(|| handle_static_panic_inner(message, location)))
+}
+fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
+    panic_start();
+
+    // print the panic message to debug terminal, if we have one
+    match location {
+        Some(location) => eprintln!("ROM panicked: {} @ {}", message, location),
+        None => eprintln!("ROM panicked: {}", message),
     }
 
-    crate::sys::abort()
+    // do the actual panic message
+    panic_with_term(|terminal| {
+        write_panic_head(terminal);
+        write_location(terminal, location);
+        write!(terminal.write(), "Message : {}\n", message).unwrap();
+    })
+}
+
+#[panic_handler]
+#[inline(never)]
+fn handle_panic(error: &PanicInfo) -> ! {
+    crate::irq::disable(|| crate::dma::pause_dma(|| handle_panic_inner(error)))
+}
+fn handle_panic_inner(error: &PanicInfo) -> ! {
+    panic_start();
+
+    // print the panic message to debug terminal, if we have one
+    eprintln!("ROM panicked: {}", error);
+
+    // do the actual panic message
+    panic_with_term(|terminal| {
+        write_panic_head(terminal);
+        write_location(terminal, error.location());
+
+        // write panic message
+        match error.message() {
+            None => terminal.write_str("Message : <unknown>\n"),
+            Some(error) => write!(terminal.write(), "Message : {}\n", error).unwrap(),
+        }
+    })
 }
 
 #[alloc_error_handler]
 fn handle_alloc_error(layout: Layout) -> ! {
-    eprintln!("Could not allocate memory: {:?}", layout);
-    crate::sys::abort()
+    handle_static_panic("could not allocate memory", None)
 }
 
+#[no_mangle]
+fn __aeabi_idiv0() -> ! {
+    handle_static_panic("division by 0", None)
+}
+
+#[no_mangle]
+fn __aeabi_ldiv0() -> ! {
+    __aeabi_idiv0();
+}
+
+#[track_caller]
 pub fn static_panic(msg: &str) -> ! {
-    crate::debug::debug_print(DebugLevel::Error, msg);
-    crate::sys::abort()
+    handle_static_panic(msg, Some(Location::caller()))
 }

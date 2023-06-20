@@ -3,10 +3,6 @@ use crate::{
     mmio::{display::BgCnt, reg::*},
 };
 
-const BG_CNT: [Register<BgCnt, SafeReg>; 4] = [BG0CNT, BG1CNT, BG2CNT, BG3CNT];
-const BG_HOFS: [Register<i16, SafeReg>; 4] = [BG0HOFS, BG1HOFS, BG2HOFS, BG3HOFS];
-const BG_VOFS: [Register<i16, SafeReg>; 4] = [BG0VOFS, BG1VOFS, BG2VOFS, BG3VOFS];
-
 // TODO: Introduce a autogenerating procedural macro to this module.
 
 #[derive(Copy, Clone, Debug)]
@@ -177,13 +173,13 @@ impl TileLayer {
     }
 
     fn write_cnt(&self) {
-        BG_CNT[self.id as usize].write(self.cnt);
+        BG_CNT.index(self.id as usize).write(self.cnt);
     }
     fn write_hoff(&self) {
-        BG_HOFS[self.id as usize].write(-self.h_offset);
+        BG_HOFS.index(self.id as usize).write(-self.h_offset);
     }
     fn write_voff(&self) {
-        BG_VOFS[self.id as usize].write(-self.v_offset);
+        BG_VOFS.index(self.id as usize).write(-self.v_offset);
     }
     pub(crate) fn write_enabled_from_guard(&self) {
         // TODO: Cleanup
