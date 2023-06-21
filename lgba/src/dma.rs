@@ -13,10 +13,8 @@ use core::{
     sync::atomic::{compiler_fence, Ordering},
 };
 
-static DMA0_LOCK: RawMutex = RawMutex::new();
-static DMA1_LOCK: RawMutex = RawMutex::new();
-static DMA2_LOCK: RawMutex = RawMutex::new();
-static DMA3_LOCK: RawMutex = RawMutex::new();
+static DMA_LOCK: [RawMutex; 4] =
+    [RawMutex::new(), RawMutex::new(), RawMutex::new(), RawMutex::new()];
 
 /// Used to specify a particular DMA channel ID.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
@@ -27,8 +25,32 @@ pub enum DmaChannelId {
     Dma2,
     Dma3,
 }
+impl DmaChannelId {
+    /// Returns whether the source address for DMA on this channel must be internal to the GBA.
+    pub fn is_source_internal_only(&self) -> bool {
+        *self == DmaChannelId::Dma0
+    }
+
+    /// Returns whether the target address for DMA on this channel must be internal to the GBA.
+    pub fn is_target_internal_only(&self) -> bool {
+        *self <= DmaChannelId::Dma2
+    }
+
+    /// Creates a new DMA channel for this ID.
+    #[track_caller]
+    pub fn create(&self) -> DmaChannel {
+        DmaChannel {
+            channel: *self,
+            irq_notify: false,
+            _lock: DMA_LOCK[*self as usize]
+                .try_lock()
+                .unwrap_or_else(|| dma_channel_in_use()),
+        }
+    }
+}
 
 #[inline]
+#[track_caller]
 fn check_align(
     src_internal: bool,
     dst_internal: bool,
@@ -76,8 +98,6 @@ unsafe fn raw_tx(
 #[derive(Debug)]
 pub struct DmaChannel {
     channel: DmaChannelId,
-    src_internal: bool,
-    dst_internal: bool,
     irq_notify: bool,
     _lock: RawMutexGuard<'static>,
 }
@@ -94,6 +114,7 @@ impl DmaChannel {
     /// * A size of two bytes, and an alignment of two bytes.
     /// * A size of four bytes and an alignment of four bytes.
     #[inline]
+    #[track_caller]
     pub fn set<T: Copy>(&mut self, src: T, dst: &mut [T]) -> &mut Self {
         unsafe {
             self.unsafe_set(src, dst.as_mut_ptr(), dst.len());
@@ -106,6 +127,7 @@ impl DmaChannel {
     /// Both the start of `src` and `dst` must be aligned to a multiple of `2` bytes. If it is not,
     /// this function will panic.
     #[inline]
+    #[track_caller]
     pub unsafe fn unsafe_set<T: Copy>(
         &mut self,
         src: T,
@@ -142,6 +164,7 @@ impl DmaChannel {
     /// Both the start of `src` and `dst` must be aligned to a multiple of `2` bytes. If it is not,
     /// this function will panic.
     #[inline]
+    #[track_caller]
     pub fn transfer<T: Copy>(&mut self, src: &[T], dst: &mut [T]) -> &mut Self {
         if src.len() != dst.len() {
             dma_size_not_equal();
@@ -161,14 +184,20 @@ impl DmaChannel {
     /// Both the start of `src` and `dst` must be aligned to a multiple of `2` bytes. If it is not,
     /// this function will panic.
     #[inline]
+    #[track_caller]
     pub unsafe fn unsafe_transfer(
         &mut self,
         src: *const c_void,
         dst: *mut c_void,
         byte_count: usize,
     ) -> &mut Self {
-        let (is_u32, word_count) =
-            check_align(self.src_internal, self.dst_internal, src, dst, byte_count);
+        let (is_u32, word_count) = check_align(
+            self.channel.is_source_internal_only(),
+            self.channel.is_target_internal_only(),
+            src,
+            dst,
+            byte_count,
+        );
         let cnt = DmaCnt::default()
             .with_send_irq(self.irq_notify)
             .with_transfer_u32(is_u32)
@@ -179,70 +208,39 @@ impl DmaChannel {
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_size_not_equal() -> ! {
     crate::panic_handler::static_panic("DMA transfer between two lists of unequal size!")
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_not_aligned() -> ! {
     crate::panic_handler::static_panic("DMA transfer between unaligned lists!")
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_too_large() -> ! {
     crate::panic_handler::static_panic("DMA transfer is too large!")
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_invalid_size() -> ! {
     crate::panic_handler::static_panic("Cannot use `set` on objects of this size!")
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_channel_in_use() -> ! {
     crate::panic_handler::static_panic("DMA channel already in use!")
 }
 
 #[inline(never)]
+#[track_caller]
 fn dma_is_external() -> ! {
     crate::panic_handler::static_panic("DMA channel does not support cartridge addresses!")
-}
-
-pub fn dma0() -> DmaChannel {
-    DmaChannel {
-        channel: DmaChannelId::Dma0,
-        src_internal: true,
-        dst_internal: true,
-        irq_notify: false,
-        _lock: DMA0_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
-    }
-}
-pub fn dma1() -> DmaChannel {
-    DmaChannel {
-        channel: DmaChannelId::Dma1,
-        src_internal: false,
-        dst_internal: true,
-        irq_notify: false,
-        _lock: DMA1_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
-    }
-}
-pub fn dma2() -> DmaChannel {
-    DmaChannel {
-        channel: DmaChannelId::Dma2,
-        src_internal: false,
-        dst_internal: true,
-        irq_notify: false,
-        _lock: DMA2_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
-    }
-}
-pub fn dma3() -> DmaChannel {
-    DmaChannel {
-        channel: DmaChannelId::Dma3,
-        src_internal: false,
-        dst_internal: false,
-        irq_notify: false,
-        _lock: DMA3_LOCK.try_lock().unwrap_or_else(|| dma_channel_in_use()),
-    }
 }
 
 /// Pauses running DMAs and restores them afterwards.

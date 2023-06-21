@@ -7,7 +7,7 @@ extern crate lgba;
 use core::alloc::{GlobalAlloc, Layout};
 
 #[lgba::entry]
-#[rom(title = "LGBA_TESTROM", code = "LGTR")]
+#[rom(title = "LGBA_PNICTST", code = "LGPT")]
 fn rom_entry() -> ! {
     panic!("??? this is a long-winded error message that doesn't really mean anything, that exists entirely to test the panic handler screen. yep yep hello!");
 }

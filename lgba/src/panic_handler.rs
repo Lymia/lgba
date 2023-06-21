@@ -1,5 +1,6 @@
 use crate::{
     display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
+    dma::DmaChannelId,
     eprintln,
     sync::Static,
 };
@@ -10,6 +11,7 @@ use core::{
 };
 
 // TODO: Prevent long messages from scrolling off the screen.
+// TODO: Do some extra "don't make the user cry" stuff like turning off sound.
 
 extern "Rust" {
     pub static __lgba_exh_lgba_version: &'static str;
@@ -77,7 +79,8 @@ fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii
     // set up the graphical terminal with a basic font
     let mut terminal = Terminal::new();
     terminal.set_color(0, crate::display::rgb_24bpp(200, 0, 0), !0);
-    let terminal = terminal.activate_no_lock::<TerminalFontAscii>(false);
+    terminal.use_dma_channel(DmaChannelId::Dma3);
+    let terminal = terminal.activate_no_lock::<TerminalFontAscii>();
     let mut terminal = terminal.lock();
 
     // run the actual function
@@ -100,7 +103,7 @@ fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
         None => eprintln!("ROM panicked: {}", message),
     }
 
-    // do the actual panic message
+    // show a panic screen
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, location);
@@ -119,7 +122,7 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
     // print the panic message to debug terminal, if we have one
     eprintln!("ROM panicked: {}", error);
 
-    // do the actual panic message
+    // show a panic screen
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, error.location());
@@ -132,9 +135,27 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
     })
 }
 
+#[inline(never)]
+fn handle_alloc_panic(layout: Layout) -> ! {
+    crate::irq::disable(|| crate::dma::pause_dma(|| handle_alloc_panic_inner(layout)))
+}
+fn handle_alloc_panic_inner(layout: Layout) -> ! {
+    panic_start();
+
+    // print the panic message to debug terminal, if we have one
+    eprintln!("out of memory: {:?}", layout);
+
+    // show a panic screen
+    panic_with_term(|terminal| {
+        write_panic_head(terminal);
+        write_location(terminal, None);
+        write!(terminal.write(), "Message : Ran out of memory.\nLayout  :{:?}\n", layout).unwrap();
+    })
+}
+
 #[alloc_error_handler]
 fn handle_alloc_error(layout: Layout) -> ! {
-    handle_static_panic("could not allocate memory", None)
+    handle_alloc_panic(layout)
 }
 
 #[no_mangle]

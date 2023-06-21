@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::{process::Command};
 
 fn arm_as_0(
     source: &str,
@@ -27,19 +27,8 @@ fn arm_as_0(
 fn arm_as(source: &str, out_name: &str, o_files: &mut Vec<String>) {
     arm_as_0(source, out_name, o_files, |x| x)
 }
-fn arm_as_agbabi(source: &str, out_name: &str, o_files: &mut Vec<String>, allow_iwram: bool) {
-    let source = if allow_iwram {
-        source.to_string()
-    } else {
-        let out_dir = std::env::var("OUT_DIR").unwrap();
-        let out_dir_file = format!("{out_dir}/{out_name}_noiwran.s");
-
-        let contents = fs::read_to_string(source).unwrap();
-        fs::write(&out_dir_file, contents.replace(".iwram.", ".text.")).unwrap();
-
-        out_dir_file
-    };
-    arm_as_0(&source, out_name, o_files, |x| x.arg("-I").arg("agbabi/source"))
+fn arm_as_agbabi(source: &str, out_name: &str, o_files: &mut Vec<String>) {
+    arm_as_0(source, out_name, o_files, |x| x.arg("-I").arg("asm/agbabi"))
 }
 
 fn main() {
@@ -55,15 +44,15 @@ fn main() {
         arm_as("asm/save.s", "save.o", &mut o_files);
         arm_as("asm/sys.s", "sys.o", &mut o_files);
 
-        arm_as_agbabi("agbabi/source/memcpy.s", "agbabi_memcpy.o", &mut o_files, true);
-        arm_as_agbabi("agbabi/source/memset.s", "agbabi_memset.o", &mut o_files, true);
+        arm_as_agbabi("asm/agbabi/memcpy.s", "agbabi_memcpy.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/memset.s", "agbabi_memset.o", &mut o_files);
 
-        arm_as_agbabi("agbabi/source/idiv.s", "agbabi_idiv.o", &mut o_files, false);
-        arm_as_agbabi("agbabi/source/ldiv.s", "agbabi_ldiv.o", &mut o_files, false);
-        arm_as_agbabi("agbabi/source/lmul.s", "agbabi_lmul.o", &mut o_files, false);
-        arm_as_agbabi("agbabi/source/uidiv.s", "agbabi_uidiv.o", &mut o_files, false);
-        arm_as_agbabi("agbabi/source/uldiv.s", "agbabi_uldiv.o", &mut o_files, false);
-        arm_as_agbabi("agbabi/source/uluidiv.s", "agbabi_uluidiv.o", &mut o_files, false);
+        arm_as_agbabi("asm/agbabi/idiv.s", "agbabi_idiv.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/ldiv.s", "agbabi_ldiv.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/lmul.s", "agbabi_lmul.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/uidiv.s", "agbabi_uidiv.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/uldiv.s", "agbabi_uldiv.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/uluidiv.s", "agbabi_uluidiv.o", &mut o_files);
 
         let archive_name = format!("{out_dir}/liblgba_as.a");
         std::fs::remove_file(&archive_name).ok();

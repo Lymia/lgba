@@ -4,7 +4,7 @@ use crate::{
         vram::MapAccess,
         TerminalFont, VramTile,
     },
-    dma::dma3,
+    dma::DmaChannelId,
     mmio::reg::BG_PALETTE_RAM,
     sync::{Mutex, MutexGuard, Static},
 };
@@ -27,12 +27,14 @@ fn update_palette(id: usize, (background, foreground): (u16, u16)) {
 /// A terminal display mode that makes it easy to display text.
 pub struct Terminal {
     mode: Mode0,
+    dma_channel: Option<DmaChannelId>,
     terminal_colors: [Static<(u16, u16)>; 4],
 }
 impl Terminal {
     pub fn new() -> Self {
         Terminal {
             mode: Mode0::new(),
+            dma_channel: None,
             terminal_colors: [
                 Static::new((0, !0)),
                 Static::new((0, !0)),
@@ -40,6 +42,14 @@ impl Terminal {
                 Static::new((0, !0)),
             ],
         }
+    }
+
+    #[track_caller]
+    pub fn use_dma_channel(&mut self, id: DmaChannelId) {
+        if id.is_source_internal_only() {
+            terminal_invalid_dma_channel();
+        }
+        self.dma_channel = Some(id);
     }
 
     pub fn set_color(&mut self, id: usize, background: u16, foreground: u16) {
@@ -50,7 +60,7 @@ impl Terminal {
         update_palette(id, self.terminal_colors[id].read());
     }
 
-    fn active_raw<T: TerminalFont>(&mut self, use_dma: bool, no_lock: bool) -> ActiveTerminal<T> {
+    fn active_raw<T: TerminalFont>(&mut self, no_lock: bool) -> ActiveTerminal<T> {
         // configure all layers
         self.mode.layers[0]
             .set_enabled(true)
@@ -74,10 +84,12 @@ impl Terminal {
             .set_v_offset(4);
 
         // upload font
-        if use_dma {
-            self.mode.layers[0]
-                .char_access()
-                .write_char_4bpp_dma(dma3(), 0, T::get_font_data());
+        if let Some(channel) = self.dma_channel {
+            self.mode.layers[0].char_access().write_char_4bpp_dma(
+                channel.create(),
+                0,
+                T::get_font_data(),
+            );
         } else {
             self.mode.layers[0]
                 .char_access()
@@ -129,6 +141,7 @@ impl Terminal {
                     ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 2),
                     ActiveTerminalAccess::<T>::tile_for_ch('\u{F501}', 3),
                 ],
+                dma_channel: self.dma_channel,
             }),
             _phantom: Default::default(),
         };
@@ -140,11 +153,11 @@ impl Terminal {
         terminal
     }
 
-    pub fn activate<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
-        self.active_raw(use_dma, false)
+    pub fn activate<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
+        self.active_raw(false)
     }
-    pub fn activate_no_lock<T: TerminalFont>(&mut self, use_dma: bool) -> ActiveTerminal<T> {
-        self.active_raw(use_dma, true)
+    pub fn activate_no_lock<T: TerminalFont>(&mut self) -> ActiveTerminal<T> {
+        self.active_raw(true)
     }
 }
 
@@ -162,7 +175,6 @@ impl<'a, T: TerminalFont> ActiveTerminal<'a, T> {
                 None => terminal_lock_failure(),
                 Some(x) => x,
             },
-            no_dma: false,
             _phantom: Default::default(),
         }
     }
@@ -210,6 +222,8 @@ struct ActiveTerminalState<'a> {
     space_ch: [VramTile; 4],
     half_bg_ch: [VramTile; 4],
     full_bg_ch: [VramTile; 4],
+
+    dma_channel: Option<DmaChannelId>,
 }
 impl<'a> ActiveTerminalState<'a> {
     fn apply_advance(&self, y: usize) -> usize {
@@ -238,21 +252,16 @@ impl<'a> ActiveTerminalState<'a> {
         self.line_advance = 0;
 
         let tile = self.space_ch[0];
-        for i in 0..4 {
-            self.map[i].set_tile_dma(dma3(), 0, 0, tile, 32 * 32);
-        }
-    }
-    fn clear_no_dma(&mut self) {
-        self.cursor_x = 0;
-        self.cursor_y = 0;
-        self.color = 0;
-        self.line_advance = 0;
-
-        let tile = self.space_ch[0];
-        for i in 0..4 {
-            for x in 0..32 {
-                for y in 0..32 {
-                    self.map[i].set_tile(x, y, tile);
+        if let Some(channel) = self.dma_channel {
+            for i in 0..4 {
+                self.map[i].set_tile_dma(channel.create(), 0, 0, tile, 32 * 32);
+            }
+        } else {
+            for i in 0..4 {
+                for x in 0..32 {
+                    for y in 0..32 {
+                        self.map[i].set_tile(x, y, tile);
+                    }
                 }
             }
         }
@@ -323,7 +332,6 @@ impl<'a> ActiveTerminalState<'a> {
 /// A lock on an [`ActiveTerminal`], allowing for faster terminal writes.
 pub struct ActiveTerminalAccess<'a, 'b: 'a, T: TerminalFont> {
     term: MutexGuard<'a, ActiveTerminalState<'b>>,
-    no_dma: bool,
     _phantom: PhantomData<T>,
 }
 impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
@@ -350,11 +358,7 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
     }
 
     pub fn clear(&mut self) {
-        if self.no_dma {
-            self.term.clear();
-        } else {
-            self.term.clear_no_dma();
-        }
+        self.term.clear();
     }
 
     fn process_hw(ch: char) -> char {
@@ -557,4 +561,10 @@ fn terminal_color_out_of_range() -> ! {
 #[track_caller]
 fn terminal_lock_failure() -> ! {
     crate::panic_handler::static_panic("Terminal is already locked!")
+}
+
+#[inline(never)]
+#[track_caller]
+fn terminal_invalid_dma_channel() -> ! {
+    crate::panic_handler::static_panic("DMA channel cannot be used for terminal rendering!")
 }

@@ -1,8 +1,5 @@
 ENTRY  (__start)
 
-EXTERN (__agbabi_memset)
-EXTERN (__agbabi_memcpy)
-
 INPUT  (liblgba_as.a)
 
 MEMORY {

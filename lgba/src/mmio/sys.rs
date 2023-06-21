@@ -102,7 +102,7 @@ packed_struct_fields!(
     TimerCnt, u16,
 
     (scale, with_scale, TimerScale, 0..=1),
-    (count_up, with_count_up, bool, 2),
+    (cascade, with_cascade, bool, 2),
     (enable_irq, with_enable_irq, bool, 6),
     (enabled, with_enabled, bool, 7),
 );
