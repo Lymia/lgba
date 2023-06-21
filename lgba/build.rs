@@ -27,6 +27,9 @@ fn arm_as_0(
 fn arm_as(source: &str, out_name: &str, o_files: &mut Vec<String>) {
     arm_as_0(source, out_name, o_files, |x| x)
 }
+fn arm_as_aeabi(source: &str, out_name: &str, o_files: &mut Vec<String>) {
+    arm_as_0(source, out_name, o_files, |x| x.arg("-I").arg("asm/aeabi-cortexm0"))
+}
 fn arm_as_agbabi(source: &str, out_name: &str, o_files: &mut Vec<String>) {
     arm_as_0(source, out_name, o_files, |x| x.arg("-I").arg("asm/agbabi"))
 }
@@ -43,6 +46,8 @@ fn main() {
         arm_as("asm/header.s", "header.o", &mut o_files);
         arm_as("asm/save.s", "save.o", &mut o_files);
         arm_as("asm/sys.s", "sys.o", &mut o_files);
+
+        //arm_as_aeabi("asm/aeabi-cortexm0/lmul.S", "aeabi_lmul.o", &mut o_files);
 
         arm_as_agbabi("asm/agbabi/memcpy.s", "agbabi_memcpy.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/memset.s", "agbabi_memset.o", &mut o_files);

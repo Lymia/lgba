@@ -13,10 +13,21 @@ use lgba::{
 
 #[inline(never)]
 fn test_func() {
+    for x in 0u64..500u64 {
+        for y in 0u64..500u64 {
+            let au64 = black_box(black_box(x) * black_box(y));
+            let au32 = black_box(black_box(x as u32) * black_box((y) as u32));
+            if au64 as u32 != au32 {
+                println!("{} {}", au64, au32);
+                assert_eq!(au64 as u32, au32);
+            }
+        }
+    }
+
     lgba::timer::temp_time(|| {
         for x in 0u64..500u64 {
             for y in 0u64..500u64 {
-                black_box(black_box(x) << black_box(y));
+                black_box(black_box(x) * black_box(y));
             }
         }
     });

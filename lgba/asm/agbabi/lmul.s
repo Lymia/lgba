@@ -7,6 +7,15 @@
 @ For conditions of distribution and use, see copyright notice in LICENSE.md
 @
 @===============================================================================
+@
+@ Modified for lgba
+@ Copyright (C) 2023 Lymia Kanokawa
+@
+@ 2023/06/21 - Removed __aeabi_llsl, __aeabi_llsr and __aeabi_lasr in favor of
+@              implementations from the cortex m0.
+@
+@===============================================================================
+
 
     .arm
     .align 2
