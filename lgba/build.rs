@@ -42,19 +42,28 @@ fn main() {
         let out_dir = std::env::var("OUT_DIR").unwrap();
         let mut o_files = Vec::new();
 
+        // lgba-specific code
         arm_as("asm/crt0.s", "crt0.o", &mut o_files);
         arm_as("asm/header.s", "header.o", &mut o_files);
         arm_as("asm/save.s", "save.o", &mut o_files);
         arm_as("asm/sys.s", "sys.o", &mut o_files);
 
-        //arm_as_aeabi("asm/aeabi-cortexm0/lmul.S", "aeabi_lmul.o", &mut o_files);
-
+        // memory operations
         arm_as_agbabi("asm/agbabi/memcpy.s", "agbabi_memcpy.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/memset.s", "agbabi_memset.o", &mut o_files);
 
+        // u32 operations
+        arm_as("asm/aeabi-cortexm0/idiv.S", "aeabi_idiv.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/idivmod.S", "aeabi_idivmod.o", &mut o_files);
+
+        // u64 operations
+        arm_as("asm/aeabi-cortexm0/lasr.S", "aeabi_lasr.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/llsl.S", "aeabi_llsl.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/llsr.S", "aeabi_llsr.o", &mut o_files);
+        arm_as_agbabi("asm/agbabi/lmul.s", "agbabi_lmul.o", &mut o_files);
+
         arm_as_agbabi("asm/agbabi/idiv.s", "agbabi_idiv.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/ldiv.s", "agbabi_ldiv.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/lmul.s", "agbabi_lmul.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/uidiv.s", "agbabi_uidiv.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/uldiv.s", "agbabi_uldiv.o", &mut o_files);
         arm_as_agbabi("asm/agbabi/uluidiv.s", "agbabi_uluidiv.o", &mut o_files);

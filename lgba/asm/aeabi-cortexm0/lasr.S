@@ -1,4 +1,4 @@
-/* Runtime ABI for the ARM Cortex-M0
+/* Runtime ABI for the ARM Cortex-M0  
  * lasr.S: 64 bit arithmetic shift right
  *
  * Copyright (c) 2012 Jörg Mische <bobbl@gmx.de>
@@ -16,25 +16,33 @@
  * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+
+
 	.syntax unified
 	.text
 	.thumb
+	.cpu arm7tdmi
+
+
 
 @ long long __ashrdi3(long long r1:r0, int r2)
 @
 @ libgcc wrapper: just an alias for __aeabi_lasr()
 @
 	.thumb_func
-    .global __ashrdi3
+        .global __ashrdi3
 __ashrdi3:
+
+
 
 @ long long __aeabi_lasr(long long r1:r0, int r2)
 @
 @ Arithmetic shift r1:r0 right by r2 bits
 @
 	.thumb_func
-    .global __aeabi_lasr
+        .global __aeabi_lasr
 __aeabi_lasr:
+	
 	cmp	r2, #31
 	bhi	1f
 	

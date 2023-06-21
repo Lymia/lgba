@@ -1,7 +1,7 @@
 /* Runtime ABI for the ARM Cortex-M0  
- * llsl.S: 64 bit shift left
+ * idiv.S: signed 32 bit division (only quotient)
  *
- * Copyright (c) 2012 Jörg Mische <bobbl@gmx.de>
+ * Copyright (c) 2012-2017 Jörg Mische <bobbl@gmx.de>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -25,38 +25,42 @@
 
 
 
-@ long long __ashldi3(long long r1:r0, int r2)
+@ int __divsi3(int num, int denom)
 @
-@ libgcc wrapper: just an alias for __aeabi_llsl()
-@
-	.thumb_func
-        .global __ashldi3
-__ashldi3:
-
-
-
-@ long long __aeabi_llsl(long long r1:r0, int r2)
-@
-@ Sshift r1:r0 left by r2 bits
+@ libgcc wrapper: just an alias for __aeabi_idivmod(), the remainder is ignored
 @
 	.thumb_func
-        .global __aeabi_llsl
-__aeabi_llsl:
-	
-	cmp	r2, #31
-	bhi	1f
-	
-	movs	r3, r1		@ n < 32:
-	lsls	r0, r2		@ lo = lo << n
-	lsls	r1, r2
-	rsbs	r2, r2, #0
-	adds	r2, #32
-	lsrs	r3, r2
-	orrs	r1, r3		@ hi = hi << n | lo >> (32-n)
-	bx	lr
+        .global __divsi3
+__divsi3:
 
-1:	subs	r2, #32		@ n >= 32:
-	movs	r1, r0
-	lsls	r1, r2		@ hi = lo << (n-32)
-	movs	r0, #0		@ lo = 0
-	bx	lr
+
+
+@ int __aeabi_idiv(int num:r0, int denom:r1)
+@
+@ Divide r0 by r1 and return quotient in r0 (all signed).
+@ Use __aeabi_uidivmod() but check signs before and change signs afterwards.
+@
+	.thumb_func
+        .global __aeabi_idiv
+__aeabi_idiv:
+
+	cmp	r0, #0
+	bge	.Lnumerator_pos
+	rsbs	r0, r0, #0		@ num = -num
+	cmp	r1, #0
+	bge	.Lneg_result
+	rsbs	r1, r1, #0		@ den = -den
+
+.Luidivmod:
+	b	__aeabi_uidivmod
+
+.Lnumerator_pos:
+	cmp	r1, #0
+	bge	.Luidivmod
+	rsbs	r1, r1, #0		@ den = -den
+
+.Lneg_result:
+	push	{lr}
+	bl	__aeabi_uidivmod
+	rsbs	r0, r0, #0		@ quot = -quot
+	pop	{pc}

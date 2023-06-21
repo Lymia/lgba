@@ -16,25 +16,33 @@
  * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+
+
 	.syntax unified
 	.text
 	.thumb
+	.cpu arm7tdmi
+
+
 
 @ long long __lshrdi3(long long r1:r0, int r2)
 @
 @ libgcc wrapper: just an alias for __aeabi_llsr()
 @
 	.thumb_func
-    .global __lshrdi3
+        .global __lshrdi3
 __lshrdi3:
+
+
 
 @ long long __aeabi_llsr(long long r1:r0, int r2)
 @
 @ Logical shift r1:r0 right by r2 bits
 @
 	.thumb_func
-    .global __aeabi_llsr
+        .global __aeabi_llsr
 __aeabi_llsr:
+	
 	cmp	r2, #31
 	bhi	1f
 	
