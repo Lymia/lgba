@@ -17,8 +17,8 @@ use lgba::{
 fn test_func() {
     lgba::timer::temp_time(|| {
         for x in 0u64..500 {
-            for y in 0u64..500 {
-                black_box(black_box(x) * black_box(y));
+            for y in 1u64..500 {
+                black_box(black_box(x) / black_box(y));
             }
         }
     });

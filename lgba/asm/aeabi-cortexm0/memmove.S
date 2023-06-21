@@ -21,7 +21,7 @@
 	.syntax unified
 	.text
 	.thumb
-	.cpu cortex-m0
+	.cpu arm7tdmi
 
 
 
@@ -99,7 +99,7 @@ __aeabi_memcpy:
 
 	cmp	r2, #8
 	blo	.Lforward1
-	mov	r3, r0
+	movs	r3, r0
 	eors	r3, r1
 	lsls	r3, r3, #30
 	bne	.Lforward1

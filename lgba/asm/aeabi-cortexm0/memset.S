@@ -21,7 +21,7 @@
 	.syntax unified
 	.text
 	.thumb
-	.cpu cortex-m0
+	.cpu arm7tdmi
 
 
 
