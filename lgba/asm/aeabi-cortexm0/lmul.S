@@ -55,8 +55,10 @@ __aeabi_lmul:
 	adds	r1, r3
 
 	lsrs	r3, r0, #16
-	uxth	r0, r0
-	uxth	r2, r2
+	lsls    r0, #16
+	lsrs    r0, #16
+	lsls    r2, #16
+	lsrs    r2, #16
 	muls	r3, r2
 	muls	r4, r0
 	muls	r0, r2

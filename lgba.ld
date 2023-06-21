@@ -14,15 +14,8 @@ SECTIONS {
         *(.lgba.header.fixed);
         KEEP(*(.lgba.header.dynamic));
         *(.lgba.header.dynamic);
-        KEEP(*(.lgba.header.multiboot));
-        *(.lgba.header.multiboot);
-        KEEP(*(.lgba.header.exheader));
-        *(.lgba.header.exheader);
-
-        KEEP(*(.lgba.markers));
-        *(.lgba.markers);
-        KEEP(*(.lgba.init));
-        *(.lgba.init);
+        KEEP(*(.lgba.header.extra));
+        *(.lgba.header.extra);
 
         *(.text .text.*);
         . = ALIGN(4);

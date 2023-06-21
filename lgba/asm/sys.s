@@ -1,8 +1,8 @@
 @
 @ A dummy implementation of this to deal with a LLVM bug.
-@ Put here even partly just to zero the temptation to copy this into code...
+@ Put here even partly just to remove the temptation to copy this into code...
 @
-    .section .text, "ax", %progbits
+    .section .text.lgba_sync, "ax", %progbits
     .thumb_func
     .global __sync_synchronize
 __sync_synchronize:
@@ -13,7 +13,7 @@ __sync_synchronize:
 @
 @ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
 @
-    .section .text, "ax", %progbits
+    .section .text.lgba_abort, "ax", %progbits
     .thumb_func
     .global __lgba_abort
 __lgba_abort:
@@ -40,7 +40,8 @@ __lgba_abort:
     sub r2, #0x30        @ r2 = 0x4000080
     strh r0, [r2]        @ SOUNDCNT_L (0x4000080)
 
-    @ Jump to the wait loop in EWRAM
+    @ Copies a wait loop to EWRAM and jumps to it.
+    @ This means the console will stay aborted even if the cartridge is removed.
     ldr r2, 0f           @ r2 = (wait loop)
     lsl r3, r1, #25      @ r3 = 0x2000000
     str r2, [r3]

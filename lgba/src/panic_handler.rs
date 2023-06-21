@@ -11,7 +11,6 @@ use core::{
 };
 
 // TODO: Prevent long messages from scrolling off the screen.
-// TODO: Do some extra "don't make the user cry" stuff like turning off sound.
 
 extern "Rust" {
     pub static __lgba_exh_lgba_version: &'static str;

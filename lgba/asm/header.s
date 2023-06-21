@@ -17,19 +17,16 @@ __start:
     .byte 0x78,0x00,0x90,0xCB,0x88,0x11,0x3A,0x94,0x65,0xC0,0x7C,0x63,0x87,0xF0,0x3C,0xAF
     .byte 0xD6,0x25,0xE4,0x8B,0x38,0x0A,0xAC,0x72,0x21,0xD4,0xF8,0x07
 
-    .section .lgba.header.multiboot, "ax", %progbits
+    .section .lgba.header.extra, "ax", %progbits
     .arm
-    .global __lgba_header_multiboot
-__lgba_header_multiboot:
+    .global __lgba_header_extra
+__lgba_header_extra:
     @ Multiplay header
     b __lgba__internal_multiplay_start
     .space 0x1C
     b __lgba__internal_joybus_start @ joybus entry point; not currently supported
 
-    .section .lgba.header.exheader, "ax", %progbits
-    .arm
-    .global __lgba_header_exheader
-__lgba_header_exheader:
+    @ lgba-specific header
     .ascii "lgba_exh"
     .short 1
     .short 0
