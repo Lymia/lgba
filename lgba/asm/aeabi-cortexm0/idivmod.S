@@ -131,6 +131,6 @@ __aeabi_uidivmod:
 	lsrs	r2, #1		@ bitmask(r2) >>= 1
 	bne	.Lsub_loop
 
-	mov	r1, r0		@ remainder(r1) = numerator(r0)
-	mov	r0, r3		@ quotient(r0) = result(r3)
+	movs	r1, r0		@ remainder(r1) = numerator(r0)
+	movs	r0, r3		@ quotient(r0) = result(r3)
 	bx	lr

@@ -1,4 +1,4 @@
-use std::{process::Command};
+use std::process::Command;
 
 fn arm_as_0(
     source: &str,
@@ -27,12 +27,6 @@ fn arm_as_0(
 fn arm_as(source: &str, out_name: &str, o_files: &mut Vec<String>) {
     arm_as_0(source, out_name, o_files, |x| x)
 }
-fn arm_as_aeabi(source: &str, out_name: &str, o_files: &mut Vec<String>) {
-    arm_as_0(source, out_name, o_files, |x| x.arg("-I").arg("asm/aeabi-cortexm0"))
-}
-fn arm_as_agbabi(source: &str, out_name: &str, o_files: &mut Vec<String>) {
-    arm_as_0(source, out_name, o_files, |x| x.arg("-I").arg("asm/agbabi"))
-}
 
 fn main() {
     if !cfg!(docs_rs) {
@@ -49,24 +43,17 @@ fn main() {
         arm_as("asm/sys.s", "sys.o", &mut o_files);
 
         // memory operations
-        arm_as_agbabi("asm/agbabi/memcpy.s", "agbabi_memcpy.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/memset.s", "agbabi_memset.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/memmove.S", "aeabi_memcpy.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/memset.S", "aeabi_memset.o", &mut o_files);
 
-        // u32 operations
+        // numeric operations
         arm_as("asm/aeabi-cortexm0/idiv.S", "aeabi_idiv.o", &mut o_files);
         arm_as("asm/aeabi-cortexm0/idivmod.S", "aeabi_idivmod.o", &mut o_files);
-
-        // u64 operations
         arm_as("asm/aeabi-cortexm0/lasr.S", "aeabi_lasr.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/ldivmod.S", "aeabi_ldivmod.o", &mut o_files);
         arm_as("asm/aeabi-cortexm0/llsl.S", "aeabi_llsl.o", &mut o_files);
         arm_as("asm/aeabi-cortexm0/llsr.S", "aeabi_llsr.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/lmul.s", "agbabi_lmul.o", &mut o_files);
-
-        arm_as_agbabi("asm/agbabi/idiv.s", "agbabi_idiv.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/ldiv.s", "agbabi_ldiv.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/uidiv.s", "agbabi_uidiv.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/uldiv.s", "agbabi_uldiv.o", &mut o_files);
-        arm_as_agbabi("asm/agbabi/uluidiv.s", "agbabi_uluidiv.o", &mut o_files);
+        arm_as("asm/aeabi-cortexm0/lmul.S", "aeabi_lmul.o", &mut o_files);
 
         let archive_name = format!("{out_dir}/liblgba_as.a");
         std::fs::remove_file(&archive_name).ok();

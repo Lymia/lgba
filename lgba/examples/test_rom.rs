@@ -4,33 +4,41 @@
 #[macro_use]
 extern crate lgba;
 
-use core::alloc::{GlobalAlloc, Layout};
-use core::hint::black_box;
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    hint::black_box,
+};
 use lgba::{
     display::{Terminal, TerminalFontFull},
     dma::DmaChannelId,
 };
 
-#[inline(never)]
-fn test_func() {
-    for x in 1u64..500u64 {
-        for y in 1u64..500u64 {
-            let au64 = black_box(black_box(x) / black_box(y));
-            let au32 = black_box(black_box(x as u32) / black_box((y) as u32));
-            if au64 as u32 != au32 {
-                println!("{} {}", au64, au32);
-                assert_eq!(au64 as u32, au32);
-            }
-        }
-    }
-
+fn test_copy<const LEN: usize>() {
+    let mut data = [0u8; LEN];
+    let mut data2 = [0u8; LEN];
     lgba::timer::temp_time(|| {
-        for x in 1u64..500u64 {
-            for y in 1u64..500u64 {
-                black_box(black_box(x) / black_box(y));
-            }
+        for i in 0..10000 {
+            black_box((&mut data, &mut data2));
+            black_box(&mut data2).copy_from_slice(black_box(&data));
+            black_box((&mut data, &mut data2));
         }
     });
+    lgba::timer::temp_time(|| {
+        for i in 0..10000 {
+            black_box((&mut data, &mut data2));
+            unsafe {
+                core::ptr::write_bytes(black_box(data.as_mut_ptr()), black_box(30), black_box(data.len()));
+            }
+            black_box((&mut data, &mut data2));
+        }
+    });
+}
+
+#[inline(never)]
+fn test_func() {
+    test_copy::<16>();
+    test_copy::<60>();
+    test_copy::<120>();
 }
 
 #[lgba::entry]
