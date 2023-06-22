@@ -19,6 +19,14 @@ fn test_func() {
         }
     });
     println!("Benchmark finished in {} cycles.", time);
+    let time = lgba::timer::time_cycles(|| {
+        for x in 0u64..500 {
+            for y in 1u64..500 {
+                black_box(black_box(x as f32) / black_box(y as f32));
+            }
+        }
+    });
+    println!("Benchmark finished in {} cycles.", time);
 }
 
 #[lgba::entry]

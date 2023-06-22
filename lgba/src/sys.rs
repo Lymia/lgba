@@ -2,6 +2,9 @@
 
 use core::arch::asm;
 
+// force link the crates.io version of compiler_builtins_local
+extern crate compiler_builtins_local;
+
 mod asm_export {
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {}

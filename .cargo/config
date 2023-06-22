@@ -1,5 +1,7 @@
 [unstable]
 build-std = ["core", "alloc"]
+# compiler-builtins-mangled-names basically disables the stdlib builtin version of compiler-builtins
+# this lets us more properly use a GBA-optimized version of the aeabi functions
 build-std-features = ["compiler-builtins-mangled-names"]
 
 [build]

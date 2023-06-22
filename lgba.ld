@@ -1,7 +1,5 @@
 ENTRY  (__start)
 
-INPUT  (liblgba_as.a)
-
 MEMORY {
     ewram (w!x) : ORIGIN = 0x02000000, LENGTH = 256K
     iwram (w!x) : ORIGIN = 0x03000000, LENGTH = 32K
@@ -9,14 +7,17 @@ MEMORY {
 }
 
 SECTIONS {
-    .text : {
+    .header : {
         KEEP(*(.lgba.header.fixed));
         *(.lgba.header.fixed);
         KEEP(*(.lgba.header.dynamic));
         *(.lgba.header.dynamic);
         KEEP(*(.lgba.header.extra));
         *(.lgba.header.extra);
+        . = ALIGN(4);
+    } >rom
 
+    .text : {
         *(.text .text.*);
         . = ALIGN(4);
     } >rom

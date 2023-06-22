@@ -18,3 +18,14 @@ num_enum = { version = "0.6", default-features = false }
 
 lgba_macros = { version = "0.1", path = "../lgba_macros" }
 lgba_phf = { version = "0.1", path = "../lgba_phf" }
+
+[dependencies.compiler_builtins_local]
+# Link a version of compiler_builtins from crates.io
+# This allows us to enable weak linkage, and thus use optimized ASM versions of instrinics we have those for.
+# Otherwise, we fall back on a Rust version (for stuff like softfloat)
+#
+# We can't use the stdlib version because it doesn't have weak-instrinsics.
+package = "compiler_builtins"
+version = "0.1.93"
+features = ["weak-intrinsics", "no-asm"]
+default-features = false

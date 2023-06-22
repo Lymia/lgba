@@ -33,6 +33,7 @@ fn execute(cli: Cli) -> Result<()> {
 
             let mut rom_program = Vec::<u8>::new();
             enum State {
+                WaitHeader,
                 WaitText,
                 WaitRoData,
                 WaitEwram,
@@ -41,7 +42,7 @@ fn execute(cli: Cli) -> Result<()> {
                 End,
             }
 
-            let mut state = State::WaitText;
+            let mut state = State::WaitHeader;
             for segment in &elf.section_headers {
                 let name = elf.shdr_strtab.get_at(segment.sh_name).unwrap();
                 println!("Found segment: {} = {:?}", name, segment);
@@ -54,6 +55,11 @@ fn execute(cli: Cli) -> Result<()> {
                 let seg_end = (segment.sh_offset + segment.sh_size) as usize;
                 let segment_data = &data[seg_start..seg_end];
                 match state {
+                    State::WaitHeader => {
+                        assert_eq!(name, ".header", "Wrong section found!");
+                        rom_program.extend(segment_data);
+                        state = State::WaitHeader;
+                    }
                     State::WaitText => {
                         assert_eq!(name, ".text", "Wrong section found!");
                         rom_program.extend(segment_data);
