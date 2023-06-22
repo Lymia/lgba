@@ -179,7 +179,9 @@ __aeabi_uldivmod:
 	@ call __aeabi_ldiv0
 
 .L_divison_by_0:
-	b	__aeabi_ldiv0
+    ldr r0, =__aeabi_ldiv0
+	b	r0
+	.pool
 
 
 

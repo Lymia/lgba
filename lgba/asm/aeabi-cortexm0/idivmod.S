@@ -101,7 +101,11 @@ __aeabi_uidivmod:
 .Luidivmod:
 	cmp	r1, #0
 	bne	1f
-	b	__aeabi_idiv0
+
+	@ call __aeabi_idiv0
+	ldr r0, =__aeabi_idiv0
+	bx  r0
+	.pool
 1:
 
 	@ Shift left the denominator until it is greater than the numerator

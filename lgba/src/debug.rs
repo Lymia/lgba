@@ -232,6 +232,9 @@ macro_rules! __lgba_print_impl {
     (@plain $level:ident, $text:literal) => {
         $crate::__lgba_print_impl!(@print $level, $text)
     };
+    (@plain $level:ident, ) => {
+        $crate::__lgba_print_impl!(@print $level, "")
+    };
     (@plain $level:ident, $($rest:tt)*) => {
         $crate::__lgba_print_impl!(@print $level,
             $crate::__macro_export::core::format_args!($($rest)*)
