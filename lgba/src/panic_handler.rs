@@ -1,6 +1,5 @@
 use crate::{
     display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
-    dma::DmaChannelId,
     eprintln,
     sync::Static,
 };
@@ -32,6 +31,7 @@ fn panic_start() {
 #[inline(never)]
 fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
     // print a common message for simple UX
+    terminal.set_cursor(17, 0);
     terminal.write_str("Fatal Error!\n\n");
     terminal.set_half_width(true);
     terminal.write_str(
@@ -78,7 +78,6 @@ fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii
     // set up the graphical terminal with a basic font
     let mut terminal = Terminal::new();
     terminal.set_color(0, crate::display::rgb_24bpp(200, 0, 0), !0);
-    terminal.use_dma_channel(DmaChannelId::Dma3);
     let terminal = terminal.activate_no_lock::<TerminalFontAscii>();
     let mut terminal = terminal.lock();
 

@@ -3,7 +3,7 @@ pub type GbaHeader = [u8; 0x20];
 #[rustfmt::skip]
 pub const GBA_HEADER_TEMPLATE: GbaHeader = [
     // Game Title
-    b' ', b' ', b' ', b' ', b' ', b' ', b' ', b' ', b' ', b' ', b' ', b' ',
+    b'L', b'G', b'B', b'A', b'_', b'R', b'O', b'M', b' ', b' ', b' ', b' ',
     // Game code
     b'L', b'G', b'B', b'A',
     // Maker code

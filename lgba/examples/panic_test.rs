@@ -8,6 +8,7 @@ use core::alloc::{GlobalAlloc, Layout};
 
 #[lgba::entry]
 #[rom(title = "LGBA_PNICTST", code = "LGPT")]
+#[rom(report_url = "https://github.com/Lymia/lgba/issues")]
 fn rom_entry() -> ! {
     panic!("??? this is a long-winded error message that doesn't really mean anything, that exists entirely to test the panic handler screen. yep yep hello!");
 }

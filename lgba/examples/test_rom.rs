@@ -8,20 +8,17 @@ use core::{
     alloc::{GlobalAlloc, Layout},
     hint::black_box,
 };
-use lgba::{
-    display::{Terminal, TerminalFontFull},
-    dma::DmaChannelId,
-};
 
 #[inline(never)]
 fn test_func() {
-    lgba::timer::temp_time(|| {
+    let time = lgba::timer::time_cycles(|| {
         for x in 0u64..500 {
             for y in 1u64..500 {
                 black_box(black_box(x) / black_box(y));
             }
         }
     });
+    println!("Benchmark finished in {} cycles.", time);
 }
 
 #[lgba::entry]

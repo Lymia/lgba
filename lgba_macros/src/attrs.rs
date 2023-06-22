@@ -17,6 +17,8 @@ struct EntryAttrs {
     developer: Option<String>,
     #[darling(default)]
     version: Option<u8>,
+    #[darling(default)]
+    report_url: Option<String>,
 }
 
 pub fn iwram_impl(input: TokenStream) -> TokenStream {
@@ -137,6 +139,10 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
     let title_auto = attrs.title.is_none();
     let code_auto = attrs.code.is_none();
     let developer_auto = attrs.developer.is_none();
+    let report_url = match &attrs.report_url {
+        None => quote! { env!("CARGO_PKG_REPOSITORY") },
+        Some(report_url) => quote! { #report_url },
+    };
 
     let new_attrs: Vec<_> = input
         .attrs
@@ -169,7 +175,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
             #[no_mangle]
             pub static __lgba_exh_rom_cver: &str = env!("CARGO_PKG_VERSION");
             #[no_mangle]
-            pub static __lgba_exh_rom_repository: &str = env!("CARGO_PKG_REPOSITORY");
+            pub static __lgba_exh_rom_repository: &str = #report_url;
 
             #[no_mangle]
             pub unsafe extern "C" fn __lgba_rom_entry() -> ! {

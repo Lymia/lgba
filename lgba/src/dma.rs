@@ -27,22 +27,22 @@ pub enum DmaChannelId {
 }
 impl DmaChannelId {
     /// Returns whether the source address for DMA on this channel must be internal to the GBA.
-    pub fn is_source_internal_only(&self) -> bool {
-        *self == DmaChannelId::Dma0
+    pub fn is_source_internal_only(self) -> bool {
+        self == DmaChannelId::Dma0
     }
 
     /// Returns whether the target address for DMA on this channel must be internal to the GBA.
-    pub fn is_target_internal_only(&self) -> bool {
-        *self <= DmaChannelId::Dma2
+    pub fn is_target_internal_only(self) -> bool {
+        self <= DmaChannelId::Dma2
     }
 
     /// Creates a new DMA channel for this ID.
     #[track_caller]
-    pub fn create(&self) -> DmaChannel {
+    pub fn create(self) -> DmaChannel {
         DmaChannel {
-            channel: *self,
+            channel: self,
             irq_notify: false,
-            _lock: DMA_LOCK[*self as usize]
+            _lock: DMA_LOCK[self as usize]
                 .try_lock()
                 .unwrap_or_else(|| dma_channel_in_use()),
         }

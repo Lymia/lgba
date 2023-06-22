@@ -418,7 +418,7 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
 
         // TODO: Better handling for edge cases.
 
-        let wrote_hw = if self.term.cursor_hw || self.term.cursor_x % 2 == 0 {
+        let wrote_hw = if self.term.cursor_hw || self.term.cursor_x % 2 == 1 {
             let data = Self::data_for_ch(ch, color);
             self.term.set_char_half(x, y, data, color);
             self.term.cursor_hw && data.1
