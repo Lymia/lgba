@@ -12,10 +12,10 @@ mod panic_handler;
 pub mod display;
 pub mod dma;
 pub mod irq;
-pub mod timer;
-//pub mod save;
+pub mod save;
 pub mod sync;
 pub mod sys;
+pub mod timer;
 
 // public reexports
 pub use lgba_macros::{entry, ewram, iwram};

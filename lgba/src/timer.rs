@@ -1,3 +1,9 @@
+//! A module allowing access to the GBA's timer hardware.
+//!
+//! For further information, see the [GBATEK documentation] on timers.
+//!
+//! [GBATEK documentation]: https://mgba-emu.github.io/gbatek/#gbatimers
+
 use crate::{
     mmio::{
         reg::{TM_CNT_H, TM_CNT_L},
@@ -89,6 +95,8 @@ pub enum TimerMode {
 }
 
 /// Used to control a GBA timer.
+///
+/// When this object is dropped, the timer is automatically disabled.
 pub struct Timer {
     id: TimerId,
     cnt: TimerCnt,
@@ -212,6 +220,8 @@ impl Timer {
 
     /// Returns the raw value of the timer.
     ///
+    /// This corresponds directly to the timer value on the underlying hardware.
+    ///
     /// See [`set_reset_to`](`Timer::set_reset_to`) for further information.
     pub fn raw_value(&self) -> u16 {
         TM_CNT_L.index(self.id as usize).read()
@@ -219,7 +229,9 @@ impl Timer {
 }
 impl Drop for Timer {
     fn drop(&mut self) {
-        TM_CNT_H.index(self.id as usize).write(TimerCnt::default());
+        if self.cnt.enabled() {
+            TM_CNT_H.index(self.id as usize).write(TimerCnt::default());
+        }
     }
 }
 
