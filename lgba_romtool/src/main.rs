@@ -58,7 +58,7 @@ fn execute(cli: Cli) -> Result<()> {
                     State::WaitHeader => {
                         assert_eq!(name, ".header", "Wrong section found!");
                         rom_program.extend(segment_data);
-                        state = State::WaitHeader;
+                        state = State::WaitText;
                     }
                     State::WaitText => {
                         assert_eq!(name, ".text", "Wrong section found!");

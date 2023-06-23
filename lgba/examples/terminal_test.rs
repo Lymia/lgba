@@ -9,16 +9,18 @@ use core::{
     fmt::Write,
 };
 use lgba::{
-    display::{Terminal, TerminalFontFull},
+    display::{Terminal},
     dma::DmaChannelId,
 };
+use lgba::display::TerminalFontBasic;
+use lgba::sys::Button;
 
 #[lgba::entry]
 #[rom(title = "LGBA_TERMTST", code = "LGTT")]
 fn rom_entry() -> ! {
     let mut terminal = Terminal::new();
     terminal.use_dma_channel(DmaChannelId::Dma3);
-    let terminal = terminal.activate::<TerminalFontFull>();
+    let terminal = terminal.activate::<TerminalFontBasic>();
     let mut terminal = terminal.lock();
 
     terminal.set_color(0, lgba::display::rgb_24bpp(54, 131, 255), !0);
@@ -47,16 +49,22 @@ fn rom_entry() -> ! {
 
     terminal.new_line();
     terminal.set_active_color(0);
-    for i in 1..105 {
+    for i in 1..=100 {
         if i % 15 == 0 {
-            terminal.write_str("[fizzbuzz] ");
+            terminal.set_half_width(true);
+            terminal.write_str("[fizz-buzz]");
         } else if i % 3 == 0 {
-            terminal.write_str("[fizz] ");
+            terminal.set_half_width(true);
+            terminal.write_str("[fizz]");
         } else if i % 5 == 0 {
-            terminal.write_str("[buzz] ");
+            terminal.set_half_width(true);
+            terminal.write_str("[buzz]");
         } else {
-            write!(terminal.write(), "{} ", i).unwrap();
+            terminal.set_half_width(false);
+            write!(terminal.write(), "{}", i).unwrap();
         }
+        terminal.set_half_width(true);
+        terminal.write_str(" ");
     }
     terminal.new_line();
 
@@ -64,9 +72,30 @@ fn rom_entry() -> ! {
     loop {
         terminal.clear_line(18);
         terminal.set_cursor(0, 18);
-        write!(terminal.write(), "#{} / {:?}", frame, lgba::sys::pressed_keys())
-            .unwrap();
-        frame += 1;
+        terminal.set_half_width(false);
+
+        let keys = lgba::sys::pressed_keys();
+        write!(terminal.write(), "#{:03} / ", frame).unwrap();
+        if keys.is_empty() {
+            terminal.set_half_width(true);
+            terminal.write_str("(none)");
+        } else {
+            for key in keys {
+                match key {
+                    Button::A => terminal.write_str("A"),
+                    Button::B => terminal.write_str("B"),
+                    Button::Select => terminal.write_str("○"),
+                    Button::Start => terminal.write_str("●"),
+                    Button::Right => terminal.write_str("→"),
+                    Button::Left => terminal.write_str("←"),
+                    Button::Up => terminal.write_str("↑"),
+                    Button::Down => terminal.write_str("↓"),
+                    Button::R => terminal.write_str("R"),
+                    Button::L => terminal.write_str("L"),
+                }
+            }
+        }
+        frame = (frame + 1) % 1000;
 
         loop {
             let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };

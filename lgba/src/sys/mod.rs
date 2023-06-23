@@ -1,6 +1,6 @@
 //! Various functions and helper types for basic GBA system functions.
 
-use crate::mmio::{reg::KEYINPUT, sys::Button};
+use crate::mmio::reg::KEYINPUT;
 use core::arch::asm;
 use enumset::EnumSet;
 
@@ -21,6 +21,9 @@ pub fn reset() -> ! {
 pub fn abort() -> ! {
     crate::asm::abort()
 }
+
+#[doc(inline)]
+pub use crate::mmio::sys::Button;
 
 /// Returns the currently pressed keys.
 ///

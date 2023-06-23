@@ -40,7 +40,7 @@ pub enum TerminalFontAscii {}
 #[font(block = "Latin Extended-B")]
 #[font(block = "Latin-1 Supplement")]
 #[font(block = "Supplemental Punctuation")]
-#[font(chars = "①②③④⑤⑥⑦⑧⑨■□●★♪⌛⏩⏪↓↔↕‐‑‒–—―†‡•․…⁇▲▶▼◀▩⌘♀♂←↑→─│┌┐└┘├┤┬┴┼╭╮╯╰")]
+#[font(chars = "①②③④⑤⑥⑦⑧⑨■□●○★♪⌛⏩⏪←↑→↓↔↕‐‑‒–—―†‡•․…⁇▲▶▼◀▩⌘♀♂─│┌┐└┘├┤┬┴┼╭╮╯╰")]
 #[font(fallback_char = "⁇")]
 pub enum TerminalFontBasic {}
 
