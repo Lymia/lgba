@@ -86,7 +86,7 @@ fn do_test(seed: Rng, offset: usize, len: usize, block_size: usize) -> Result<()
 #[rom(title = "LGBA_TESTSAV", code = "LGTS")]
 fn main() -> ! {
     // set the save type
-    lgba::save::init_flash_64k();
+    lgba::save::init_sram();
 
     // check some metainfo on the save type
     let access = check_status(SaveAccess::open());

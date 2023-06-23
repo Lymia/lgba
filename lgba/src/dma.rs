@@ -10,6 +10,7 @@ use crate::{
 use core::{
     arch::asm,
     ffi::c_void,
+    mem,
     sync::atomic::{compiler_fence, Ordering},
 };
 
@@ -51,6 +52,21 @@ impl DmaChannelId {
 
 #[inline]
 #[track_caller]
+fn check_dma<T>(src_internal: bool, dst_internal: bool, src: *const T, dst: *mut T, count: usize) {
+    if src_internal && (src as usize) >= 0x8000000 {
+        dma_is_external();
+    }
+    if dst_internal && (dst as usize) >= 0x8000000 {
+        dma_is_external();
+    }
+    let byte_count = count * mem::size_of::<T>();
+    if (src as usize) % 2 != 0 || (dst as usize) % 2 != 0 || byte_count % 2 != 0 {
+        dma_not_aligned();
+    }
+}
+
+#[inline]
+#[track_caller]
 fn check_align(
     src_internal: bool,
     dst_internal: bool,
@@ -58,15 +74,7 @@ fn check_align(
     dst: *mut c_void,
     byte_count: usize,
 ) -> (bool, u16) {
-    if src_internal && (src as usize) >= 0x8000000 {
-        dma_is_external();
-    }
-    if dst_internal && (dst as usize) >= 0x8000000 {
-        dma_is_external();
-    }
-    if (src as usize) % 2 != 0 || (dst as usize) % 2 != 0 || byte_count % 2 != 0 {
-        dma_not_aligned();
-    }
+    check_dma(src_internal, dst_internal, src, dst, byte_count);
 
     let is_u32 = (src as usize) % 4 == 0 || (dst as usize) % 4 == 0 || byte_count % 4 == 0;
     let word_shift = is_u32 as usize + 1;
@@ -203,6 +211,31 @@ impl DmaChannel {
             .with_transfer_u32(is_u32)
             .with_enabled(true);
         raw_tx(self.channel, src, dst, word_count, cnt);
+        self
+    }
+
+    #[inline]
+    #[track_caller]
+    pub(crate) unsafe fn unsafe_transfer_u16(
+        &mut self,
+        src: *const u16,
+        dst: *mut u16,
+        word_count: usize,
+    ) -> &mut Self {
+        check_dma(
+            self.channel.is_source_internal_only(),
+            self.channel.is_target_internal_only(),
+            src,
+            dst,
+            word_count,
+        );
+        if word_count >= 0x10000 {
+            dma_too_large()
+        }
+        let cnt = DmaCnt::default()
+            .with_send_irq(self.irq_notify)
+            .with_enabled(true);
+        raw_tx(self.channel, src as *const _, dst as *mut _, word_count as u16, cnt);
         self
     }
 }

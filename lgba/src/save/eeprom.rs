@@ -3,29 +3,36 @@
 //! EEPROM requires using DMA to issue commands for both reading and writing.
 
 use crate::{
-    memory_mapped::MemoryMapped,
+    dma::DmaChannelId,
+    mmio::reg::Register,
     save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
 };
 use core::cmp;
 
-const PORT: MemoryMapped<u16> = unsafe { MemoryMapped::new(0x0DFFFF00) };
+const PORT: Register<u16> = unsafe { Register::new(0x0DFFFF00) };
 const SECTOR_SHIFT: usize = 3;
 const SECTOR_LEN: usize = 1 << SECTOR_SHIFT;
 const SECTOR_MASK: usize = SECTOR_LEN - 1;
 
 /// Sends a DMA command to EEPROM.
 fn dma_send(source: &[u32], ct: usize) {
-    crate::dma::dma3_exclusive(|| unsafe {
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-        crate::dma::dma_copy16(source.as_ptr() as *mut u16, 0x0DFFFF00 as *mut u16, ct);
+    crate::dma::pause_dma(|| unsafe {
+        DmaChannelId::Dma3.create().unsafe_transfer_u16(
+            source.as_ptr() as *const u16,
+            0x0DFFFF00 as *mut u16,
+            ct,
+        );
     });
 }
 
 /// Receives a DMA packet from EEPROM.
-fn dma_receive(source: &mut [u32], ct: usize) {
-    crate::dma::dma3_exclusive(|| unsafe {
-        crate::dma::dma_copy16(0x0DFFFF00 as *mut u16, source.as_ptr() as *mut u16, ct);
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+fn dma_receive(target: &mut [u32], ct: usize) {
+    crate::dma::pause_dma(|| unsafe {
+        DmaChannelId::Dma3.create().unsafe_transfer_u16(
+            0x0DFFFF00 as *const u16,
+            target.as_ptr() as *mut u16,
+            ct,
+        );
     });
 }
 
@@ -143,7 +150,7 @@ impl EepromProperties {
 
         // Wait for the sector to be written for 10 milliseconds.
         timeout.start();
-        while PORT.get() & 1 != 1 {
+        while PORT.read() & 1 != 1 {
             if timeout.check_timeout_met(10) {
                 return Err(Error::OperationTimedOut);
             }

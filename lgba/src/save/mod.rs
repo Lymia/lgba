@@ -73,7 +73,9 @@
 //!   however, unaligned writes are extremely slow. `prepare_write` does not immediately erase any
 //!   data.
 //! * EEPROM has a sector size of 8 bytes. Unaligned reads and writes are slower than aligned
-//!   writes, however, this is easily mitigated by the small sector size.
+//!   writes, however, this is easily mitigated by the small sector size. Furthermore, it requires
+//!   the use of DMA3 for save operations, and will panic if it is already in use when any save
+//!   functions are called.
 
 use crate::{
     save::utils::Timeout,
@@ -83,7 +85,7 @@ use crate::{
 use core::ops::Range;
 
 mod asm_utils;
-// TODO mod eeprom;
+mod eeprom;
 mod flash;
 mod sram;
 mod utils;
@@ -415,7 +417,8 @@ pub fn init_flash_128k() {
 /// Declares that the ROM uses 512 bytes EEPROM memory.
 ///
 /// EEPROM is generally pretty slow and also very small. It's mainly used in Game Paks because
-/// it's cheap.
+/// it's cheap. Furthermore, EEPROM requires the use of DMA3 and will panic if it is in use when
+/// any save functions are called.
 ///
 /// This creates a marker in the ROM that allows emulators to understand what save type the Game
 /// Pak uses, and configures the save manager to use the given save type.
@@ -423,13 +426,14 @@ pub fn init_flash_128k() {
 /// Only one `init_*` function may be called in the lifetime of the program.
 pub fn init_eeprom_512b() {
     marker::emit_eeprom_marker();
-    // TODO set_save_implementation(&eeprom::Eeprom512B);
+    set_save_implementation(&eeprom::Eeprom512B);
 }
 
 /// Declares that the ROM uses 8 KiB EEPROM memory.
 ///
 /// EEPROM is generally pretty slow and also very small. It's mainly used in Game Paks because
-/// it's cheap.
+/// it's cheap. Furthermore, EEPROM requires the use of DMA3 and will panic if it is in use when
+/// any save functions are called.
 ///
 /// This creates a marker in the ROM that allows emulators to understand what save type the Game
 /// Pak uses, and configures the save manager to use the given save type.
@@ -437,5 +441,5 @@ pub fn init_eeprom_512b() {
 /// Only one `init_*` function may be called in the lifetime of the program.
 pub fn init_eeprom_8k() {
     marker::emit_eeprom_marker();
-    // TODO set_save_implementation(&eeprom::Eeprom8K);
+    set_save_implementation(&eeprom::Eeprom8K);
 }
