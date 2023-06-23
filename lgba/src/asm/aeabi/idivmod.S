@@ -35,10 +35,10 @@
 __aeabi_idivmod:
 
 	cmp	r0, #0
-	bge	.Lnumerator_pos
+	bge	.Lidm_numerator_pos
 	rsbs	r0, r0, #0		@ num = -num
 	cmp	r1, #0
-	bge	.Lboth_neg
+	bge	.Lidm_both_neg
 
 	rsbs	r1, r1, #0		@ den = -den
 	push	{lr}
@@ -46,16 +46,16 @@ __aeabi_idivmod:
 	rsbs	r1, r1, #0		@ rem = -rem
 	pop	{pc}
 
-.Lboth_neg:
+.Lidm_both_neg:
 	push	{lr}
 	bl	__aeabi_uidivmod
 	rsbs	r0, r0, #0		@ quot = -quot
 	rsbs	r1, r1, #0		@ rem = -rem
 	pop	{pc}
 
-.Lnumerator_pos:
+.Lidm_numerator_pos:
 	cmp	r1, #0
-	bge	.Luidivmod
+	bge	.Lidm_uidivmod
 
 	rsbs	r1, r1, #0		@ den = -den
 	push	{lr}
@@ -98,7 +98,7 @@ __aeabi_uidivmod:
 
 
 
-.Luidivmod:
+.Lidm_uidivmod:
 	cmp	r1, #0
 	bne	1f
 
@@ -112,28 +112,28 @@ __aeabi_uidivmod:
 	movs	r2, #1		@ counter
 	movs	r3, #0		@ result
 	cmp	r0, r1
-	bls	.Lsub_loop
+	bls	.Lidm_sub_loop
 	adds	r1, #0		@ dont shift if denominator would overflow
-	bmi	.Lsub_loop
+	bmi	.Lidm_sub_loop
 
-.Ldenom_shift_loop:
+.Lidm_denom_shift_loop:
 	lsls	r2, #1
 	lsls	r1, #1
-	bmi	.Lsub_loop
+	bmi	.Lidm_sub_loop
 	cmp	r0, r1
-	bhi	.Ldenom_shift_loop
+	bhi	.Lidm_denom_shift_loop
 
-.Lsub_loop:	
+.Lidm_sub_loop:	
 	cmp	r0, r1
-	bcc	.Ldont_sub	@ if (num>denom)
+	bcc	.Lidm_dont_sub	@ if (num>denom)
 
 	subs	r0, r1		@ numerator -= denom
 	orrs	r3, r2		@ result(r3) |= bitmask(r2)
-.Ldont_sub:
+.Lidm_dont_sub:
 
 	lsrs	r1, #1		@ denom(r1) >>= 1
 	lsrs	r2, #1		@ bitmask(r2) >>= 1
-	bne	.Lsub_loop
+	bne	.Lidm_sub_loop
 
 	movs	r1, r0		@ remainder(r1) = numerator(r0)
 	movs	r0, r3		@ quotient(r0) = result(r3)

@@ -1,5 +1,3 @@
-    .section .text.lgba_init, "ax", %progbits
-
 @
 @ The entry point for the actual ROM
 @
@@ -7,12 +5,12 @@
     .global __lgba__internal_start
 __lgba__internal_start:
     @ Set IRQ stack pointer
-    mov r0, #0x12
+    movs r0, #0x12
     msr CPSR_c, r0
     ldr sp, =0x3007FA0
 
     @ Set user stack pointer
-    mov r0, #0x1f
+    movs r0, #0x1f
     msr CPSR_c, r0
     ldr sp, =0x3007F00
 
@@ -25,7 +23,7 @@ __lgba__internal_start:
 
     @ Sets WAITCNT to the default used by GBA games
     ldr r0, =0x4000204
-    ldrh r1, =0x4317
+    ldr r1, =0x4317
     strh r1, [r0]
 
     @ Initializes memory
@@ -79,13 +77,13 @@ __lgba_init_memory:
     push {r4,lr}
 
     @ Sets up constants before-hand
-    mov r4, #1
-    lsl r4, #26
-    add r4, #0xD0          @ r4 = 0x40000D0
+    movs r4, #1
+    lsls r4, #26
+    adds r4, #0xD0         @ r4 = 0x40000D0
 
     @ Create a value on the stack set to 0x00.
     sub sp, #4
-    mov r2, #0
+    movs r2, #0
     str r2, [sp]           @ *sp = 0u32
     mov r2, sp             @ r2 = &0u32
     add sp, #4
@@ -94,16 +92,16 @@ __lgba_init_memory:
     ldr r0, =__bss_start   @ start of bss
     ldr r1, =__bss_end     @ end of bss
     @ (r2 from earlier)    @ copy source = &0u32
-    mov r3, #0x85
-    lsl r3, #8             @ dma flags (0x8500)
+    movs r3, #0x85
+    lsls r3, #8            @ dma flags (0x8500)
     bl 1f
 
     @ Copy .iwram section to IWRAM
     ldr r0, =__iwram_start @ start of iwram
     ldr r1, =__iwram_end   @ end of iwram
     ldr r2, =__iwram_lma   @ iwram data in ROM
-    mov r3, #0x84
-    lsl r3, #8             @ dma flags (0x8400)
+    movs r3, #0x84
+    lsls r3, #8            @ dma flags (0x8400)
     bl 1f
 
     @ Copy .ewram section to EWRAM
@@ -121,9 +119,9 @@ __lgba_init_memory:
     @ DMA helper function
 1:  cmp r0, r1
     beq 0f                 @ Bail out early if there is nothing to copy
-    sub r1, r0
-    add r1, #3
-    lsr r1, #2             @ r1 = (r1 - r0 + 3) / 4
+    subs r1, r0
+    adds r1, #3
+    lsrs r1, #2            @ r1 = (r1 - r0 + 3) / 4
     str  r2, [r4, #0x4]    @ DMA3SAD   (0x40000D4) = r2
     str  r0, [r4, #0x8]    @ DMA3DAD   (0x40000D8) = r0
     strh r1, [r4, #0xC]    @ DMA3CNT_L (0x40000DC) = r1

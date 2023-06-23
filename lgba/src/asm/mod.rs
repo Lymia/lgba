@@ -1,5 +1,6 @@
 //! Contains things that integrate with very low level Rust things or the ASM part of the codebase.
 
+mod build_asm;
 pub(crate) mod gba_header;
 
 // force link the crates.io version of compiler_builtins_local

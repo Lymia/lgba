@@ -28,7 +28,7 @@ __lgba_internal_VerifyBuf:
     ldrb r4, [r1,r2]
     cmp r3, r4
     bne 0f
-    sub r2, #1
+    subs r2, #1
     bpl 1b
 
     @ Returns from the function successfully
@@ -47,7 +47,7 @@ __lgba_internal_VerifyBuf:
     .thumb_func
     .global __lgba_internal_TransferBuf
 __lgba_internal_TransferBuf:
-0:  sub r2, #1
+0:  subs r2, #1
     ldrb r3, [r0,r2]
     strb r3, [r1,r2]
     bne 0b

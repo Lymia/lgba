@@ -45,21 +45,21 @@ __divsi3:
 __aeabi_idiv:
 
 	cmp	r0, #0
-	bge	.Lnumerator_pos
+	bge	.Lid_numerator_pos
 	rsbs	r0, r0, #0		@ num = -num
 	cmp	r1, #0
-	bge	.Lneg_result
+	bge	.Lid_neg_result
 	rsbs	r1, r1, #0		@ den = -den
 
-.Luidivmod:
+.Lid_uidivmod:
 	b	__aeabi_uidivmod
 
-.Lnumerator_pos:
+.Lid_numerator_pos:
 	cmp	r1, #0
-	bge	.Luidivmod
+	bge	.Lid_uidivmod
 	rsbs	r1, r1, #0		@ den = -den
 
-.Lneg_result:
+.Lid_neg_result:
 	push	{lr}
 	bl	__aeabi_uidivmod
 	rsbs	r0, r0, #0		@ quot = -quot

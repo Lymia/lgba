@@ -17,12 +17,12 @@ __sync_synchronize:
     .thumb_func
     .global __lgba_abort
 __lgba_abort:
-    mov r0, #0           @ r0 = 0
-    mov r1, #1           @ r1 = 1
+    movs r0, #0          @ r0 = 0
+    movs r1, #1          @ r1 = 1
 
-    lsl r2, r1, #26      @ r2 = 0x4000000
-    lsl r3, r1, #9       @ r3 = 0x200
-    add r4, r2, r3       @ r4 = 0x4000200
+    lsls r2, r1, #26     @ r2 = 0x4000000
+    lsls r3, r1, #9      @ r3 = 0x200
+    adds r4, r2, r3      @ r4 = 0x4000200
 
     @ Disable interrupts
     strh r0, [r4, #0x08] @ IME (0x4000208)
@@ -30,22 +30,22 @@ __lgba_abort:
     strh r0, [r4, #0x02] @ IF  (0x4000202)
 
     @ Disable DMA
-    add r2, #0xB0        @ r2 = 0x40000B0
+    adds r2, #0xB0       @ r2 = 0x40000B0
     strh r0, [r2, #0x0A] @ DMA0CNT_H (0x40000BA)
     strh r0, [r2, #0x16] @ DMA0CNT_H (0x40000C6)
     strh r0, [r2, #0x22] @ DMA0CNT_H (0x40000D2)
     strh r0, [r2, #0x2E] @ DMA0CNT_H (0x40000DE)
 
     @ Disable sound (so we don't blast the player with crunch noises)
-    sub r2, #0x30        @ r2 = 0x4000080
+    subs r2, #0x30       @ r2 = 0x4000080
     strh r0, [r2]        @ SOUNDCNT_L (0x4000080)
 
     @ Copies a wait loop to EWRAM and jumps to it.
     @ This means the console will stay aborted even if the cartridge is removed.
     ldr r2, 0f           @ r2 = (wait loop)
-    lsl r3, r1, #25      @ r3 = 0x2000000
+    lsls r3, r1, #25     @ r3 = 0x2000000
     str r2, [r3]
-    add r3, #1           @ r3 = 0x2000001
+    adds r3, #1          @ r3 = 0x2000001
     bx r3
 
     @ The wait loop itself.
