@@ -2,7 +2,6 @@
 @ A dummy implementation of this to deal with a LLVM bug.
 @ Put here even partly just to remove the temptation to copy this into code...
 @
-    .section .text.lgba_sync, "ax", %progbits
     .thumb_func
     .global __sync_synchronize
 __sync_synchronize:
@@ -13,7 +12,6 @@ __sync_synchronize:
 @
 @ The name of this function *IS* stable API, in case you're writing something that needs to call this manually.
 @
-    .section .text.lgba_abort, "ax", %progbits
     .thumb_func
     .global __lgba_abort
 __lgba_abort:

@@ -130,4 +130,3 @@ __lgba_init_memory:
     nop
 0:  bx lr
 .pool
-

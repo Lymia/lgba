@@ -682,7 +682,7 @@ fn make_glyphs_file(
 
         (
             quote! {
-                const GLYPH_ID_HI: [u16; #hi_arr_size] = #glyph_id_hi_data;
+                static GLYPH_ID_HI: [u16; #hi_arr_size] = #glyph_id_hi_data;
                 const HI_MASK: u16 = (1 << #hi_bits) - 1;
             },
             quote! {
@@ -698,11 +698,11 @@ fn make_glyphs_file(
     };
     let impl_content = quote! {
         const FALLBACK_GLYPH: (u8, u16, bool) = (#fb_hi as u8, #fb_lo as u16, #fb_half);
-        const LO_MAP_DATA: [u16; #lo_map_len] = #lo_map_data;
-        const LO_MAP_HALF_DATA: [u16; #lo_map_half_len] = #lo_map_half_data;
-        const GLYPH_CHECK: [u16; #glyph_size] = #glyph_check_data;
-        const GLYPH_ID_LO: [u8; #glyph_size] = #glyph_id_lo_data;
-        const FONT_DATA: [u32; #font_data_size] = #font_data;
+        static LO_MAP_DATA: [u16; #lo_map_len] = #lo_map_data;
+        static LO_MAP_HALF_DATA: [u16; #lo_map_half_len] = #lo_map_half_data;
+        static GLYPH_CHECK: [u16; #glyph_size] = #glyph_check_data;
+        static GLYPH_ID_LO: [u8; #glyph_size] = #glyph_id_lo_data;
+        static FONT_DATA: [u32; #font_data_size] = #font_data;
 
         #load_hi_defines
         #phf_func
@@ -710,7 +710,7 @@ fn make_glyphs_file(
         const CHAR_MASK: u16 = (1 << #glyph_char_bits) - 1;
 
         #[inline(never)]
-        const fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
+        fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
             let slot = lookup_glyph(&(id as u16));
             if id == GLYPH_CHECK[slot] as usize {
                 #load_hi
@@ -724,7 +724,7 @@ fn make_glyphs_file(
             }
         }
         #[inline(never)]
-        const fn get_font_glyph(id: char) -> (u8, u16, bool) {
+        fn get_font_glyph(id: char) -> (u8, u16, bool) {
             let id = id as usize;
             if id < #lo_map_size {
                 // We check the low plane bitmap to see if we have this glyph.

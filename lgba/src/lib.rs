@@ -29,9 +29,7 @@ pub mod __macro_export {
     pub use core;
     pub use lgba_phf;
 
-    pub mod gba_header {
-        pub use crate::asm::gba_header::*;
-    }
+    pub use crate::asm::gba_header;
 
     //noinspection RsAssertEqual
     pub const fn xfer_u8_u16<const N: usize>(data: &[u8]) -> [u16; N] {

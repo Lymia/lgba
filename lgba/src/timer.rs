@@ -157,7 +157,7 @@ impl Timer {
     /// interrupt is enabled, an interrupt is also sent at that time.
     ///
     /// The overflow value must be between 1 and 65536 inclusive. If this function is called when
-    /// the timer is already active, [`value`](`Timer::timer`) will return incorrect values until
+    /// the timer is already active, [`value`](`Timer::value`) will return incorrect values until
     /// the next time the timer resets.
     ///
     /// This is a higher-level API over [`set_reset_to`](`Timer::set_reset_to`) and

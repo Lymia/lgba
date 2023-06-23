@@ -275,7 +275,7 @@ impl SaveAccess {
     /// Returns a range that contains all sectors the input range overlaps.
     ///
     /// This can be used to calculate which blocks would be erased by a call to
-    /// [`prepare_write`](`SaveData::prepare_write`)
+    /// [`prepare_write`](`SaveAccess::prepare_write`)
     #[must_use]
     pub fn align_range(&self, range: Range<usize>) -> Range<usize> {
         let shift = self.info.sector_shift;
@@ -286,7 +286,8 @@ impl SaveAccess {
     /// Prepares a given span of offsets for writing.
     ///
     /// This will erase any data in any sector overlapping the input range. To calculate which
-    /// offset ranges would be affected, use the [`align_range`](`SaveData::align_range`) function.
+    /// offset ranges would be affected, use the [`align_range`](`SaveAccess::align_range`)
+    /// function.
     pub fn prepare_write(&mut self, range: Range<usize>) -> Result<SavePreparedBlock, Error> {
         self.check_bounds(range.clone())?;
         if self.info.uses_prepare_write {

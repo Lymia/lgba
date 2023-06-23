@@ -227,12 +227,7 @@ struct ActiveTerminalState<'a> {
 }
 impl<'a> ActiveTerminalState<'a> {
     fn apply_advance(&self, y: usize) -> usize {
-        let ny = y + (self.line_advance as usize);
-        if ny >= 19 {
-            ny - 19
-        } else {
-            ny
-        }
+        (y + (self.line_advance as usize)) % 32
     }
     #[track_caller]
     fn check_coordinate(x: usize, y: usize) {
@@ -269,9 +264,8 @@ impl<'a> ActiveTerminalState<'a> {
 
     #[track_caller]
     fn set_char_full(&self, x: usize, y: usize, tile: VramTile, color: usize) {
-        let y = self.apply_advance(y);
-
         Self::check_coordinate(x * 2, y);
+        let y = self.apply_advance(y);
 
         self.map[0].set_tile(x, y, tile);
         self.map[1].set_tile(x, y, self.space_ch[color]);
@@ -280,6 +274,7 @@ impl<'a> ActiveTerminalState<'a> {
     #[track_caller]
     fn set_char_half(&self, x: usize, y: usize, (tile, is_half): (VramTile, bool), color: usize) {
         Self::check_coordinate(x, y);
+        let y = self.apply_advance(y);
 
         let (plane, tile_x) = (x % 2, x / 2);
         if is_half && plane == 0 {
@@ -310,18 +305,31 @@ impl<'a> ActiveTerminalState<'a> {
         self.cursor_hw = half_width;
     }
 
-    fn advance_screen(&mut self) {
-        self.line_advance += 1;
+    fn clear_line(&mut self, y: usize) {
+        Self::check_coordinate(0, y);
+        let y = self.apply_advance(y);
+
         for i in 0..4 {
             for x in 0..29 {
-                self.map[i].set_tile(x, self.line_advance as usize, self.space_ch[0]);
+                self.map[i].set_tile(x, y, self.space_ch[0]);
             }
+        }
+    }
+    fn advance_screen(&mut self) {
+        self.clear_line(0);
+
+        self.line_advance += 1;
+        if self.line_advance == 32 {
+            self.line_advance = 0;
+        }
+
+        for i in 0..4 {
             self.mode.layers[i].set_v_offset(4 - self.line_advance as i16 * 8);
         }
     }
     fn advance_cursor(&mut self) {
         self.cursor_x = 0;
-        if self.cursor_y == 19 {
+        if self.cursor_y == 18 {
             self.advance_screen();
         } else {
             self.cursor_y += 1;
@@ -359,6 +367,9 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
 
     pub fn clear(&mut self) {
         self.term.clear();
+    }
+    pub fn clear_line(&mut self, y: usize) {
+        self.term.clear_line(y);
     }
 
     fn process_hw(ch: char) -> char {

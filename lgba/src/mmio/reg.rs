@@ -1,6 +1,6 @@
 use crate::mmio::{
     display::*,
-    sys::{DmaCnt, Interrupt, TimerCnt},
+    sys::{Button, DmaCnt, Interrupt, KeyCnt, TimerCnt},
 };
 use core::{ffi::c_void, marker::PhantomData};
 use enumset::EnumSet;
@@ -127,11 +127,13 @@ pub const DMA_CNT_L: RegSpanned<u16, 4, 6, Unsafe> = unsafe { RegSpanned::new(0x
 pub const DMA_CNT_H: RegSpanned<DmaCnt, 4, 6, Unsafe> = unsafe { RegSpanned::new(0x40000BA) };
 
 //
-// Interrupt-related Registers
+// System Registers
 //
 pub const IME: Register<bool> = unsafe { Register::new(0x4000208) };
 pub const IE: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000200) };
 pub const IF: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000202) };
+pub const KEYINPUT: Register<EnumSet<Button>> = unsafe { Register::new(0x4000130) };
+pub const KEYCNT: Register<KeyCnt> = unsafe { Register::new(0x4000132) };
 
 //
 // Timer-related Registers

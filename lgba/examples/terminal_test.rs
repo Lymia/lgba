@@ -4,7 +4,10 @@
 #[macro_use]
 extern crate lgba;
 
-use core::alloc::{GlobalAlloc, Layout};
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    fmt::Write,
+};
 use lgba::{
     display::{Terminal, TerminalFontFull},
     dma::DmaChannelId,
@@ -46,7 +49,24 @@ fn rom_entry() -> ! {
     terminal.set_active_color(0);
     terminal.write_str("Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi!");
 
-    loop {}
+    loop {
+        terminal.clear_line(18);
+        terminal.set_cursor(0, 18);
+        write!(terminal.write(), "{:?}", lgba::sys::pressed_keys()).unwrap();
+
+        loop {
+            let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };
+            if dispstat & 1 == 0 {
+                break;
+            }
+        }
+        loop {
+            let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };
+            if dispstat & 1 != 0 {
+                break;
+            }
+        }
+    }
 }
 
 struct NoAlloc;
