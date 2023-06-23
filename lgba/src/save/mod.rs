@@ -84,7 +84,6 @@ use crate::{
 };
 use core::ops::Range;
 
-mod asm_utils;
 mod eeprom;
 mod flash;
 mod sram;

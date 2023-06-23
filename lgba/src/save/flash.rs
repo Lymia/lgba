@@ -7,7 +7,7 @@
 
 use crate::{
     mmio::reg::{RegArray, Register},
-    save::{asm_utils::*, utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
+    save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
     sync::{InitOnce, Static},
 };
 use core::cmp;
@@ -102,8 +102,8 @@ impl FlashChipType {
 /// Determines the raw ID of the flash chip currently in use.
 pub fn detect_chip_id() -> Result<u16, Error> {
     issue_flash_command(CMD_READ_CHIP_ID);
-    let high = unsafe { read_raw_byte(0xE000001) };
-    let low = unsafe { read_raw_byte(0xE000000) };
+    let high = unsafe { crate::asm::sram_read_raw_byte(0xE000001) };
+    let low = unsafe { crate::asm::sram_read_raw_byte(0xE000000) };
     let id = (high as u16) << 8 | low as u16;
     issue_flash_command(CMD_READ_CONTENTS);
     Ok(id)
@@ -289,7 +289,7 @@ impl ChipInfo {
             let start = offset & BANK_MASK;
             let end_len = cmp::min(BANK_LEN - start, buf.len());
             unsafe {
-                read_raw_buf(&mut buf[..end_len], 0xE000000 + start);
+                crate::asm::sram_read_raw_buf(&mut buf[..end_len], 0xE000000 + start);
             }
             buf = &mut buf[end_len..];
             offset += end_len;
@@ -303,7 +303,7 @@ impl ChipInfo {
             self.set_bank(offset >> BANK_SHIFT)?;
             let start = offset & BANK_MASK;
             let end_len = cmp::min(BANK_LEN - start, buf.len());
-            if !unsafe { verify_raw_buf(&buf[..end_len], 0xE000000 + start) } {
+            if !unsafe { crate::asm::sram_verify_raw_buf(&buf[..end_len], 0xE000000 + start) } {
                 return Ok(false);
             }
             buf = &buf[end_len..];
@@ -323,7 +323,7 @@ impl ChipInfo {
         timeout.start();
         let offset = 0xE000000 + offset;
 
-        while unsafe { read_raw_byte(offset) != val } {
+        while unsafe { crate::asm::sram_read_raw_byte(offset) != val } {
             if timeout.check_timeout_met(ms) {
                 if self.requires_cancel_command {
                     FLASH_PORT_A.write(0xF0);

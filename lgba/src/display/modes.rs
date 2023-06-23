@@ -45,6 +45,7 @@ impl Mode0 {
     ///
     /// This checks a global lock to avoid situations where two graphics modes are active at the
     /// same time.
+    #[track_caller]
     pub fn activate(&mut self) -> ActiveMode0 {
         let lock = Some(
             MAIN_GFX_LOCK
@@ -78,6 +79,7 @@ impl<'a> Drop for ActiveMode0<'a> {
 }
 
 #[inline(never)]
+#[track_caller]
 fn graphics_in_use() -> ! {
     crate::panic_handler::static_panic("A graphics mode is already activated!")
 }

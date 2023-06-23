@@ -155,13 +155,13 @@ fn invalid_glyph_id(min: usize, max: usize) {
 #[inline(never)]
 #[track_caller]
 fn char_count_incorrect() {
-    panic!("Character data ends with an incomplete character.");
+    crate::panic_handler::static_panic("Character data ends with an incomplete character.");
 }
 
 #[inline(never)]
 #[track_caller]
 fn char_id_is_odd() {
-    panic!("8bpp character IDs must be even.");
+    crate::panic_handler::static_panic("8bpp character IDs must be even.");
 }
 
 /// A helper type used to write data into tile maps.

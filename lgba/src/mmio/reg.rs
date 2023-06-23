@@ -134,7 +134,7 @@ pub const IE: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000200) }
 pub const IF: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000202) };
 
 //
-//  Timer-related Registers
+// Timer-related Registers
 //
 pub const TM_CNT_L: RegSpanned<u16, 4, 2> = unsafe { RegSpanned::new(0x4000100) };
 pub const TM_CNT_H: RegSpanned<TimerCnt, 4, 2> = unsafe { RegSpanned::new(0x4000102) };

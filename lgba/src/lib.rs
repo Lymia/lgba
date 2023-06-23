@@ -5,7 +5,7 @@
 
 pub mod debug;
 
-mod gba_header;
+mod asm;
 mod mmio;
 mod panic_handler;
 
@@ -30,7 +30,7 @@ pub mod __macro_export {
     pub use lgba_phf;
 
     pub mod gba_header {
-        pub use crate::gba_header::*;
+        pub use crate::asm::gba_header::*;
     }
 
     //noinspection RsAssertEqual

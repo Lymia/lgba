@@ -80,3 +80,49 @@ packed_struct_fields!(
     (enable_irq, with_enable_irq, bool, 6),
     (enabled, with_enabled, bool, 7),
 );
+
+/// An enum representing all buttons available on the GBA.
+#[derive(EnumSetType, Debug, Ord, PartialOrd, Hash)]
+#[enumset(repr = "u16")]
+pub enum Button {
+    /// The A button.
+    A = 0,
+    /// The B button.
+    B = 1,
+    /// The Select button.
+    Select = 2,
+    /// The Start button.
+    Start = 3,
+    /// A right press on the direction pad.
+    Right = 4,
+    /// A left press on the direction pad.
+    Left = 5,
+    /// An up press on the direction pad.
+    Up = 6,
+    /// A down press on the direction pad.
+    Down = 7,
+    /// The R trigger.
+    R = 8,
+    /// The L trigger.
+    L = 9,
+}
+
+#[derive(IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
+#[repr(u16)]
+pub enum ButtonCondition {
+    LogicalOr = 0,
+    LogicalAnd = 1,
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct KeyCnt(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    KeyCnt, u16,
+
+    (enabled, with_enabled, (@enumset Button), 0..=9),
+    (enable_irq, with_enable_irq, bool, 14),
+    (condition, with_condition, ButtonCondition, 15..=15),
+);

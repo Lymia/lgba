@@ -10,15 +10,20 @@ use core::{
 };
 
 #[inline(never)]
-fn already_locked() -> ! {
+#[track_caller]
+fn mutex_already_locked() -> ! {
     crate::panic_handler::static_panic("IRQ and main are attempting to access the same Mutex!")
 }
+
 #[inline(never)]
-fn double_unlock() -> ! {
+#[track_caller]
+fn mutex_double_unlock() -> ! {
     crate::panic_handler::static_panic("Attempt to unlock a `RawMutex` which is not locked!")
 }
+
 #[inline(never)]
-fn not_yet_initialized() -> ! {
+#[track_caller]
+fn init_not_yet_initialized() -> ! {
     crate::panic_handler::static_panic("Attempt to read an InitOnce that is not yet initialized")
 }
 
@@ -48,16 +53,18 @@ impl RawMutex {
     }
 
     /// Unlocks the mutex.
+    #[track_caller]
     fn raw_unlock(&self) {
         compiler_fence(Ordering::Release);
         if !self.0.replace(false) {
-            double_unlock()
+            mutex_double_unlock()
         }
     }
 
     /// Returns a guard for this lock, or panics if there is another lock active.
+    #[track_caller]
     pub fn lock(&self) -> RawMutexGuard<'_> {
-        self.try_lock().unwrap_or_else(|| already_locked())
+        self.try_lock().unwrap_or_else(|| mutex_already_locked())
     }
 
     /// Returns a guard for this lock, or `None` if there is another lock active.
@@ -111,8 +118,9 @@ impl<T> Mutex<T> {
     }
 
     /// Returns a guard for this lock, or panics if there is another lock active.
+    #[track_caller]
     pub fn lock(&self) -> MutexGuard<'_, T> {
-        self.try_lock().unwrap_or_else(|| already_locked())
+        self.try_lock().unwrap_or_else(|| mutex_already_locked())
     }
 
     /// Returns a guard for this lock or `None` if there is another lock active.
@@ -221,9 +229,10 @@ impl<T> InitOnce<T> {
     /// Returns whether the contents of the cell have already been initialized.
     ///
     /// This should only be used as an optimization.
+    #[track_caller]
     pub fn get_existing(&self) -> &T {
         self.try_get_existing()
-            .unwrap_or_else(|| not_yet_initialized())
+            .unwrap_or_else(|| init_not_yet_initialized())
     }
 
     /// Returns whether the contents of the cell have already been initialized.

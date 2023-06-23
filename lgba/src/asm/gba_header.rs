@@ -1,3 +1,5 @@
+//! Contains the code needed to generate a GBA header.
+
 pub type GbaHeader = [u8; 0x20];
 
 #[rustfmt::skip]
@@ -63,6 +65,3 @@ pub const fn calculate_complement(mut header: GbaHeader) -> GbaHeader {
     header[0x1D] = (-(0x19 + c)) as u8;
     header
 }
-
-#[no_mangle]
-pub static __lgba_exh_lgba_version: &str = env!("CARGO_PKG_VERSION");

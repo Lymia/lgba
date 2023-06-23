@@ -1,4 +1,5 @@
 use crate::{
+    asm::{EXH_LGBA_VERSION, EXH_ROM_CNAME, EXH_ROM_CVER, EXH_ROM_REPO},
     display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
     eprintln,
     sync::Static,
@@ -10,13 +11,6 @@ use core::{
 };
 
 // TODO: Prevent long messages from scrolling off the screen.
-
-extern "Rust" {
-    pub static __lgba_exh_lgba_version: &'static str;
-    pub static __lgba_exh_rom_cname: &'static str;
-    pub static __lgba_exh_rom_cver: &'static str;
-    pub static __lgba_exh_rom_repository: &'static str;
-}
 
 #[inline(never)]
 fn panic_start() {
@@ -41,11 +35,11 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
 
     // write bug report message
     unsafe {
-        if !__lgba_exh_rom_repository.is_empty() {
+        if !EXH_ROM_REPO.is_empty() {
             write!(
                 terminal.write(),
                 "This is likely a bug. You can report it at this URL:\n{}\n\n",
-                __lgba_exh_rom_repository
+                EXH_ROM_REPO
             )
             .unwrap();
         }
@@ -56,9 +50,9 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
         write!(
             terminal.write(),
             "Version : {} {} / lgba {}\n",
-            __lgba_exh_rom_cname,
-            __lgba_exh_rom_cver,
-            __lgba_exh_lgba_version,
+            EXH_ROM_CNAME,
+            EXH_ROM_CVER,
+            EXH_LGBA_VERSION,
         )
         .unwrap();
     }
@@ -154,16 +148,6 @@ fn handle_alloc_panic_inner(layout: Layout) -> ! {
 #[alloc_error_handler]
 fn handle_alloc_error(layout: Layout) -> ! {
     handle_alloc_panic(layout)
-}
-
-#[no_mangle]
-fn __aeabi_idiv0() -> ! {
-    handle_static_panic("division by 0", None)
-}
-
-#[no_mangle]
-fn __aeabi_ldiv0() -> ! {
-    __aeabi_idiv0();
 }
 
 #[track_caller]

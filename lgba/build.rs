@@ -37,23 +37,23 @@ fn main() {
         let mut o_files = Vec::new();
 
         // lgba-specific code
-        arm_as("src_asm/lgba/crt0.s", "crt0.o", &mut o_files);
-        arm_as("src_asm/lgba/header.s", "header.o", &mut o_files);
-        arm_as("src_asm/lgba/save.s", "save.o", &mut o_files);
-        arm_as("src_asm/lgba/sys.s", "sys.o", &mut o_files);
+        arm_as("src/asm/impl/crt0.s", "crt0.o", &mut o_files);
+        arm_as("src/asm/impl/header.s", "header.o", &mut o_files);
+        arm_as("src/asm/impl/save.s", "save.o", &mut o_files);
+        arm_as("src/asm/impl/sys.s", "sys.o", &mut o_files);
 
         // memory operations
-        arm_as("src_asm/aeabi/memmove.S", "aeabi_memcpy.o", &mut o_files);
-        arm_as("src_asm/aeabi/memset.S", "aeabi_memset.o", &mut o_files);
+        arm_as("src/asm/aeabi/memmove.S", "aeabi_memcpy.o", &mut o_files);
+        arm_as("src/asm/aeabi/memset.S", "aeabi_memset.o", &mut o_files);
 
         // numeric operations
-        arm_as("src_asm/aeabi/idiv.S", "aeabi_idiv.o", &mut o_files);
-        arm_as("src_asm/aeabi/idivmod.S", "aeabi_idivmod.o", &mut o_files);
-        arm_as("src_asm/aeabi/lasr.S", "aeabi_lasr.o", &mut o_files);
-        arm_as("src_asm/aeabi/ldivmod.S", "aeabi_ldivmod.o", &mut o_files);
-        arm_as("src_asm/aeabi/llsl.S", "aeabi_llsl.o", &mut o_files);
-        arm_as("src_asm/aeabi/llsr.S", "aeabi_llsr.o", &mut o_files);
-        arm_as("src_asm/aeabi/lmul.S", "aeabi_lmul.o", &mut o_files);
+        arm_as("src/asm/aeabi/idiv.S", "aeabi_idiv.o", &mut o_files);
+        arm_as("src/asm/aeabi/idivmod.S", "aeabi_idivmod.o", &mut o_files);
+        arm_as("src/asm/aeabi/lasr.S", "aeabi_lasr.o", &mut o_files);
+        arm_as("src/asm/aeabi/ldivmod.S", "aeabi_ldivmod.o", &mut o_files);
+        arm_as("src/asm/aeabi/llsl.S", "aeabi_llsl.o", &mut o_files);
+        arm_as("src/asm/aeabi/llsr.S", "aeabi_llsr.o", &mut o_files);
+        arm_as("src/asm/aeabi/lmul.S", "aeabi_lmul.o", &mut o_files);
 
         let archive_name = format!("{out_dir}/liblgba_as.a");
         std::fs::remove_file(&archive_name).ok();

@@ -3,7 +3,7 @@
 //! SRAM acts as ordinary memory mapped into the memory space, and as such
 //! is accessed using normal memory read/write commands.
 
-use crate::save::{asm_utils::*, utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess};
+use crate::save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess};
 
 const SRAM_SIZE: usize = 32 * 1024; // 32 KiB
 
@@ -30,14 +30,14 @@ impl RawSaveAccess for BatteryBackedAccess {
     fn read(&self, offset: usize, buffer: &mut [u8], _: &mut Timeout) -> Result<(), Error> {
         check_bounds(offset, buffer.len())?;
         unsafe {
-            read_raw_buf(buffer, 0x0E000000 + offset);
+            crate::asm::sram_read_raw_buf(buffer, 0x0E000000 + offset);
         }
         Ok(())
     }
 
     fn verify(&self, offset: usize, buffer: &[u8], _: &mut Timeout) -> Result<bool, Error> {
         check_bounds(offset, buffer.len())?;
-        let val = unsafe { verify_raw_buf(buffer, 0x0E000000 + offset) };
+        let val = unsafe { crate::asm::sram_verify_raw_buf(buffer, 0x0E000000 + offset) };
         Ok(val)
     }
 
@@ -48,7 +48,7 @@ impl RawSaveAccess for BatteryBackedAccess {
     fn write(&self, offset: usize, buffer: &[u8], _: &mut Timeout) -> Result<(), Error> {
         check_bounds(offset, buffer.len())?;
         unsafe {
-            write_raw_buf(0x0E000000 + offset, buffer);
+            crate::asm::sram_write_raw_buf(0x0E000000 + offset, buffer);
         }
         Ok(())
     }
