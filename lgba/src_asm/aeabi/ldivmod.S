@@ -180,7 +180,7 @@ __aeabi_uldivmod:
 
 .L_divison_by_0:
     ldr r0, =__aeabi_ldiv0
-	b	r0
+	bx  r0
 	.pool
 
 
