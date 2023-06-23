@@ -47,12 +47,26 @@ fn rom_entry() -> ! {
 
     terminal.new_line();
     terminal.set_active_color(0);
-    terminal.write_str("Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi aaaaa! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi! Word wraptest woraoijoioi!");
+    for i in 1..105 {
+        if i % 15 == 0 {
+            terminal.write_str("[fizzbuzz] ");
+        } else if i % 3 == 0 {
+            terminal.write_str("[fizz] ");
+        } else if i % 5 == 0 {
+            terminal.write_str("[buzz] ");
+        } else {
+            write!(terminal.write(), "{} ", i).unwrap();
+        }
+    }
+    terminal.new_line();
 
+    let mut frame = 0;
     loop {
         terminal.clear_line(18);
         terminal.set_cursor(0, 18);
-        write!(terminal.write(), "{:?}", lgba::sys::pressed_keys()).unwrap();
+        write!(terminal.write(), "#{} / {:?}", frame, lgba::sys::pressed_keys())
+            .unwrap();
+        frame += 1;
 
         loop {
             let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };
