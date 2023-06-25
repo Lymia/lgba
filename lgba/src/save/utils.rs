@@ -2,6 +2,7 @@
 
 use super::Error;
 use crate::{
+    mmio::{reg::WAITCNT, sys::WaitState},
     sync::{RawMutex, RawMutexGuard},
     timer::{Timer, TimerId, TimerMode},
 };
@@ -58,4 +59,8 @@ pub fn lock_media_access() -> Result<RawMutexGuard<'static>, Error> {
         Some(x) => Ok(x),
         None => Err(Error::MediaInUse),
     }
+}
+
+pub fn set_sram_wait(wait: WaitState) {
+    WAITCNT.write(WAITCNT.read().with_sram_wait(wait));
 }

@@ -160,6 +160,7 @@ impl MediaInfo {
 
 /// A trait allowing low-level saving and writing to save media.
 trait RawSaveAccess: Sync {
+    fn on_create(&self);
     fn info(&self) -> Result<&'static MediaInfo, Error>;
     fn read(&self, offset: usize, buffer: &mut [u8], timeout: &mut Timeout) -> Result<(), Error>;
     fn verify(&self, offset: usize, buffer: &[u8], timeout: &mut Timeout) -> Result<bool, Error>;
@@ -195,12 +196,15 @@ impl SaveAccess {
     /// Creates a new save accessor around the current save implementation.
     fn new(timer: Option<TimerId>) -> Result<SaveAccess, Error> {
         match get_save_implementation() {
-            Some(access) => Ok(SaveAccess {
-                _lock: utils::lock_media_access()?,
-                access,
-                info: access.info()?,
-                timeout: Timeout::new(timer),
-            }),
+            Some(access) => {
+                access.on_create();
+                Ok(SaveAccess {
+                    _lock: utils::lock_media_access()?,
+                    access,
+                    info: access.info()?,
+                    timeout: Timeout::new(timer),
+                })
+            }
             None => Err(Error::NoMedia),
         }
     }

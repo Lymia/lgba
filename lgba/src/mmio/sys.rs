@@ -126,3 +126,32 @@ packed_struct_fields!(
     (enable_irq, with_enable_irq, bool, 14),
     (condition, with_condition, ButtonCondition, 15..=15),
 );
+
+#[derive(IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
+#[repr(u16)]
+pub enum WaitState {
+    Wait4,
+    Wait3,
+    Wait2,
+    Wait8,
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash, Default)]
+#[repr(transparent)]
+pub struct WaitCnt(u16);
+#[rustfmt::skip]
+packed_struct_fields!(
+    WaitCnt, u16,
+
+    (sram_wait, with_sram_wait, WaitState, 0..=1),
+    (rom0_wait, with_rom0_wait, WaitState, 2..=3),
+    (rom0_fast_seq, with_rom0_fast_seq, bool, 4),
+    (rom1_wait, with_rom1_wait, WaitState, 5..=6),
+    (rom1_fast_seq, with_rom1_fast_seq, bool, 7),
+    (rom2_wait, with_rom2_wait, WaitState, 8..=9),
+    (rom2_fast_seq, with_rom2_fast_seq, bool, 10),
+    // TODO: PHI Terminal Output
+    (enable_rom_prefetch, with_enable_rom_prefetch, bool, 14),
+    (is_cgb, with_is_cgb, bool, 15),
+);

@@ -6,7 +6,10 @@
 // TODO: Setup cartridge read timings for faster Flash access.
 
 use crate::{
-    mmio::reg::{RegArray, Register},
+    mmio::{
+        reg::{RegArray, Register},
+        sys::WaitState,
+    },
     save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
     sync::{InitOnce, Static},
 };
@@ -101,6 +104,7 @@ impl FlashChipType {
 
 /// Determines the raw ID of the flash chip currently in use.
 pub fn detect_chip_id() -> Result<u16, Error> {
+    crate::save::utils::set_sram_wait(WaitState::Wait8);
     issue_flash_command(CMD_READ_CHIP_ID);
     let high = unsafe { crate::asm::sram_read_raw_byte(0xE000001) };
     let low = unsafe { crate::asm::sram_read_raw_byte(0xE000000) };
@@ -114,9 +118,9 @@ pub fn detect_chip_id() -> Result<u16, Error> {
 #[allow(dead_code)]
 struct ChipInfo {
     /// The wait state required to read from the chip.
-    read_wait: u8,
+    read_wait: WaitState,
     /// The wait state required to write to the chip.
-    write_wait: u8,
+    write_wait: WaitState,
 
     /// The timeout in milliseconds for writes to this chip.
     write_timeout: u16,
@@ -159,8 +163,8 @@ static INFO_128K: MediaInfo = MediaInfo {
 
 // Chip info for the various chipsets.
 static CHIP_INFO_SST_64K: ChipInfo = ChipInfo {
-    read_wait: 2,  // 2 cycles
-    write_wait: 1, // 3 cycles
+    read_wait: WaitState::Wait2,
+    write_wait: WaitState::Wait3,
     write_timeout: 10,
     erase_sector_timeout: 40,
     erase_chip_timeout: 200,
@@ -170,8 +174,8 @@ static CHIP_INFO_SST_64K: ChipInfo = ChipInfo {
     info: &INFO_64K,
 };
 static CHIP_INFO_MACRONIX_64K: ChipInfo = ChipInfo {
-    read_wait: 1,  // 3 cycles
-    write_wait: 3, // 8 cycles
+    read_wait: WaitState::Wait3,
+    write_wait: WaitState::Wait8,
     write_timeout: 10,
     erase_sector_timeout: 2000,
     erase_chip_timeout: 2000,
@@ -181,8 +185,8 @@ static CHIP_INFO_MACRONIX_64K: ChipInfo = ChipInfo {
     info: &INFO_64K,
 };
 static CHIP_INFO_PANASONIC_64K: ChipInfo = ChipInfo {
-    read_wait: 2,  // 2 cycles
-    write_wait: 0, // 4 cycles
+    read_wait: WaitState::Wait2,
+    write_wait: WaitState::Wait4,
     write_timeout: 10,
     erase_sector_timeout: 500,
     erase_chip_timeout: 500,
@@ -192,8 +196,8 @@ static CHIP_INFO_PANASONIC_64K: ChipInfo = ChipInfo {
     info: &INFO_64K,
 };
 static CHIP_INFO_ATMEL_64K: ChipInfo = ChipInfo {
-    read_wait: 3,  // 8 cycles
-    write_wait: 3, // 8 cycles
+    read_wait: WaitState::Wait8,
+    write_wait: WaitState::Wait8,
     write_timeout: 40,
     erase_sector_timeout: 40,
     erase_chip_timeout: 40,
@@ -203,8 +207,8 @@ static CHIP_INFO_ATMEL_64K: ChipInfo = ChipInfo {
     info: &INFO_64K_ATMEL,
 };
 static CHIP_INFO_GENERIC_64K: ChipInfo = ChipInfo {
-    read_wait: 3,  // 8 cycles
-    write_wait: 3, // 8 cycles
+    read_wait: WaitState::Wait8,
+    write_wait: WaitState::Wait8,
     write_timeout: 40,
     erase_sector_timeout: 2000,
     erase_chip_timeout: 2000,
@@ -214,8 +218,8 @@ static CHIP_INFO_GENERIC_64K: ChipInfo = ChipInfo {
     info: &INFO_128K,
 };
 static CHIP_INFO_GENERIC_128K: ChipInfo = ChipInfo {
-    read_wait: 1,  // 3 cycles
-    write_wait: 3, // 8 cycles
+    read_wait: WaitState::Wait3,
+    write_wait: WaitState::Wait8,
     write_timeout: 10,
     erase_sector_timeout: 2000,
     erase_chip_timeout: 2000,
@@ -431,6 +435,8 @@ impl ChipInfo {
 /// The [`RawSaveAccess`] used for flash save media.
 pub struct FlashAccess;
 impl RawSaveAccess for FlashAccess {
+    fn on_create(&self) {}
+
     fn info(&self) -> Result<&'static MediaInfo, Error> {
         Ok(cached_chip_info()?.info)
     }
@@ -438,6 +444,7 @@ impl RawSaveAccess for FlashAccess {
     fn read(&self, offset: usize, buf: &mut [u8], _: &mut Timeout) -> Result<(), Error> {
         let chip = cached_chip_info()?;
         chip.check_len(offset, buf.len())?;
+        crate::save::utils::set_sram_wait(chip.read_wait);
 
         chip.read_buffer(offset, buf)
     }
@@ -445,6 +452,7 @@ impl RawSaveAccess for FlashAccess {
     fn verify(&self, offset: usize, buf: &[u8], _: &mut Timeout) -> Result<bool, Error> {
         let chip = cached_chip_info()?;
         chip.check_len(offset, buf.len())?;
+        crate::save::utils::set_sram_wait(chip.read_wait);
 
         chip.verify_buffer(offset, buf)
     }
@@ -457,6 +465,7 @@ impl RawSaveAccess for FlashAccess {
     ) -> Result<(), Error> {
         let chip = cached_chip_info()?;
         chip.check_sector_len(sector, count)?;
+        crate::save::utils::set_sram_wait(chip.write_wait);
 
         if chip.uses_atmel_api {
             Ok(())
@@ -478,6 +487,7 @@ impl RawSaveAccess for FlashAccess {
     ) -> Result<(), Error> {
         let chip = cached_chip_info()?;
         chip.check_len(offset, buf.len())?;
+        crate::save::utils::set_sram_wait(chip.write_wait);
 
         if chip.uses_atmel_api {
             while !buf.is_empty() {

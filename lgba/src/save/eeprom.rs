@@ -4,7 +4,7 @@
 
 use crate::{
     dma::DmaChannelId,
-    mmio::reg::Register,
+    mmio::{reg::Register, sys::WaitState},
     save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
 };
 use core::cmp;
@@ -249,6 +249,10 @@ const PROPS_8K: EepromProperties = EepromProperties { addr_bits: 14, byte_len: 8
 /// The [`RawSaveAccess`] used for 512 byte EEPROM.
 pub struct Eeprom512B;
 impl RawSaveAccess for Eeprom512B {
+    fn on_create(&self) {
+        crate::save::utils::set_sram_wait(WaitState::Wait8);
+    }
+
     fn info(&self) -> Result<&'static MediaInfo, Error> {
         Ok(&MediaInfo {
             media_type: MediaType::Eeprom512B,
@@ -274,6 +278,10 @@ impl RawSaveAccess for Eeprom512B {
 /// The [`RawSaveAccess`] used for 8 KiB EEPROM.
 pub struct Eeprom8K;
 impl RawSaveAccess for Eeprom8K {
+    fn on_create(&self) {
+        crate::save::utils::set_sram_wait(WaitState::Wait8);
+    }
+
     fn info(&self) -> Result<&'static MediaInfo, Error> {
         Ok(&MediaInfo {
             media_type: MediaType::Eeprom8K,

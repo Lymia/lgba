@@ -3,7 +3,10 @@
 //! SRAM acts as ordinary memory mapped into the memory space, and as such
 //! is accessed using normal memory read/write commands.
 
-use crate::save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess};
+use crate::{
+    mmio::sys::WaitState,
+    save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
+};
 
 const SRAM_SIZE: usize = 32 * 1024; // 32 KiB
 
@@ -18,6 +21,10 @@ fn check_bounds(offset: usize, len: usize) -> Result<(), Error> {
 /// The [`RawSaveAccess`] used for battery backed SRAM.
 pub struct BatteryBackedAccess;
 impl RawSaveAccess for BatteryBackedAccess {
+    fn on_create(&self) {
+        crate::save::utils::set_sram_wait(WaitState::Wait8);
+    }
+
     fn info(&self) -> Result<&'static MediaInfo, Error> {
         Ok(&MediaInfo {
             media_type: MediaType::Sram32K,

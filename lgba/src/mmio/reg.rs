@@ -1,6 +1,6 @@
 use crate::mmio::{
     display::*,
-    sys::{Button, DmaCnt, Interrupt, KeyCnt, TimerCnt},
+    sys::{Button, DmaCnt, Interrupt, KeyCnt, TimerCnt, WaitCnt},
 };
 use core::{ffi::c_void, marker::PhantomData};
 use enumset::EnumSet;
@@ -134,6 +134,7 @@ pub const IE: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000200) }
 pub const IF: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x4000202) };
 pub const KEYINPUT: Register<EnumSet<Button>> = unsafe { Register::new(0x4000130) };
 pub const KEYCNT: Register<KeyCnt> = unsafe { Register::new(0x4000132) };
+pub const WAITCNT: Register<WaitCnt> = unsafe { Register::new(0x4000204) };
 pub const BIOS_IF: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x3007FF8) };
 pub const BIOS_IRQ_ENTRY: Register<extern "C" fn(), Unsafe> = unsafe { Register::new(0x3007FFC) };
 
