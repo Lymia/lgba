@@ -7,10 +7,12 @@ pub mod gba_header;
 extern crate compiler_builtins_local;
 
 mod interface {
+    use crate::mmio::{
+        display::DispStat,
+        reg::{BIOS_IRQ_ENTRY, DISPSTAT, IE, IME},
+        sys::Interrupt,
+    };
     use enumset::EnumSet;
-    use crate::mmio::display::DispStat;
-    use crate::mmio::reg::{BIOS_IRQ_ENTRY, DISPSTAT, IE, IME};
-    use crate::mmio::sys::Interrupt;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {

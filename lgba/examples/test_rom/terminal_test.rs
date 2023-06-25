@@ -1,23 +1,11 @@
-#![no_std]
-#![no_main]
-
-#[macro_use]
-extern crate lgba;
-
-use core::{
-    alloc::{GlobalAlloc, Layout},
-    fmt::Write,
-};
+use core::fmt::Write;
 use lgba::{
-    display::{Terminal},
+    display::{Terminal, TerminalFontBasic},
     dma::DmaChannelId,
+    sys::Button,
 };
-use lgba::display::TerminalFontBasic;
-use lgba::sys::Button;
 
-#[lgba::entry]
-#[rom(title = "LGBA_TERMTST", code = "LGTT")]
-fn rom_entry() -> ! {
+pub fn run() -> ! {
     let mut terminal = Terminal::new();
     terminal.use_dma_channel(DmaChannelId::Dma3);
     terminal.set_force_blank(true);
@@ -107,15 +95,3 @@ fn rom_entry() -> ! {
         frame = (frame + 1) % 1000;
     }
 }
-
-struct NoAlloc;
-unsafe impl GlobalAlloc for NoAlloc {
-    unsafe fn alloc(&self, _: Layout) -> *mut u8 {
-        todo!()
-    }
-    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {
-        todo!()
-    }
-}
-#[global_allocator]
-static ALLOC: NoAlloc = NoAlloc;

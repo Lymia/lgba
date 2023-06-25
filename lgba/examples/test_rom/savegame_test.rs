@@ -1,9 +1,3 @@
-#![no_std]
-#![no_main]
-
-#[macro_use]
-extern crate lgba;
-
 use core::cmp;
 use lgba::save::{Error, SaveAccess};
 
@@ -82,9 +76,7 @@ fn do_test(seed: Rng, offset: usize, len: usize, block_size: usize) -> Result<()
     Ok(())
 }
 
-#[lgba::entry]
-#[rom(title = "LGBA_TESTSAV", code = "LGTS")]
-fn main() -> ! {
+pub fn run() -> ! {
     // set the save type
     lgba::save::init_flash_128k();
 
@@ -122,5 +114,6 @@ fn main() -> ! {
 
     // show a pattern so we know it worked
     println!("All tests complete!");
+
     loop {}
 }
