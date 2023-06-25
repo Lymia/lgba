@@ -9,11 +9,12 @@ extern crate compiler_builtins_local;
 mod interface {
     use enumset::EnumSet;
     use crate::mmio::display::DispStat;
-    use crate::mmio::reg::{BIOS_IF, DISPSTAT, IE, IF, IME};
+    use crate::mmio::reg::{BIOS_IRQ_ENTRY, DISPSTAT, IE, IME};
     use crate::mmio::sys::Interrupt;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {
+        BIOS_IRQ_ENTRY.write(entry_interrupt_handler);
         IME.write(true);
         IE.write(EnumSet::only(Interrupt::VBlank));
         DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
@@ -24,18 +25,9 @@ mod interface {
         crate::panic_handler::static_panic("Internal error: Main function returned?")
     }
 
-    #[no_mangle]
-    pub unsafe extern "C" fn __lgba_rust_interrupt_handler() {
-        // disable interrupts
-        IME.write(false);
-
-        // clear interrupts
-        let triggered_interrupts = IE.read() & IF.read();
-        IF.write(triggered_interrupts);
-        BIOS_IF.write(triggered_interrupts);
-
-        // enable interrupts
-        IME.write(true);
+    #[instruction_set(arm::a32)]
+    pub extern "C" fn entry_interrupt_handler() {
+        crate::irq::interrupt_handler();
     }
 
     #[no_mangle]

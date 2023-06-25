@@ -33,11 +33,6 @@ __lgba_start:
     ldr r0, =__lgba_init_rust
     bl 2f
 
-    @ Sets the interrupt handler
-    ldr r0, =__lgba_irq_handler
-    ldr r1, =0x3007FFC
-    str r0, [r1]
-
     @ Jump to user code
     ldr r0, =__lgba_rom_entry
     bl 2f
@@ -134,14 +129,4 @@ __lgba_init_memory:
     nop
     nop
 0:  bx lr
-.pool
-
-@
-@ The IRQ handler used by lgba
-@
-    .arm
-    .global __lgba_irq_handler
-__lgba_irq_handler:
-    ldr r0, =__lgba_rust_interrupt_handler
-    bx r0
 .pool
