@@ -4,14 +4,6 @@ use crate::mmio::reg::KEYINPUT;
 use core::arch::asm;
 use enumset::EnumSet;
 
-/// Resets the GBA.
-pub fn reset() -> ! {
-    unsafe {
-        asm!("swi #0x00");
-    }
-    abort()
-}
-
 /// Crashes the console on purpose, preventing it from running any code until it is reset.
 ///
 /// This sets the GBA into a state where no functions (such as DMA or interrupts) are running, and
@@ -31,3 +23,6 @@ pub use crate::mmio::sys::Button;
 pub fn pressed_keys() -> EnumSet<Button> {
     !KEYINPUT.read()
 }
+
+mod bios;
+pub use bios::*;

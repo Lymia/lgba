@@ -2,17 +2,17 @@
 @ The entry point for the actual ROM
 @
     .arm
-    .global __lgba__internal_start
-__lgba__internal_start:
-    @ Set IRQ stack pointer
+    .global __lgba_start
+__lgba_start:
+    @ Enters IRQ mode and sets the stack pointer
     movs r0, #0x12
     msr CPSR_c, r0
     ldr sp, =0x3007FA0
 
-    @ Set user stack pointer
+    @ Enters user mode, and sets the stack pointer
     movs r0, #0x1f
     msr CPSR_c, r0
-    ldr sp, =0x3007F00
+    ldr sp, =0x3007E00 @ allocate more room for the IRQ stack than usual; Rust can use quite a bit
 
     @ Switch to Thumb
     ldr r0, =(1f + 1)
@@ -33,6 +33,11 @@ __lgba__internal_start:
     ldr r0, =__lgba_init_rust
     bl 2f
 
+    @ Sets the interrupt handler
+    ldr r0, =__lgba_irq_handler
+    ldr r1, =0x3007FFC
+    str r0, [r1]
+
     @ Jump to user code
     ldr r0, =__lgba_rom_entry
     bl 2f
@@ -52,18 +57,18 @@ __lgba__internal_start:
 @ The entry point for the ROM in multiplay transfer environments
 @
     .arm
-    .global __lgba__internal_multiplay_start
-__lgba__internal_multiplay_start:
-    b __lgba__internal_multiplay_start
+    .global __lgba_multiplay_start
+__lgba_multiplay_start:
+    b __lgba_multiplay_start
 .pool
 
 @
 @ The entry point for the ROM in joybus environments
 @
     .arm
-    .global __lgba__internal_joybus_start
-__lgba__internal_joybus_start:
-    b __lgba__internal_joybus_start
+    .global __lgba_joybus_start
+__lgba_joybus_start:
+    b __lgba_joybus_start
 .pool
 
 @
@@ -129,4 +134,14 @@ __lgba_init_memory:
     nop
     nop
 0:  bx lr
+.pool
+
+@
+@ The IRQ handler used by lgba
+@
+    .arm
+    .global __lgba_irq_handler
+__lgba_irq_handler:
+    ldr r0, =__lgba_rust_interrupt_handler
+    bx r0
 .pool

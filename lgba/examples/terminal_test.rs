@@ -97,18 +97,7 @@ fn rom_entry() -> ! {
         }
         frame = (frame + 1) % 1000;
 
-        loop {
-            let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };
-            if dispstat & 1 == 0 {
-                break;
-            }
-        }
-        loop {
-            let dispstat = unsafe { core::ptr::read_volatile(0x4000004 as *const u16) };
-            if dispstat & 1 != 0 {
-                break;
-            }
-        }
+        lgba::sys::wait_for_vblank();
     }
 }
 

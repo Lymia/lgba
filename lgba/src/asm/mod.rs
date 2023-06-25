@@ -7,12 +7,35 @@ pub mod gba_header;
 extern crate compiler_builtins_local;
 
 mod interface {
+    use enumset::EnumSet;
+    use crate::mmio::display::DispStat;
+    use crate::mmio::reg::{BIOS_IF, DISPSTAT, IE, IF, IME};
+    use crate::mmio::sys::Interrupt;
+
     #[no_mangle]
-    pub unsafe extern "C" fn __lgba_init_rust() {}
+    pub unsafe extern "C" fn __lgba_init_rust() {
+        IME.write(true);
+        IE.write(EnumSet::only(Interrupt::VBlank));
+        DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
+    }
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_main_func_returned() -> ! {
         crate::panic_handler::static_panic("Internal error: Main function returned?")
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn __lgba_rust_interrupt_handler() {
+        // disable interrupts
+        IME.write(false);
+
+        // clear interrupts
+        let triggered_interrupts = IE.read() & IF.read();
+        IF.write(triggered_interrupts);
+        BIOS_IF.write(triggered_interrupts);
+
+        // enable interrupts
+        IME.write(true);
     }
 
     #[no_mangle]
@@ -30,9 +53,9 @@ mod interface {
 
     extern "C" {
         pub fn __lgba_abort() -> !;
-        pub fn __lgba_internal_TransferBuf(src: *const u8, dst: *mut u8, count: usize);
-        pub fn __lgba_internal_ReadByte(src: *const u8) -> u8;
-        pub fn __lgba_internal_VerifyBuf(buf1: *const u8, buf2: *const u8, count: usize) -> bool;
+        pub fn __lgba_TransferBuf(src: *const u8, dst: *mut u8, count: usize);
+        pub fn __lgba_ReadByte(src: *const u8) -> u8;
+        pub fn __lgba_VerifyBuf(buf1: *const u8, buf2: *const u8, count: usize) -> bool;
     }
 
     extern "Rust" {
@@ -58,7 +81,7 @@ pub use interface::{
 #[inline(always)]
 pub unsafe fn sram_read_raw_buf(dst: &mut [u8], src: usize) {
     if !dst.is_empty() {
-        interface::__lgba_internal_TransferBuf(src as _, dst.as_mut_ptr(), dst.len());
+        interface::__lgba_TransferBuf(src as _, dst.as_mut_ptr(), dst.len());
     }
 }
 
@@ -66,7 +89,7 @@ pub unsafe fn sram_read_raw_buf(dst: &mut [u8], src: usize) {
 #[inline(always)]
 pub unsafe fn sram_write_raw_buf(dst: usize, src: &[u8]) {
     if !src.is_empty() {
-        interface::__lgba_internal_TransferBuf(src.as_ptr(), dst as _, src.len());
+        interface::__lgba_TransferBuf(src.as_ptr(), dst as _, src.len());
     }
 }
 
@@ -74,7 +97,7 @@ pub unsafe fn sram_write_raw_buf(dst: usize, src: &[u8]) {
 #[inline(always)]
 pub unsafe fn sram_verify_raw_buf(buf1: &[u8], buf2: usize) -> bool {
     if !buf1.is_empty() {
-        interface::__lgba_internal_VerifyBuf(buf1.as_ptr(), buf2 as _, buf1.len() - 1)
+        interface::__lgba_VerifyBuf(buf1.as_ptr(), buf2 as _, buf1.len() - 1)
     } else {
         true
     }
@@ -83,5 +106,5 @@ pub unsafe fn sram_verify_raw_buf(buf1: &[u8], buf2: usize) -> bool {
 /// Reads a byte from a given memory address.
 #[inline(always)]
 pub unsafe fn sram_read_raw_byte(src: usize) -> u8 {
-    interface::__lgba_internal_ReadByte(src as _)
+    interface::__lgba_ReadByte(src as _)
 }

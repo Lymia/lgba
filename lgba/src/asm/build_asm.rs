@@ -2,7 +2,7 @@ use core::arch::global_asm;
 
 macro_rules! include_global_asm {
     ($file:expr) => {
-        global_asm!(concat!(include_str!($file), ".pool\n", ".text\n", ".thumb\n",), options(raw),);
+        global_asm!(concat!(include_str!($file), "\n.pool\n.text\n.thumb\n",), options(raw),);
     };
 }
 

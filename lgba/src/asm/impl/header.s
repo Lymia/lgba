@@ -3,7 +3,7 @@
     .global __start
 __start:
     @ Entry point
-    b __lgba__internal_start
+    b __lgba_start
 
     @ Nintendo logo
     .byte 0x24,0xFF,0xAE,0x51,0x69,0x9A,0xA2,0x21,0x3D,0x84,0x82,0x0A,0x84,0xE4,0x09,0xAD
@@ -22,9 +22,9 @@ __start:
     .global __lgba_header_extra
 __lgba_header_extra:
     @ Multiplay header
-    b __lgba__internal_multiplay_start
+    b __lgba_multiplay_start
     .space 0x1C
-    b __lgba__internal_joybus_start @ joybus entry point; not currently supported
+    b __lgba_joybus_start @ joybus entry point; not currently supported
 
     @ lgba-specific header
     .ascii "lgba_exh"

@@ -3,10 +3,10 @@
 @
 @ A routine that reads a byte from a given memory offset.
 @
-    .section .iwram.__lgba_internal_ReadByte, "ax", %progbits
+    .section .iwram.__lgba_ReadByte, "ax", %progbits
     .thumb_func
-    .global __lgba_internal_ReadByte
-__lgba_internal_ReadByte:
+    .global __lgba_ReadByte
+__lgba_ReadByte:
     ldrb r0, [r0]
     bx lr
 
@@ -15,10 +15,10 @@ __lgba_internal_ReadByte:
 @
 @ A routine that compares two memory offsets.
 @
-    .section .iwram.__lgba_internal_VerifyBuf, "ax", %progbits
+    .section .iwram.__lgba_VerifyBuf, "ax", %progbits
     .thumb_func
-    .global __lgba_internal_VerifyBuf
-__lgba_internal_VerifyBuf:
+    .global __lgba_VerifyBuf
+__lgba_VerifyBuf:
     push {r4-r5, lr}
     movs r5, r0     @ set up r5 to be r0, so we can use it immediately for the return result
     movs r0, #0     @ set up r0 so the default return result is false
@@ -43,10 +43,10 @@ __lgba_internal_VerifyBuf:
 @
 @ A routine that copies one buffer into another.
 @
-    .section .iwram.__lgba_internal_TransferBuf, "ax", %progbits
+    .section .iwram.__lgba_TransferBuf, "ax", %progbits
     .thumb_func
-    .global __lgba_internal_TransferBuf
-__lgba_internal_TransferBuf:
+    .global __lgba_TransferBuf
+__lgba_TransferBuf:
 0:  subs r2, #1
     ldrb r3, [r0,r2]
     strb r3, [r1,r2]
