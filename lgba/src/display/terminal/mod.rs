@@ -8,7 +8,7 @@ use crate::{
     mmio::reg::BG_PALETTE_RAM,
     sync::{Mutex, MutexGuard, Static},
 };
-use core::{fmt, marker::PhantomData};
+use core::{fmt, fmt::Arguments, marker::PhantomData};
 
 pub mod fonts;
 
@@ -379,6 +379,10 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
     pub fn clear_line(&mut self, y: usize) {
         self.term.clear_line(y);
     }
+    pub fn reset_line(&mut self) {
+        self.term.cursor_x = 0;
+        self.clear_line(self.term.cursor_y as usize);
+    }
 
     fn process_hw(ch: char) -> char {
         if ch.is_ascii() {
@@ -410,6 +414,9 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
     #[track_caller]
     pub fn set_cursor(&mut self, x: usize, y: usize) {
         self.term.set_cursor(x, y);
+    }
+    pub fn cursor(&self) -> (usize, usize) {
+        (self.term.cursor_x as usize, self.term.cursor_y as usize)
     }
 
     #[track_caller]
@@ -462,6 +469,7 @@ impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
             buffer: [0; 60],
             buffer_idx: 0,
             passthrough_mode: false,
+            synthetic_newline: false,
         }
     }
     pub fn write_str(&mut self, str: &str) {
@@ -474,6 +482,7 @@ pub struct ActiveTerminalWrite<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> {
     buffer: [u16; 60],
     buffer_idx: usize,
     passthrough_mode: bool,
+    synthetic_newline: bool,
 }
 impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T> {
     fn dump_buffers(&mut self) {
@@ -490,6 +499,7 @@ impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T
             let fits_on_next_line = self.buffer_idx < 58;
             if !fits_on_line && fits_on_next_line {
                 self.access.new_line();
+                self.synthetic_newline = true;
             }
             self.dump_buffers();
         }
@@ -512,11 +522,11 @@ impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T
             self.buffer_idx += 1;
         }
     }
-    fn write_char(&mut self, ch: char) {
+    pub fn write_char(&mut self, ch: char) {
         match ch {
             ' ' => {
                 self.flush_buffers();
-                if self.access.term.cursor_x != 0 {
+                if self.access.term.cursor_x != 0 || !self.synthetic_newline {
                     self.access.write_char(' ');
                 }
             }
@@ -535,14 +545,18 @@ impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T
             '\n' => {
                 self.flush_buffers();
                 self.access.new_line();
+                self.synthetic_newline = false;
             }
             _ => self.push_char(ch),
         }
     }
-    fn write_str(&mut self, s: &str) {
+    pub fn write_str(&mut self, s: &str) {
         for char in s.chars() {
             self.write_char(char);
         }
+    }
+    pub fn write_fmt(&mut self, args: Arguments) {
+        fmt::Write::write_fmt(self, args).unwrap();
     }
 }
 impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> fmt::Write for ActiveTerminalWrite<'a, 'b, 'c, T> {

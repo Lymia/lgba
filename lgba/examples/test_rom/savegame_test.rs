@@ -1,5 +1,9 @@
 use core::cmp;
-use lgba::save::{Error, SaveAccess};
+use lgba::{
+    display::{ActiveTerminalAccess, Terminal, TerminalFontBasic},
+    dma::DmaChannelId,
+    save::{Error, SaveAccess},
+};
 
 #[derive(Clone)]
 struct Rng(u32);
@@ -27,15 +31,25 @@ fn check_status<T>(r: Result<T, Error>) -> T {
     }
 }
 
-fn do_test(seed: Rng, offset: usize, len: usize, block_size: usize) -> Result<(), Error> {
+fn do_test(
+    seed: Rng,
+    offset: usize,
+    len: usize,
+    block_size: usize,
+    terminal: &mut ActiveTerminalAccess<TerminalFontBasic>,
+) -> Result<(), Error> {
+    terminal.write_str("Starting...");
+
     let mut access = SaveAccess::open()?;
     let mut buffer = [0; MAX_BLOCK_SIZE];
 
-    println!(" - Clearing media...");
+    terminal.reset_line();
+    terminal.write_str("Clearing media...");
     let mut prepared = access.prepare_write(offset..offset + len)?;
 
-    println!(" - Writing media...");
-    let cycles = lgba::timer::time_cycles(|| {
+    terminal.reset_line();
+    terminal.write_str("Writing media...");
+    let write_cycles = lgba::timer::time_cycles(|| {
         let mut rng = seed.clone();
         let mut current = offset;
         let end = offset + len;
@@ -48,10 +62,10 @@ fn do_test(seed: Rng, offset: usize, len: usize, block_size: usize) -> Result<()
             current += cur_len;
         }
     });
-    println!("   - Done in {} cycles.", cycles);
 
-    println!(" - Validating media...");
-    let cycles = lgba::timer::time_cycles(|| {
+    terminal.reset_line();
+    terminal.write_str("Validating media...");
+    let validate_cycles = lgba::timer::time_cycles(|| {
         let mut rng = seed.clone();
         let mut current = offset;
         let end = offset + len;
@@ -71,7 +85,16 @@ fn do_test(seed: Rng, offset: usize, len: usize, block_size: usize) -> Result<()
             current += cur_len;
         }
     });
-    println!("   - Done in {} cycles.", cycles);
+
+    terminal.reset_line();
+    write!(
+        terminal.write(),
+        "write: {}c / {:.2}s | verify: {}c / {:.2}s\n",
+        write_cycles,
+        (write_cycles as f32) / ((1 << 24) as f32),
+        validate_cycles,
+        (validate_cycles as f32) / ((1 << 24) as f32),
+    );
 
     Ok(())
 }
@@ -80,36 +103,49 @@ pub fn run() -> ! {
     // set the save type
     lgba::save::init_flash_128k();
 
+    // initialize the terminal
+    let mut terminal = Terminal::new();
+    terminal.use_dma_channel(DmaChannelId::Dma3);
+    let terminal = terminal.activate::<TerminalFontBasic>();
+    let mut terminal = terminal.lock();
+    terminal.set_half_width(true);
+
     // check some metainfo on the save type
     let access = check_status(SaveAccess::open());
     let media_len = access.len();
-    println!("Media info: {:#?}", access.media_info());
-    println!("Media size: {} bytes", access.len());
-    println!();
+    write!(
+        terminal.write(),
+        "Media: {:?} / {} bytes\n\n",
+        access.media_info().media_type,
+        access.len()
+    );
     drop(access);
 
     // actually test the save implementation
     if media_len >= (1 << 12) {
-        println!("[ Full write, 4KiB blocks ]");
-        check_status(do_test(Rng(2000), 0, media_len, 4 * 1024));
+        terminal.write_str("[ Full write, 4KiB blocks ]\n");
+        check_status(do_test(Rng(2000), 0, media_len, 4 * 1024, &mut terminal));
     }
 
-    println!("[ Full write, 0.5KiB blocks ]");
-    check_status(do_test(Rng(1000), 0, media_len, 512));
+    terminal.write_str("[ Full write, 0.5KiB blocks ]\n");
+    check_status(do_test(Rng(1000), 0, media_len, 512, &mut terminal));
 
     // test with random segments now.
-    let mut rng = Rng(12345);
-    for i in 0..8 {
+    let mut rng = Rng(123456);
+    for i in 0..6 {
         let rand_length = rng.next_under((media_len >> 1) as u32) as usize + 50;
         let rand_offset = rng.next_under(media_len as u32 - rand_length as u32) as usize;
         let block_size = cmp::min(rand_length >> 2, MAX_BLOCK_SIZE - 100);
         let block_size = rng.next_under(block_size as u32) as usize + 50;
 
-        println!(
-            "[ Partial, offset = 0x{:06x}, len = {}, bs = {} ]",
-            rand_offset, rand_length, block_size,
+        write!(
+            terminal.write(),
+            "[ Partial, offset = 0x{:06x}, len = {}, bs = {} ]\n",
+            rand_offset,
+            rand_length,
+            block_size
         );
-        check_status(do_test(Rng(i * 10000), rand_offset, rand_length, block_size));
+        check_status(do_test(Rng(i * 10000), rand_offset, rand_length, block_size, &mut terminal));
     }
 
     // show a pattern so we know it worked

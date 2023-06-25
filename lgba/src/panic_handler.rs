@@ -6,7 +6,6 @@ use crate::{
 };
 use core::{
     alloc::Layout,
-    fmt::Write,
     panic::{Location, PanicInfo},
 };
 
@@ -40,8 +39,7 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
                 terminal.write(),
                 "This is likely a bug. You can report it at this URL:\n{}\n\n",
                 EXH_ROM_REPO
-            )
-            .unwrap();
+            );
         }
     }
 
@@ -53,8 +51,7 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
             EXH_ROM_CNAME,
             EXH_ROM_CVER,
             EXH_LGBA_VERSION,
-        )
-        .unwrap();
+        );
     }
 }
 #[inline(never)]
@@ -64,7 +61,7 @@ fn write_location(
 ) {
     match location {
         None => terminal.write_str("Location: <unknown>\n"),
-        Some(location) => write!(terminal.write(), "Location: {}\n", location).unwrap(),
+        Some(location) => write!(terminal.write(), "Location: {}\n", location),
     }
 }
 
@@ -99,7 +96,7 @@ fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, location);
-        write!(terminal.write(), "Message : {}\n", message).unwrap();
+        write!(terminal.write(), "Message : {}\n", message);
     })
 }
 
@@ -122,7 +119,7 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
         // write panic message
         match error.message() {
             None => terminal.write_str("Message : <unknown>\n"),
-            Some(error) => write!(terminal.write(), "Message : {}\n", error).unwrap(),
+            Some(error) => write!(terminal.write(), "Message : {}\n", error),
         }
     })
 }
@@ -141,7 +138,7 @@ fn handle_alloc_panic_inner(layout: Layout) -> ! {
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, None);
-        write!(terminal.write(), "Message : Ran out of memory.\nLayout  :{:?}\n", layout).unwrap();
+        write!(terminal.write(), "Message : Ran out of memory.\nLayout  :{:?}\n", layout);
     })
 }
 

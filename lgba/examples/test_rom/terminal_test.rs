@@ -1,4 +1,3 @@
-use core::fmt::Write;
 use lgba::{
     display::{Terminal, TerminalFontBasic},
     dma::DmaChannelId,
@@ -51,7 +50,7 @@ pub fn run() -> ! {
                 terminal.write_str("[buzz]");
             } else {
                 terminal.set_half_width(false);
-                write!(terminal.write(), "{}", i).unwrap();
+                write!(terminal.write(), "{}", i);
             }
             terminal.set_half_width(true);
             terminal.write_str(" ");
@@ -72,7 +71,7 @@ pub fn run() -> ! {
         terminal.set_half_width(false);
 
         let keys = lgba::sys::pressed_keys();
-        write!(terminal.write(), "#{:03} / ", frame).unwrap();
+        write!(terminal.write(), "#{:03} / ", frame);
         if keys.is_empty() {
             terminal.set_half_width(true);
             terminal.write_str("(none)");

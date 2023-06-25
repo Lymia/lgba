@@ -18,7 +18,9 @@ use lgba::{
 static OPTIONS: &[(&'static str, fn() -> !)] = &[
     ("Test terminal function", || terminal_test::run()),
     ("Test savegame function", || savegame_test::run()),
-    ("Test panic handler", || panic!("oh no something really bad happened!!! help!!!")),
+    ("Test panic handler", || {
+        panic!("oh no something really bad happened!!! help!!!")
+    }),
 ];
 
 #[lgba::entry]
