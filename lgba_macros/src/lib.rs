@@ -53,6 +53,18 @@ pub fn ewram(_: TokenStream, input: TokenStream) -> TokenStream {
     attrs::ewram_impl(input)
 }
 
+/// Marks the function this is placed on as an ARM function.
+#[proc_macro_attribute]
+pub fn arm(_: TokenStream, input: TokenStream) -> TokenStream {
+    attrs::arm_impl(input)
+}
+
+/// Marks the function this is placed on as a Thumb function.
+#[proc_macro_attribute]
+pub fn thumb(_: TokenStream, input: TokenStream) -> TokenStream {
+    attrs::thumb_impl(input)
+}
+
 #[proc_macro_attribute]
 pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     attrs::entry(args, input)

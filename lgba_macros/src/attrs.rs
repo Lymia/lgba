@@ -40,6 +40,25 @@ pub fn ewram_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+pub fn arm_impl(input: TokenStream) -> TokenStream {
+    let input: SynTokenStream = input.into();
+    (quote! {
+        #[instruction_set(arm::a32)]
+        #input
+    })
+    .into()
+}
+
+/// Stores the item this is placed on in ewram rather than its default location.
+pub fn thumb_impl(input: TokenStream) -> TokenStream {
+    let input: SynTokenStream = input.into();
+    (quote! {
+        #[instruction_set(arm::t32)]
+        #input
+    })
+    .into()
+}
+
 pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     let args: SynTokenStream = args.into();
     let input: SynTokenStream = input.into();

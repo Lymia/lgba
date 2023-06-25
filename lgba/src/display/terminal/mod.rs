@@ -60,6 +60,10 @@ impl Terminal {
         update_palette(id, self.terminal_colors[id].read());
     }
 
+    pub fn set_force_blank(&mut self, force_blank: bool) {
+        self.mode.set_force_blank(force_blank);
+    }
+
     fn active_raw<T: TerminalFont>(&mut self, no_lock: bool) -> ActiveTerminal<T> {
         // configure all layers
         self.mode.layers[0]
@@ -343,6 +347,10 @@ pub struct ActiveTerminalAccess<'a, 'b: 'a, T: TerminalFont> {
     _phantom: PhantomData<T>,
 }
 impl<'a, 'b: 'a, T: TerminalFont> ActiveTerminalAccess<'a, 'b, T> {
+    pub fn set_force_blank(&mut self, force_blank: bool) {
+        self.term.mode.set_force_blank(force_blank);
+    }
+
     #[track_caller]
     pub fn set_color(&self, id: usize, background: u16, foreground: u16) {
         if id >= 4 {

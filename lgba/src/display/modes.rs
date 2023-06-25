@@ -10,6 +10,7 @@ static MAIN_GFX_LOCK: RawMutex = RawMutex::new();
 #[non_exhaustive]
 pub struct Mode0 {
     pub layers: [TileLayer; 4],
+    force_blank: bool,
 }
 impl Mode0 {
     pub fn new() -> Self {
@@ -20,7 +21,13 @@ impl Mode0 {
                 TileLayer::new(LayerId::Layer2),
                 TileLayer::new(LayerId::Layer3),
             ],
+            force_blank: false,
         }
+    }
+
+    /// Sets whether the screen is forced to a blank state.
+    pub fn set_force_blank(&mut self, force_blank: bool) {
+        self.force_blank = force_blank;
     }
 
     fn activate_raw(&mut self, lock: Option<RawMutexGuard<'static>>) -> ActiveMode0 {
@@ -28,13 +35,14 @@ impl Mode0 {
         let new_disp_cnt = DISPCNT
             .read()
             .with_mode(DispMode::Mode0)
-            .with_forced_blank(false)
+            .with_forced_blank(self.force_blank)
             .with_display_bg0(layer0.enabled())
             .with_display_bg1(layer1.enabled())
             .with_display_bg2(layer2.enabled())
             .with_display_bg3(layer3.enabled());
         let active_mode = ActiveMode0 {
             layers: [layer0.activate(), layer1.activate(), layer2.activate(), layer3.activate()],
+            force_blank: &mut self.force_blank,
             _lock: lock,
         };
         DISPCNT.write(new_disp_cnt);
@@ -69,7 +77,18 @@ impl Mode0 {
 
 pub struct ActiveMode0<'a> {
     pub layers: [ActiveTileLayer<'a>; 4],
+    force_blank: &'a mut bool,
     _lock: Option<RawMutexGuard<'static>>,
+}
+impl<'a> ActiveMode0<'a> {
+    /// Sets whether the screen is forced to a blank state.
+    pub fn set_force_blank(&mut self, force_blank: bool) {
+        let prev = *self.force_blank;
+        *self.force_blank = force_blank;
+        if prev != force_blank {
+            DISPCNT.write(DISPCNT.read().with_forced_blank(force_blank));
+        }
+    }
 }
 impl<'a> Drop for ActiveMode0<'a> {
     fn drop(&mut self) {

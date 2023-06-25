@@ -709,7 +709,6 @@ fn make_glyphs_file(
 
         const CHAR_MASK: u16 = (1 << #glyph_char_bits) - 1;
 
-        #[inline(never)]
         fn get_font_glyph_phf(id: usize) -> (u8, u16, bool) {
             let slot = lookup_glyph(&(id as u16));
             if id == GLYPH_CHECK[slot] as usize {

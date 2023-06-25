@@ -35,6 +35,7 @@ pub const fn get_index(
 }
 
 pub type HashKey = u32;
+#[inline(always)]
 pub fn make_hash<T: ?Sized + Hash>(key: HashKey, value: &T) -> Hashes {
     let mut raw_hasher = fnv::FnvHasher::with_key(key as u64);
     value.hash(&mut raw_hasher);
@@ -48,6 +49,7 @@ pub fn make_hash<T: ?Sized + Hash>(key: HashKey, value: &T) -> Hashes {
 }
 
 const FNV_PRIME: u64 = 0x100000001b3;
+#[inline(always)]
 pub const fn make_hash_const(key: HashKey, bytes: &[u8]) -> Hashes {
     let mut hash = key as u64;
     let mut i = 0;

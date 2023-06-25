@@ -39,6 +39,7 @@ impl HashState {
         };
 
         quote! {
+            #[inline(always)]
             fn #fn_name(value: #in_ty) -> usize {
                 const KEY: u32 = #key;
                 static DISPS: [u16; #disps_len] = [#(#disps,)*];

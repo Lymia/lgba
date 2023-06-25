@@ -1,7 +1,6 @@
 //! Various functions and helper types for basic GBA system functions.
 
 use crate::mmio::reg::KEYINPUT;
-use core::arch::asm;
 use enumset::EnumSet;
 
 /// Crashes the console on purpose, preventing it from running any code until it is reset.
