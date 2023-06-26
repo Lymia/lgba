@@ -30,6 +30,8 @@ impl RawSaveAccess for BatteryBackedAccess {
             media_type: MediaType::Sram32K,
             sector_shift: 0,
             sector_count: SRAM_SIZE,
+            minimum_fast_alignment: 1,
+            minimum_acceptable_alignment: 1,
             uses_prepare_write: false,
         })
     }

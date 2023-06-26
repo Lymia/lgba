@@ -4,6 +4,8 @@ members = [
     "lgba_macros",
     "lgba_phf",
     "lgba_romtool",
+
+    "examples/lgba_test_rom",
 ]
 resolver = "2"
 

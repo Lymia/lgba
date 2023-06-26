@@ -209,7 +209,7 @@ impl<T> InitOnce<T> {
             if !self.is_initialized.read() {
                 // We disable interrupts to make this simpler, since this is likely to
                 // only occur once in a program anyway.
-                crate::irq::disable(|| -> Result<(), E> {
+                crate::irq::suppress(|| -> Result<(), E> {
                     // We check again to make sure this function wasn't called in an
                     // interrupt between the first check and when interrupts were
                     // actually disabled.

@@ -54,6 +54,9 @@ fn execute(cli: Cli) -> Result<()> {
                 let seg_start = segment.sh_offset as usize;
                 let seg_end = (segment.sh_offset + segment.sh_size) as usize;
                 let segment_data = &data[seg_start..seg_end];
+                while rom_program.len() % segment.sh_addralign as usize != 0 {
+                    rom_program.push(0);
+                }
                 match state {
                     State::WaitHeader => {
                         assert_eq!(name, ".header", "Wrong section found!");

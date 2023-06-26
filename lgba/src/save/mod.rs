@@ -139,6 +139,17 @@ pub struct MediaInfo {
     pub sector_shift: usize,
     /// The size of the save media, in sectors.
     pub sector_count: usize,
+    /// The optimal alignment for calls to [`SavePreparedBlock::write`].
+    ///
+    /// If the offset and length of the array are both aligned to this value, then the write to the
+    /// save media will be as fast as is possible.
+    pub minimum_fast_alignment: usize,
+    /// The minimum practical alignment for calls to [`SavePreparedBlock::write`].
+    ///
+    /// If the offset and length of the array are both aligned to this value, then the write to the
+    /// save media will be efficient. If it is not met, then while `write` will still work, it may
+    /// be extremely slow compared to expected.
+    pub minimum_acceptable_alignment: usize,
     /// Whether the save media type requires media be prepared before writing.
     pub uses_prepare_write: bool,
 }

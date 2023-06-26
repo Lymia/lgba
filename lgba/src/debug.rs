@@ -36,7 +36,7 @@ enum DebugType {
 static CACHED_DEBUG_TYPE: InitOnce<DebugType> = InitOnce::new();
 fn detect_debug_type() -> DebugType {
     *CACHED_DEBUG_TYPE.get(|| {
-        crate::irq::disable(|| {
+        crate::irq::suppress(|| {
             // check if this is mgba
             emulator::MGBA_DEBUG_ENABLE.write(emulator::MGBA_DEBUG_ENABLE_INPUT);
             if emulator::MGBA_DEBUG_ENABLE.read() == emulator::MGBA_DEBUG_ENABLE_OUTPUT {
@@ -199,24 +199,25 @@ pub fn debug_print(level: DebugLevel, args: impl DebugPrintable) {
     }
 }
 
+/// DO NOT USE: This macro is not public API.
 #[doc(hidden)]
 #[macro_export]
-macro_rules! __lgba_print_impl {
+macro_rules! __lgba__internal_print_impl {
     (@mod_prefix) => {
-        $crate::__lgba_print_impl!(@concat
+        $crate::__lgba__internal_print_impl!(@concat
             $crate::__macro_export::core::module_path!(),
             " | ",
         )
     };
     (@file_line_prefix) => {
-        $crate::__lgba_print_impl!(@concat
+        $crate::__lgba__internal_print_impl!(@concat
             "[",
             $crate::__macro_export::core::file!(),
             ":",
         )
     };
     (@file_line_suffix) => {
-        $crate::__lgba_print_impl!(@concat
+        $crate::__lgba__internal_print_impl!(@concat
             $crate::__macro_export::core::line!(),
             "] ",
         )
@@ -230,13 +231,13 @@ macro_rules! __lgba_print_impl {
         }
     };
     (@plain $level:ident, $text:literal) => {
-        $crate::__lgba_print_impl!(@print $level, $text)
+        $crate::__lgba__internal_print_impl!(@print $level, $text)
     };
     (@plain $level:ident, ) => {
-        $crate::__lgba_print_impl!(@print $level, "")
+        $crate::__lgba__internal_print_impl!(@print $level, "")
     };
     (@plain $level:ident, $($rest:tt)*) => {
-        $crate::__lgba_print_impl!(@print $level,
+        $crate::__lgba__internal_print_impl!(@print $level,
             $crate::__macro_export::core::format_args!($($rest)*)
         )
     };
@@ -252,14 +253,14 @@ macro_rules! __lgba_print_impl {
 #[macro_export]
 macro_rules! log {
     ($level:ident, $text:literal) => {
-        $crate::__lgba_print_impl!(@print $level, (
-            $crate::__lgba_print_impl!(@mod_prefix),
+        $crate::__lgba__internal_print_impl!(@print $level, (
+            $crate::__lgba__internal_print_impl!(@mod_prefix),
             $text,
         ));
     };
     ($level:ident, $($rest:tt)*) => {
-        $crate::__lgba_print_impl!(@print $level, (
-            $crate::__lgba_print_impl!(@mod_prefix),
+        $crate::__lgba__internal_print_impl!(@print $level, (
+            $crate::__lgba__internal_print_impl!(@mod_prefix),
             $crate::__macro_export::core::format_args!($($rest)*),
         ));
     };
@@ -274,7 +275,7 @@ macro_rules! log {
 #[macro_export]
 macro_rules! println {
     ($($rest:tt)*) => {
-        $crate::__lgba_print_impl!(@plain Info, $($rest)*)
+        $crate::__lgba__internal_print_impl!(@plain Info, $($rest)*)
     };
 }
 
@@ -287,7 +288,7 @@ macro_rules! println {
 #[macro_export]
 macro_rules! eprintln {
     ($($rest:tt)*) => {
-        $crate::__lgba_print_impl!(@plain Error, $($rest)*)
+        $crate::__lgba__internal_print_impl!(@plain Error, $($rest)*)
     };
 }
 
@@ -351,9 +352,9 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! dbg {
     () => {
-        $crate::__lgba_print_impl!(@print Debug, (
-            $crate::__lgba_print_impl!(@file_line_prefix),
-            $crate::__lgba_print_impl!(@file_line_suffix),
+        $crate::__lgba__internal_print_impl!(@print Debug, (
+            $crate::__lgba__internal_print_impl!(@file_line_prefix),
+            $crate::__lgba__internal_print_impl!(@file_line_suffix),
         ));
     };
     ($val:expr $(,)?) => {
@@ -361,10 +362,10 @@ macro_rules! dbg {
         // of temporaries - https://stackoverflow.com/a/48732525/1063961
         match $val {
             tmp => {
-                $crate::__lgba_print_impl!(@print Debug, (
-                    $crate::__lgba_print_impl!(@file_line_prefix),
-                    $crate::__lgba_print_impl!(@file_line_suffix),
-                    $crate::__lgba_print_impl!(@concat stringify!($val), " = "),
+                $crate::__lgba__internal_print_impl!(@print Debug, (
+                    $crate::__lgba__internal_print_impl!(@file_line_prefix),
+                    $crate::__lgba__internal_print_impl!(@file_line_suffix),
+                    $crate::__lgba__internal_print_impl!(@concat stringify!($val), " = "),
                     $crate::__macro_export::core::format_args!("{:#?}", &tmp),
                 ));
                 tmp

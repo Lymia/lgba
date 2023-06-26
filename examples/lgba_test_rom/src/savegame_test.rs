@@ -9,7 +9,7 @@ use lgba::{
 struct Rng(u32);
 impl Rng {
     fn iter(&mut self) {
-        self.0 = self.0.wrapping_mul(2891336453).wrapping_add(100001);
+        self.0 = self.0.wrapping_mul(2891336453).wrapping_add(100003);
     }
     fn next_u8(&mut self) -> u8 {
         self.iter();

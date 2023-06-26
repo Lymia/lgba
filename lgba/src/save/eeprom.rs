@@ -258,6 +258,8 @@ impl RawSaveAccess for Eeprom512B {
             media_type: MediaType::Eeprom512B,
             sector_shift: 3,
             sector_count: 64,
+            minimum_fast_alignment: 8,
+            minimum_acceptable_alignment: 1,
             uses_prepare_write: false,
         })
     }
@@ -287,6 +289,8 @@ impl RawSaveAccess for Eeprom8K {
             media_type: MediaType::Eeprom8K,
             sector_shift: 3,
             sector_count: 1024,
+            minimum_fast_alignment: 8,
+            minimum_acceptable_alignment: 1,
             uses_prepare_write: false,
         })
     }

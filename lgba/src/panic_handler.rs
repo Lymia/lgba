@@ -81,7 +81,7 @@ fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii
 
 #[inline(never)]
 fn handle_static_panic(message: &str, location: Option<&Location>) -> ! {
-    crate::irq::disable(|| crate::dma::pause_dma(|| handle_static_panic_inner(message, location)))
+    crate::irq::suppress(|| crate::dma::pause_dma(|| handle_static_panic_inner(message, location)))
 }
 fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
     panic_start();
@@ -103,7 +103,7 @@ fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
 #[panic_handler]
 #[inline(never)]
 fn handle_panic(error: &PanicInfo) -> ! {
-    crate::irq::disable(|| crate::dma::pause_dma(|| handle_panic_inner(error)))
+    crate::irq::suppress(|| crate::dma::pause_dma(|| handle_panic_inner(error)))
 }
 fn handle_panic_inner(error: &PanicInfo) -> ! {
     panic_start();
@@ -126,7 +126,7 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
 
 #[inline(never)]
 fn handle_alloc_panic(layout: Layout) -> ! {
-    crate::irq::disable(|| crate::dma::pause_dma(|| handle_alloc_panic_inner(layout)))
+    crate::irq::suppress(|| crate::dma::pause_dma(|| handle_alloc_panic_inner(layout)))
 }
 fn handle_alloc_panic_inner(layout: Layout) -> ! {
     panic_start();

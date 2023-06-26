@@ -1,0 +1,11 @@
+[package]
+name = "lgba_test_rom"
+version = "0.1.0"
+authors = ["Lymia Kanokawa <lymia@lymia.moe>"]
+edition = "2021"
+
+description = "A test rom for the basic functionality of lgba."
+
+[dependencies]
+enumset = "1"
+lgba = { path = "../../lgba" }

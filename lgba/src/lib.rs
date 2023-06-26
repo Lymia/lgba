@@ -3,8 +3,11 @@
 
 // TODO: Liberal use of #[track_caller]
 
+extern crate alloc;
+
 pub mod debug;
 
+mod allocator;
 mod asm;
 mod mmio;
 mod panic_handler;

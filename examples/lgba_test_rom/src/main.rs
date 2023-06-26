@@ -7,7 +7,6 @@ extern crate lgba;
 mod savegame_test;
 mod terminal_test;
 
-use core::alloc::{GlobalAlloc, Layout};
 use enumset::EnumSet;
 use lgba::{
     display::{Terminal, TerminalFontBasic},
@@ -74,15 +73,3 @@ fn rom_entry() -> ! {
         }
     }
 }
-
-struct NoAlloc;
-unsafe impl GlobalAlloc for NoAlloc {
-    unsafe fn alloc(&self, _: Layout) -> *mut u8 {
-        todo!()
-    }
-    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {
-        todo!()
-    }
-}
-#[global_allocator]
-static ALLOC: NoAlloc = NoAlloc;

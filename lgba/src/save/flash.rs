@@ -146,18 +146,24 @@ static INFO_64K: MediaInfo = MediaInfo {
     media_type: MediaType::Flash64K,
     sector_shift: 12, // 4 KiB
     sector_count: 16, // 4 KiB * 16 = 64 KiB
+    minimum_fast_alignment: 1,
+    minimum_acceptable_alignment: 1,
     uses_prepare_write: true,
 };
 static INFO_64K_ATMEL: MediaInfo = MediaInfo {
     media_type: MediaType::Flash64K,
     sector_shift: 7,   // 128 bytes
     sector_count: 512, // 128 bytes * 512 = 64 KiB
+    minimum_fast_alignment: 128,
+    minimum_acceptable_alignment: 128,
     uses_prepare_write: false,
 };
 static INFO_128K: MediaInfo = MediaInfo {
     media_type: MediaType::Flash128K,
     sector_shift: 12,
     sector_count: 32, // 4 KiB * 32 = 128 KiB
+    minimum_fast_alignment: 1,
+    minimum_acceptable_alignment: 1,
     uses_prepare_write: true,
 };
 
@@ -386,7 +392,7 @@ impl ChipInfo {
         buf: &[u8],
         timeout: &mut Timeout,
     ) -> Result<(), Error> {
-        crate::irq::disable(|| {
+        crate::irq::suppress(|| {
             issue_flash_command(CMD_WRITE);
             for i in 0..128 {
                 FLASH_DATA.index(offset + i).write(buf[i]);
