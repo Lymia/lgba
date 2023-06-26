@@ -38,23 +38,27 @@ pub fn run() -> ! {
 
         terminal.new_line();
         terminal.set_active_color(0);
-        for i in 1..=100 {
-            if i % 15 == 0 {
-                terminal.set_half_width(true);
-                terminal.write_str("[fizz-buzz]");
-            } else if i % 3 == 0 {
-                terminal.set_half_width(true);
-                terminal.write_str("[fizz]");
-            } else if i % 5 == 0 {
-                terminal.set_half_width(true);
-                terminal.write_str("[buzz]");
-            } else {
-                terminal.set_half_width(false);
-                write!(terminal.write(), "{}", i);
+        {
+            let mut write = terminal.write();
+            for i in 1..=100 {
+                if i % 15 == 0 {
+                    write.set_half_width(true);
+                    write.write_str("[fizz-buzz]");
+                } else if i % 3 == 0 {
+                    write.set_half_width(true);
+                    write.write_str("[fizz]");
+                } else if i % 5 == 0 {
+                    write.set_half_width(true);
+                    write.write_str("[buzz]");
+                } else {
+                    write.set_half_width(false);
+                    write!(write, "{}", i);
+                }
+                write.set_half_width(true);
+                write.write_str(" ");
             }
-            terminal.set_half_width(true);
-            terminal.write_str(" ");
         }
+
         terminal.new_line();
     });
     println!("Terminal screen rendered in {} cycles.", cycles);
@@ -92,5 +96,7 @@ pub fn run() -> ! {
             }
         }
         frame = (frame + 1) % 1000;
+
+        crate::check_exit();
     }
 }

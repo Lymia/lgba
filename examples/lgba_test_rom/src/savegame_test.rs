@@ -151,5 +151,7 @@ pub fn run() -> ! {
     // show a pattern so we know it worked
     println!("All tests complete!");
 
-    loop {}
+    loop {
+        crate::check_exit();
+    }
 }

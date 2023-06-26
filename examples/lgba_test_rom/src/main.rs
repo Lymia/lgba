@@ -4,10 +4,10 @@
 #[macro_use]
 extern crate lgba;
 
+mod interrupt_test;
 mod savegame_test;
 mod terminal_test;
 
-use enumset::EnumSet;
 use lgba::{
     display::{Terminal, TerminalFontBasic},
     dma::DmaChannelId,
@@ -17,6 +17,7 @@ use lgba::{
 static OPTIONS: &[(&'static str, fn() -> !)] = &[
     ("Test terminal function", || terminal_test::run()),
     ("Test savegame function", || savegame_test::run()),
+    ("Test interrupt handlers", || interrupt_test::run()),
     ("Test panic handler", || {
         panic!("oh no something really bad happened!!! help!!!")
     }),
@@ -31,8 +32,11 @@ fn rom_entry() -> ! {
     let active_terminal = terminal.activate::<TerminalFontBasic>();
     let mut terminal = active_terminal.lock();
 
-    terminal.write_str(concat!("lgba test rom v", env!("CARGO_PKG_VERSION")));
-    terminal.write_str("-----------------------------");
+    terminal.write_str(concat!("lgba test rom v", env!("CARGO_PKG_VERSION"), "\n"));
+    terminal.write_str("-----------------------------\n");
+
+    terminal.set_cursor(0, 18);
+    terminal.write_str("Press ↓○A to reset any test");
 
     for (i, (name, _)) in OPTIONS.iter().enumerate() {
         terminal.set_cursor(3, i + 3);
@@ -43,7 +47,7 @@ fn rom_entry() -> ! {
     terminal.set_force_blank(false);
 
     let mut cursor_pos = 0;
-    let mut last_held = EnumSet::new();
+    let mut last_held = lgba::sys::pressed_keys();
     loop {
         lgba::sys::wait_for_vblank();
 
@@ -71,5 +75,11 @@ fn rom_entry() -> ! {
             drop(active_terminal);
             OPTIONS[cursor_pos].1();
         }
+    }
+}
+
+fn check_exit() {
+    if lgba::sys::pressed_keys().is_superset(Button::Down | Button::Select | Button::A) {
+        lgba::sys::reset();
     }
 }

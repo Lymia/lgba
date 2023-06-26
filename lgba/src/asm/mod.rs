@@ -16,8 +16,11 @@ mod interface {
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {
+        // initialize IRQs
         BIOS_IRQ_ENTRY.write(entry_interrupt_handler);
         IME.write(true);
+
+        // enable the vblank IRQ
         IE.write(EnumSet::only(Interrupt::VBlank));
         DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
     }

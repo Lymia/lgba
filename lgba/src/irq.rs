@@ -1,7 +1,7 @@
 //! Allows running code when the GBA receives a hardware interrupt.
 
 use crate::{
-    mmio::reg::{BIOS_IF, IE, IF, IME},
+    mmio::reg::{BIOS_IF, DISPSTAT, IE, IF, IME},
     sync::Static,
 };
 use core::{
@@ -9,6 +9,7 @@ use core::{
     pin::Pin,
     sync::atomic::{compiler_fence, Ordering},
 };
+use enumset::EnumSet;
 
 pub use crate::mmio::sys::Interrupt;
 
@@ -55,7 +56,7 @@ impl<T: FnMut() + Send + Sync> InterruptHandler<T> {
             handler.node.interrupt = int;
             handler.node.is_registered = true;
 
-            if old_head.is_null() {
+            if !old_head.is_null() {
                 (*old_head).prev = node_ptr;
             }
         })
@@ -175,6 +176,52 @@ pub(crate) fn interrupt_handler() {
 /// Returns whether the GBA is currently processing an interrupt.
 pub fn is_in_interrupt() -> bool {
     IS_IN_INTERRUPT.read()
+}
+
+/// Enables a given set of interrupts.
+///
+/// By default, the [`VBlank`](`Interrupt::VBlank`) interrupt is enabled, and nothing else.
+#[inline]
+pub fn enable(interrupts: impl Into<EnumSet<Interrupt>>) {
+    suppress(|| {
+        if is_in_interrupt() {
+            interrupt_change_in_interrupt();
+        }
+
+        let old_ie = IE.read();
+        raw_set_interrupts(old_ie, old_ie | interrupts.into());
+    });
+}
+
+/// Disables a given set of interrupts.
+///
+/// By default, the [`VBlank`](`Interrupt::VBlank`) interrupt is enabled, and nothing else.
+#[inline]
+pub fn disable(interrupts: impl Into<EnumSet<Interrupt>>) {
+    suppress(|| {
+        if is_in_interrupt() {
+            interrupt_change_in_interrupt();
+        }
+
+        let old_ie = IE.read();
+        raw_set_interrupts(old_ie, old_ie - interrupts.into());
+    });
+}
+
+#[inline]
+fn raw_set_interrupts(old_ie: EnumSet<Interrupt>, new_ie: EnumSet<Interrupt>) {
+    let changed = new_ie ^ old_ie;
+
+    IE.write(new_ie);
+    if !changed.is_disjoint(Interrupt::VBlank | Interrupt::HBlank | Interrupt::VCounter) {
+        DISPSTAT.write(
+            DISPSTAT
+                .read()
+                .with_vblank_irq_enabled(new_ie.contains(Interrupt::VBlank))
+                .with_hblank_irq_enabled(new_ie.contains(Interrupt::HBlank))
+                .with_vcount_irq_enabled(new_ie.contains(Interrupt::VCounter)),
+        );
+    }
 }
 
 #[inline(never)]

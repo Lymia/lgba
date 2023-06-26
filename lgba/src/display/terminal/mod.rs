@@ -558,6 +558,13 @@ impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> ActiveTerminalWrite<'a, 'b, 'c, T
     pub fn write_fmt(&mut self, args: Arguments) {
         fmt::Write::write_fmt(self, args).unwrap();
     }
+    pub fn set_half_width(&mut self, half_width: bool) {
+        self.flush_buffers();
+        self.access.set_half_width(half_width);
+    }
+    pub fn new_line(&mut self) {
+        self.write_char('\n');
+    }
 }
 impl<'a, 'b: 'a, 'c: 'a + 'b, T: TerminalFont> fmt::Write for ActiveTerminalWrite<'a, 'b, 'c, T> {
     fn write_str(&mut self, s: &str) -> fmt::Result {

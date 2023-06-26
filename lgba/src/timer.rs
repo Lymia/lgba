@@ -49,7 +49,7 @@ impl TimerId {
     pub fn create(self) -> Timer {
         Timer {
             id: self,
-            cnt: TimerCnt::default().with_enabled(true),
+            cnt: TimerCnt::default(),
             reset_to: 0,
             _lock: TIMER_LOCK[self as usize].lock(),
         }
