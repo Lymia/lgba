@@ -34,3 +34,5 @@ __lgba_header_extra:
     .word __lgba_exh_rom_cver
     .word __lgba_exh_rom_repository
     .word __lgba_exh_lgba_version
+    .word 0 @ Data partition offset
+    .word 0 @ Data partition information hash

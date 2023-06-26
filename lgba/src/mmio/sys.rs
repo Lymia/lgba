@@ -122,7 +122,7 @@ pub struct KeyCnt(u16);
 packed_struct_fields!(
     KeyCnt, u16,
 
-    (enabled, with_enabled, (@enumset Button), 0..=9),
+    (keys, with_keys, (@enumset Button), 0..=9),
     (enable_irq, with_enable_irq, bool, 14),
     (condition, with_condition, ButtonCondition, 15..=15),
 );

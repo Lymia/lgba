@@ -148,10 +148,5 @@ pub fn run() -> ! {
         check_status(do_test(Rng(i * 10000), rand_offset, rand_length, block_size, &mut terminal));
     }
 
-    // show a pattern so we know it worked
-    println!("All tests complete!");
-
-    loop {
-        crate::check_exit();
-    }
+    loop {}
 }

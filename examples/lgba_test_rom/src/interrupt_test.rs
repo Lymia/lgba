@@ -90,7 +90,5 @@ pub fn run() -> ! {
             terminal.set_cursor(19, i);
             write!(terminal.write(), "{}", interrupt_count[int as usize].read());
         }
-
-        crate::check_exit();
     }
 }

@@ -1,7 +1,13 @@
 use crate::{
     asm::{EXH_LGBA_VERSION, EXH_ROM_CNAME, EXH_ROM_CVER, EXH_ROM_REPO},
     display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
+    dma::DmaChannelId,
     eprintln,
+    irq::Interrupt,
+    mmio::{
+        display::DispStat,
+        reg::{BIOS_IF, BIOS_IRQ_ENTRY, DISPSTAT, IE, IF, IME},
+    },
     sync::Static,
 };
 use core::{
@@ -69,11 +75,31 @@ fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii
     // set up the graphical terminal with a basic font
     let mut terminal = Terminal::new();
     terminal.set_color(0, crate::display::rgb_24bpp(200, 0, 0), !0);
+    terminal.use_dma_channel(DmaChannelId::Dma3);
+    terminal.set_force_blank(true);
     let terminal = terminal.activate_no_lock::<TerminalFontAscii>();
     let mut terminal = terminal.lock();
 
     // run the actual function
     func(&mut terminal);
+
+    // setup DMA to allow to wait for the next vblank before disabling force blank
+    #[instruction_set(arm::a32)]
+    pub extern "C" fn backup_interrupt_handler() {
+        let ack = IF.read() | IE.read();
+        IF.write(ack);
+        BIOS_IF.write(BIOS_IF.read() | ack);
+    }
+    unsafe {
+        DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
+        IE.write(Interrupt::VBlank.into());
+        BIOS_IRQ_ENTRY.write(backup_interrupt_handler);
+        IME.write(false);
+    }
+
+    crate::sys::wait_for_vblank();
+    terminal.set_force_blank(false);
+    IME.write(true);
 
     // abort cleanly
     crate::sys::abort()

@@ -96,7 +96,5 @@ pub fn run() -> ! {
             }
         }
         frame = (frame + 1) % 1000;
-
-        crate::check_exit();
     }
 }

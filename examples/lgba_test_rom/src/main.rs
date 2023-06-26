@@ -8,9 +8,11 @@ mod interrupt_test;
 mod savegame_test;
 mod terminal_test;
 
+use core::pin::pin;
 use lgba::{
     display::{Terminal, TerminalFontBasic},
     dma::DmaChannelId,
+    irq::{Interrupt, InterruptHandler},
     sys::Button,
 };
 
@@ -46,6 +48,11 @@ fn rom_entry() -> ! {
     lgba::sys::wait_for_vblank();
     terminal.set_force_blank(false);
 
+    lgba::sys::set_keypad_irq_combo(Button::Down | Button::Select | Button::A);
+    let handler = pin!(InterruptHandler::new(|| lgba::sys::reset()));
+    handler.register(Interrupt::Keypad);
+    lgba::irq::enable(Interrupt::Keypad);
+
     let mut cursor_pos = 0;
     let mut last_held = lgba::sys::pressed_keys();
     loop {
@@ -75,11 +82,5 @@ fn rom_entry() -> ! {
             drop(active_terminal);
             OPTIONS[cursor_pos].1();
         }
-    }
-}
-
-fn check_exit() {
-    if lgba::sys::pressed_keys().is_superset(Button::Down | Button::Select | Button::A) {
-        lgba::sys::reset();
     }
 }

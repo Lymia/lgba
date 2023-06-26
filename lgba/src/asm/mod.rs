@@ -8,11 +8,9 @@ extern crate compiler_builtins_local;
 
 mod interface {
     use crate::mmio::{
-        display::DispStat,
-        reg::{BIOS_IRQ_ENTRY, DISPSTAT, IE, IME},
+        reg::{BIOS_IRQ_ENTRY, IME},
         sys::Interrupt,
     };
-    use enumset::EnumSet;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init_rust() {
@@ -21,8 +19,7 @@ mod interface {
         IME.write(true);
 
         // enable the vblank IRQ
-        IE.write(EnumSet::only(Interrupt::VBlank));
-        DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
+        crate::irq::enable(Interrupt::VBlank);
     }
 
     #[no_mangle]
