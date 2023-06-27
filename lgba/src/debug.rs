@@ -123,6 +123,12 @@ impl<'a> DebugPrintable for &'a str {
         w.write_str(*self)
     }
 }
+impl<'a, T: DebugPrintable> DebugPrintable for &'a T {
+    fn print(&self, w: impl Write) -> Result<(), Error> {
+        DebugPrintable::print(*self, w)
+    }
+}
+
 macro_rules! debug_printable_tuple {
     ($($num:tt $id:ident)*) => {
         impl<$($id: DebugPrintable,)*> DebugPrintable for ($($id,)*) {
