@@ -84,7 +84,7 @@ pub fn run() -> ! {
             terminal.set_cursor(0, i);
             terminal.reset_line();
 
-            write!(terminal.write(), "{:?}", int);
+            write!(terminal.write(), "{int:?}");
             terminal.set_cursor(16, i);
             terminal.write_str(":");
             terminal.set_cursor(19, i);

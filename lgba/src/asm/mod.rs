@@ -20,6 +20,10 @@ mod interface {
 
         // enable the vblank IRQ
         crate::irq::enable(Interrupt::VBlank);
+
+        // enable the global allocator
+        #[cfg(feature = "global_allocator")]
+        crate::sys::allocator::init_rust_alloc();
     }
 
     #[no_mangle]
@@ -56,6 +60,14 @@ mod interface {
         pub static __lgba_exh_rom_cname: &'static str;
         pub static __lgba_exh_rom_cver: &'static str;
         pub static __lgba_exh_rom_repository: &'static str;
+
+        pub static __lgba_config_canary: u64;
+        pub static __lgba_config_int_stack_canary: usize;
+        pub static __lgba_config_user_stack_canary: usize;
+
+        pub static __ewram_end: usize;
+        pub static __bss_end: usize;
+        pub static __lgba_config_iwram_end: usize;
     }
 }
 
@@ -66,6 +78,7 @@ pub fn abort() -> ! {
     }
 }
 
+use core::ops::Range;
 pub use interface::{
     __lgba_exh_lgba_version as EXH_LGBA_VERSION, __lgba_exh_rom_cname as EXH_ROM_CNAME,
     __lgba_exh_rom_cver as EXH_ROM_CVER, __lgba_exh_rom_repository as EXH_ROM_REPO,
@@ -101,4 +114,34 @@ pub unsafe fn sram_verify_raw_buf(buf1: &[u8], buf2: usize) -> bool {
 #[inline(always)]
 pub unsafe fn sram_read_raw_byte(src: usize) -> u8 {
     interface::__lgba_ReadByte(src as _)
+}
+
+#[inline(always)]
+pub fn check_user_canary() {
+    unsafe {
+        let offset = interface::__lgba_config_user_stack_canary as *mut u64;
+        if *offset != interface::__lgba_config_canary {
+            crate::panic_handler::canary_error()
+        }
+    }
+}
+
+#[inline(always)]
+pub fn check_interrupt_canary() {
+    unsafe {
+        let offset = interface::__lgba_config_int_stack_canary as *mut u64;
+        if *offset != interface::__lgba_config_canary {
+            crate::panic_handler::canary_error()
+        }
+    }
+}
+
+pub fn iwram_alloc_range() -> Range<usize> {
+    let start = unsafe { &interface::__bss_end as *const _ as usize };
+    let end = unsafe { interface::__lgba_config_iwram_end };
+    start..end
+}
+pub fn ewram_alloc_range() -> Range<usize> {
+    let start = unsafe { &interface::__ewram_end as *const _ as usize };
+    start..0x2040000
 }

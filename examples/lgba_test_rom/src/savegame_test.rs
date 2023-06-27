@@ -1,3 +1,4 @@
+use alloc::vec;
 use core::cmp;
 use lgba::{
     display::{ActiveTerminalAccess, Terminal, TerminalFontBasic},
@@ -41,7 +42,7 @@ fn do_test(
     terminal.write_str("Starting...");
 
     let mut access = SaveAccess::open()?;
-    let mut buffer = [0; MAX_BLOCK_SIZE];
+    let mut buffer = vec![0; MAX_BLOCK_SIZE];
 
     terminal.reset_line();
     terminal.write_str("Clearing media...");
@@ -89,10 +90,13 @@ fn do_test(
     terminal.reset_line();
     write!(
         terminal.write(),
-        "write: {}c / {:.2}s | verify: {}c / {:.2}s\n",
-        write_cycles,
+        "write: {write_cycles}c / {:.2}s | verify: {validate_cycles}c / {:.2}s\n",
         (write_cycles as f32) / ((1 << 24) as f32),
-        validate_cycles,
+        (validate_cycles as f32) / ((1 << 24) as f32),
+    );
+    eprintln!(
+        "write: {write_cycles}c / {:.2}s | verify: {validate_cycles}c / {:.2}s\n",
+        (write_cycles as f32) / ((1 << 24) as f32),
         (validate_cycles as f32) / ((1 << 24) as f32),
     );
 
@@ -140,10 +144,7 @@ pub fn run() -> ! {
 
         write!(
             terminal.write(),
-            "[ Partial, offset = 0x{:06x}, len = {}, bs = {} ]\n",
-            rand_offset,
-            rand_length,
-            block_size
+            "[ Partial, offset = 0x{rand_offset:06x}, len = {rand_length}, bs = {block_size} ]\n",
         );
         check_status(do_test(Rng(i * 10000), rand_offset, rand_length, block_size, &mut terminal));
     }

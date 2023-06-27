@@ -3,6 +3,7 @@
 
 #[macro_use]
 extern crate lgba;
+extern crate alloc;
 
 mod interrupt_test;
 mod savegame_test;

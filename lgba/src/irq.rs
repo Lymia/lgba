@@ -125,8 +125,9 @@ unsafe fn run_chain(mut node: *mut InterruptHandlerNode) {
 }
 
 pub(crate) fn interrupt_handler() {
-    // disable interrupts
+    // disable interrupts & check user canaries
     IME.write(false);
+    crate::asm::check_user_canary();
     IS_IN_INTERRUPT.write(true);
 
     // handle interrupts until none are left queued
@@ -168,8 +169,9 @@ pub(crate) fn interrupt_handler() {
         check_interrupt!(Interrupt::GamePak);
     }
 
-    // enable interrupts
+    // enable interrupts & check interrupt canaries
     IS_IN_INTERRUPT.write(false);
+    crate::asm::check_interrupt_canary();
     IME.write(true);
 }
 

@@ -13,8 +13,6 @@ use crate::{
 };
 use core::fmt::{Arguments, Debug, Error, Write};
 
-// TODO: Handle format!("{i}");
-
 /// A debug level that a log message may be emitted at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -112,6 +110,7 @@ impl Write for NoCashDebug {
 
 /// Something that can be written to a debug stream.
 pub trait DebugPrintable {
+    /// Print the debug stream to a [`Write`].
     fn print(&self, w: impl Write) -> Result<(), Error>;
 }
 impl<'a> DebugPrintable for Arguments<'a> {
@@ -229,9 +228,6 @@ macro_rules! __lgba__internal_print_impl {
         if $crate::debug::is_enabled() {
             $crate::debug::debug_print($crate::debug::DebugLevel::$level, $expr);
         }
-    };
-    (@plain $level:ident, $text:literal) => {
-        $crate::__lgba__internal_print_impl!(@print $level, $text)
     };
     (@plain $level:ident, ) => {
         $crate::__lgba__internal_print_impl!(@print $level, "")

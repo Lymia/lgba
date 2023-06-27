@@ -7,12 +7,14 @@ __lgba_start:
     @ Enters IRQ mode and sets the stack pointer
     movs r0, #0x12
     msr CPSR_c, r0
-    ldr sp, =0x3007FA0
+    ldr r0, =__lgba_config_int_stack_top
+    ldr sp, [r0]
 
     @ Enters user mode, and sets the stack pointer
     movs r0, #0x1f
     msr CPSR_c, r0
-    ldr sp, =0x3007E00 @ allocate more room for the IRQ stack than usual; Rust can use quite a bit
+    ldr r0, =__lgba_config_user_stack_top
+    ldr sp, [r0]
 
     @ Switch to Thumb
     ldr r0, =(1f + 1)
@@ -20,6 +22,21 @@ __lgba_start:
     .thumb
     .align 2
     1:
+
+    @ Write stack canaries to memory
+    ldr r0, =__lgba_config_canary
+    ldr r1, =__lgba_config_int_stack_canary
+    ldr r1, [r1]
+    ldr r2, =__lgba_config_user_stack_canary
+    ldr r2, [r2]
+
+    ldr r3, [r0, #0]
+    ldr r4, [r0, #4]
+
+    str r3, [r1, #0]
+    str r4, [r1, #4]
+    str r3, [r2, #0]
+    str r4, [r2, #4]
 
     @ Sets WAITCNT to the default used by GBA games
     ldr r0, =0x4000204

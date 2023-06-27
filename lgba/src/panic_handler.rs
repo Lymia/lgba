@@ -3,11 +3,6 @@ use crate::{
     display::{ActiveTerminalAccess, Terminal, TerminalFontAscii},
     dma::DmaChannelId,
     eprintln,
-    irq::Interrupt,
-    mmio::{
-        display::DispStat,
-        reg::{BIOS_IF, BIOS_IRQ_ENTRY, DISPSTAT, IE, IF, IME},
-    },
     sync::Static,
 };
 use core::{
@@ -76,30 +71,11 @@ fn panic_with_term(func: impl FnOnce(&mut ActiveTerminalAccess<TerminalFontAscii
     let mut terminal = Terminal::new();
     terminal.set_color(0, crate::display::rgb_24bpp(200, 0, 0), !0);
     terminal.use_dma_channel(DmaChannelId::Dma3);
-    terminal.set_force_blank(true);
     let terminal = terminal.activate_no_lock::<TerminalFontAscii>();
     let mut terminal = terminal.lock();
 
     // run the actual function
     func(&mut terminal);
-
-    // setup DMA to allow to wait for the next vblank before disabling force blank
-    #[instruction_set(arm::a32)]
-    pub extern "C" fn backup_interrupt_handler() {
-        let ack = IF.read() | IE.read();
-        IF.write(ack);
-        BIOS_IF.write(BIOS_IF.read() | ack);
-    }
-    unsafe {
-        DISPSTAT.write(DispStat::default().with_vblank_irq_enabled(true));
-        IE.write(Interrupt::VBlank.into());
-        BIOS_IRQ_ENTRY.write(backup_interrupt_handler);
-        IME.write(false);
-    }
-
-    crate::sys::wait_for_vblank();
-    terminal.set_force_blank(false);
-    IME.write(true);
 
     // abort cleanly
     crate::sys::abort()
@@ -114,15 +90,15 @@ fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
 
     // print the panic message to debug terminal, if we have one
     match location {
-        Some(location) => eprintln!("ROM panicked: {} @ {}", message, location),
-        None => eprintln!("ROM panicked: {}", message),
+        Some(location) => eprintln!("ROM panicked: {message} @ {location}"),
+        None => eprintln!("ROM panicked: {message}"),
     }
 
     // show a panic screen
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, location);
-        write!(terminal.write(), "Message : {}\n", message);
+        write!(terminal.write(), "Message : {message}\n");
     })
 }
 
@@ -145,7 +121,7 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
         // write panic message
         match error.message() {
             None => terminal.write_str("Message : <unknown>\n"),
-            Some(error) => write!(terminal.write(), "Message : {}\n", error),
+            Some(error) => write!(terminal.write(), "Message : {error}\n"),
         }
     })
 }
@@ -158,13 +134,13 @@ fn handle_alloc_panic_inner(layout: Layout) -> ! {
     panic_start();
 
     // print the panic message to debug terminal, if we have one
-    eprintln!("out of memory: {:?}", layout);
+    eprintln!("out of memory: {layout:?}");
 
     // show a panic screen
     panic_with_term(|terminal| {
         write_panic_head(terminal);
         write_location(terminal, None);
-        write!(terminal.write(), "Message : Ran out of memory.\nLayout  :{:?}\n", layout);
+        write!(terminal.write(), "Message : Ran out of memory.\nLayout  :{layout:?}\n");
     })
 }
 
@@ -176,4 +152,19 @@ fn handle_alloc_error(layout: Layout) -> ! {
 #[track_caller]
 pub fn static_panic(msg: &str) -> ! {
     handle_static_panic(msg, Some(Location::caller()))
+}
+
+pub fn canary_error() -> ! {
+    // we intentionally don't print anything, just in case memory for debug module was corrupted.
+
+    // show a panic screen
+    crate::irq::suppress(|| {
+        crate::dma::pause_dma(|| {
+            panic_with_term(|terminal| {
+                write_panic_head(terminal);
+                write_location(terminal, None);
+                write!(terminal.write(), "Message : Stack canary trampled.\n");
+            })
+        })
+    })
 }

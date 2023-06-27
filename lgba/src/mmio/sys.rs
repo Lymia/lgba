@@ -1,4 +1,4 @@
-use crate::mmio::prelude::*;
+use crate::{mmio::prelude::*, sys};
 use enumset::EnumSetType;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -42,19 +42,88 @@ packed_struct_fields!(
 #[derive(EnumSetType, Debug)]
 #[enumset(repr = "u16")]
 pub enum Interrupt {
+    /// Triggered at the start of vertical blank.
     VBlank = 0,
+    /// Triggered at the start of horizontal blank.
     HBlank = 1,
+    /// Triggered when the scanline equals a user configured value.
+    ///
+    /// The scanline this interrupt is triggered during is configured using the
+    /// [`display::set_counter_scanline`] function.
+    ///
+    /// [`display::set_counter_scanline`]: crate::display::set_counter_scanline
     VCounter = 2,
+    /// Triggered by the first timer.
+    ///
+    /// See the [`timer`] module for more information. This is the timer that corresponds to the
+    /// [`TimerId::Timer0`] variant.
+    ///
+    /// [`timer`]: crate::timer
+    /// [`TimerId::Timer0`]: crate::timer::TimerId::Timer0
     Timer0 = 3,
+    /// Triggered by the second timer.
+    ///
+    /// See the [`timer`] module for more information. This is the timer that corresponds to the
+    /// [`TimerId::Timer1`] variant.
+    ///
+    /// [`timer`]: crate::timer
+    /// [`TimerId::Timer1`]: crate::timer::TimerId::Timer1
     Timer1 = 4,
+    /// Triggered by the third timer.
+    ///
+    /// See the [`timer`] module for more information. This is the timer that corresponds to the
+    /// [`TimerId::Timer2`] variant.
+    ///
+    /// [`timer`]: crate::timer
+    /// [`TimerId::Timer2`]: crate::timer::TimerId::Timer2
     Timer2 = 5,
+    /// Triggered by the fourth timer.
+    ///
+    /// See the [`timer`] module for more information. This is the timer that corresponds to the
+    /// [`TimerId::Timer3`] variant.
+    ///
+    /// [`timer`]: crate::timer
+    /// [`TimerId::Timer3`]: crate::timer::TimerId::Timer3
     Timer3 = 6,
+    /// Triggered by serial communication.
     Serial = 7,
+    /// Triggered by the first DMA channel.
+    ///
+    /// See the [`dma`] module for more information. This is the channel that corresponds to the
+    /// [`DmaChannelId::Dma0`] variant.
+    ///
+    /// [`dma`]: crate::dma
+    /// [`DmaChannelId::Dma0`]: crate::dma::DmaChannelId::Dma0
     Dma0 = 8,
+    /// Triggered by the second DMA channel.
+    ///
+    /// See the [`dma`] module for more information. This is the channel that corresponds to the
+    /// [`DmaChannelId::Dma1`] variant.
+    ///
+    /// [`dma`]: crate::dma
+    /// [`DmaChannelId::Dma1`]: crate::dma::DmaChannelId::Dma1
     Dma1 = 9,
+    /// Triggered by the third DMA channel.
+    ///
+    /// See the [`dma`] module for more information. This is the channel that corresponds to the
+    /// [`DmaChannelId::Dma2`] variant.
+    ///
+    /// [`dma`]: crate::dma
+    /// [`DmaChannelId::Dma2`]: crate::dma::DmaChannelId::Dma2
     Dma2 = 10,
+    /// Triggered by the fourth DMA channel.
+    ///
+    /// See the [`dma`] module for more information. This is the channel that corresponds to the
+    /// [`DmaChannelId::Dma3`] variant.
+    ///
+    /// [`dma`]: crate::dma
+    /// [`DmaChannelId::Dma3`]: crate::dma::DmaChannelId::Dma3
     Dma3 = 11,
+    /// Triggered by specific keypad input.
+    ///
+    /// See [`sys::set_keypad_irq_combo`] and [`sys::set_keypad_irq_keys`] for more information.
     Keypad = 12,
+    /// Triggered externally by optional hardware in the Game Pak.
     GamePak = 13,
 }
 

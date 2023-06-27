@@ -52,7 +52,7 @@ pub fn run() -> ! {
                     write.write_str("[buzz]");
                 } else {
                     write.set_half_width(false);
-                    write!(write, "{}", i);
+                    write!(write, "{i}");
                 }
                 write.set_half_width(true);
                 write.write_str(" ");
@@ -75,7 +75,7 @@ pub fn run() -> ! {
         terminal.set_half_width(false);
 
         let keys = lgba::sys::pressed_keys();
-        write!(terminal.write(), "#{:03} / ", frame);
+        write!(terminal.write(), "#{frame:03} / ");
         if keys.is_empty() {
             terminal.set_half_width(true);
             terminal.write_str("(none)");

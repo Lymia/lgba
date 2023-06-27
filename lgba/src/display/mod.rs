@@ -1,8 +1,5 @@
 //! Module containing interfaces to the GBA's graphics chip.
 
-#[macro_use]
-mod macros;
-
 mod layers;
 mod modes;
 mod terminal;

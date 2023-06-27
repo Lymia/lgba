@@ -1,8 +1,7 @@
-use std::io::Cursor;
 use anyhow::*;
+use byteorder::{ReadBytesExt, LE};
 use goblin::elf::section_header::SHF_ALLOC;
-use std::path::Path;
-use byteorder::{LE, ReadBytesExt};
+use std::{io::Cursor, path::Path};
 use tracing::{debug, error, info};
 
 pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
@@ -30,7 +29,7 @@ pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
     let mut state = State::WaitHeader;
     for segment in &elf.section_headers {
         let name = elf.shdr_strtab.get_at(segment.sh_name).unwrap();
-        debug!("Found segment: {} = {:?}", name, segment);
+        debug!("Found segment: {name} = {segment:?}");
 
         if segment.sh_flags as u32 & SHF_ALLOC == 0 {
             continue;

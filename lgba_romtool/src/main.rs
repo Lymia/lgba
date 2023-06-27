@@ -30,6 +30,6 @@ fn main() {
     let cli = Cli::parse();
     match execute(cli) {
         Ok(_) => {}
-        Err(e) => eprintln!("Error encountered: {:?}", e),
+        Err(e) => eprintln!("Error encountered: {e:?}"),
     }
 }

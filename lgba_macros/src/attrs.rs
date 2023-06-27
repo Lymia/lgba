@@ -3,10 +3,11 @@ use darling::FromAttributes;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as SynTokenStream};
 use quote::quote;
+use std::hash::{Hash, Hasher};
 use syn::{spanned::Spanned, Error, ItemFn, ReturnType, Type};
 
 /// Decodes the custom attributes for our custom derive.
-#[derive(FromAttributes, Default)]
+#[derive(FromAttributes, Default, Hash)]
 #[darling(attributes(rom), default)]
 struct EntryAttrs {
     #[darling(default)]
@@ -19,6 +20,10 @@ struct EntryAttrs {
     version: Option<u8>,
     #[darling(default)]
     report_url: Option<String>,
+    #[darling(default)]
+    interrupt_stack_size: Option<usize>,
+    #[darling(default)]
+    stack_size: Option<usize>,
 }
 
 pub fn iwram_impl(input: TokenStream) -> TokenStream {
@@ -163,6 +168,17 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
         Some(report_url) => quote! { #report_url },
     };
 
+    let interrupt_stack_size = attrs.interrupt_stack_size.unwrap_or(1024);
+    let user_stack_size = attrs.stack_size.unwrap_or(1024 * 2);
+
+    assert!(interrupt_stack_size % 8 == 0 && interrupt_stack_size > 8);
+    assert!(user_stack_size % 8 == 0 && user_stack_size > 8);
+
+    let mut hasher = fnv::FnvHasher::with_key(0x12345678);
+    attrs.hash(&mut hasher);
+    input.hash(&mut hasher);
+    let canary = hasher.finish();
+
     let new_attrs: Vec<_> = input
         .attrs
         .iter()
@@ -188,6 +204,23 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
                 h = calculate_complement(h);
                 h
             };
+
+            #[no_mangle]
+            pub static __lgba_config_canary: u64 = #canary;
+
+            #[no_mangle]
+            pub static __lgba_config_int_stack_top: usize = 0x3007FA0;
+            #[no_mangle]
+            pub static __lgba_config_int_stack_canary: usize =
+                __lgba_config_int_stack_top - #interrupt_stack_size - 8;
+            #[no_mangle]
+            pub static __lgba_config_user_stack_top: usize = __lgba_config_int_stack_canary;
+            #[no_mangle]
+            pub static __lgba_config_user_stack_canary: usize =
+                __lgba_config_user_stack_top - #user_stack_size - 8;
+
+            #[no_mangle]
+            pub static __lgba_config_iwram_end: usize = __lgba_config_user_stack_canary;
 
             #[no_mangle]
             pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");

@@ -64,4 +64,11 @@ pub fn disable_keypad_irq() {
 }
 
 mod bios;
+#[macro_use]
+mod macros;
+#[cfg(feature = "global_allocator")]
+pub(crate) mod allocator;
+
+#[cfg(feature = "global_allocator")]
+pub use allocator::{heap_capacity, heap_used};
 pub use bios::*;

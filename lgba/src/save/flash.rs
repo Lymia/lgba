@@ -3,8 +3,6 @@
 //! Flash may be read with ordinary read commands, but writing requires
 //! sending structured commands to the flash chip.
 
-// TODO: Setup cartridge read timings for faster Flash access.
-
 use crate::{
     mmio::{
         reg::{RegArray, Register},

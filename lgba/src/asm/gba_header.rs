@@ -1,5 +1,7 @@
 //! Contains the code needed to generate a GBA header.
 
+#![allow(missing_docs)]
+
 pub type GbaHeader = [u8; 0x20];
 
 #[rustfmt::skip]

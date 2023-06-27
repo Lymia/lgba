@@ -182,7 +182,6 @@ impl TileLayer {
         BG_VOFS.index(self.id as usize).write(-self.v_offset);
     }
     pub(crate) fn write_enabled_from_guard(&self) {
-        // TODO: Cleanup
         let mut disp_cnt = DISPCNT.read();
         match self.id {
             LayerId::Layer0 => disp_cnt = disp_cnt.with_display_bg0(self.is_enabled),
