@@ -14,7 +14,9 @@ license = "MIT/Apache-2.0"
 
 [features]
 default = ["allocator"]
+# Enables the allocator
 allocator = ["linked_list_allocator"]
+# Enables low-level features
 low_level = []
 
 [dependencies]

@@ -116,10 +116,8 @@ unsafe impl GlobalAlloc for DefaultAlloc {
             let addr = ptr.as_ptr() as usize;
             if addr >= 0x2000000 && addr < 0x2010000 {
                 dealloc(&mut IWRAM_HEAP.lock(), &IWRAM_ALLOC, ptr, layout);
-                dealloc_invalid_address();
             } else if addr >= 0x3000000 && addr < 0x3040000 {
                 dealloc(&mut EWRAM_HEAP.lock(), &EWRAM_ALLOC, ptr, layout);
-                dealloc_invalid_address();
             } else {
                 dealloc_invalid_address();
             }

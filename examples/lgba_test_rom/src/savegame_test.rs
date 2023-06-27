@@ -95,7 +95,7 @@ fn do_test(
         (validate_cycles as f32) / ((1 << 24) as f32),
     );
     eprintln!(
-        "write: {write_cycles}c / {:.2}s | verify: {validate_cycles}c / {:.2}s\n",
+        "write: {write_cycles}c / {:.2}s | verify: {validate_cycles}c / {:.2}s",
         (write_cycles as f32) / ((1 << 24) as f32),
         (validate_cycles as f32) / ((1 << 24) as f32),
     );
