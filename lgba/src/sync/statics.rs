@@ -1,3 +1,4 @@
+use crate::arm;
 use core::{arch::asm, cell::UnsafeCell, mem, ptr};
 
 /// The internal function for replacing a `Copy` (really `!Drop`) value in a
@@ -55,7 +56,7 @@ unsafe fn transfer_align4_thumb<T: Copy>(mut dst: *mut T, mut src: *const T) {
     }
 }
 
-#[instruction_set(arm::a32)]
+#[arm]
 #[allow(unused_assignments)]
 unsafe fn transfer_align4_arm<T: Copy>(mut dst: *mut T, mut src: *const T) {
     let size = mem::size_of::<T>();
@@ -145,14 +146,14 @@ unsafe fn exchange<T>(dst: *mut T, src: *const T) -> T {
     }
 }
 
-#[instruction_set(arm::a32)]
+#[arm]
 unsafe fn exchange_align4_arm<T>(dst: *mut T, i: u32) -> u32 {
     let out;
     asm!("swp {2}, {1}, [{0}]", in(reg) dst, in(reg) i, lateout(reg) out);
     out
 }
 
-#[instruction_set(arm::a32)]
+#[arm]
 unsafe fn exchange_align1_arm<T>(dst: *mut T, i: u8) -> u8 {
     let out;
     asm!("swpb {2}, {1}, [{0}]", in(reg) dst, in(reg) i, lateout(reg) out);

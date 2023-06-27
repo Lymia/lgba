@@ -136,7 +136,8 @@ pub const KEYINPUT: Register<EnumSet<Button>> = unsafe { Register::new(0x4000130
 pub const KEYCNT: Register<KeyCnt> = unsafe { Register::new(0x4000132) };
 pub const WAITCNT: Register<WaitCnt> = unsafe { Register::new(0x4000204) };
 pub const BIOS_IF: Register<EnumSet<Interrupt>> = unsafe { Register::new(0x3007FF8) };
-pub const BIOS_IRQ_ENTRY: Register<extern "C" fn(), Unsafe> = unsafe { Register::new(0x3007FFC) };
+pub const BIOS_IRQ_ENTRY: Register<unsafe extern "C" fn(), Unsafe> =
+    unsafe { Register::new(0x3007FFC) };
 
 //
 // Timer-related Registers

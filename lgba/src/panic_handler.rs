@@ -102,7 +102,7 @@ fn handle_static_panic_inner(message: &str, location: Option<&Location>) -> ! {
     })
 }
 
-#[panic_handler]
+#[cfg_attr(not(doc), panic_handler)]
 #[inline(never)]
 fn handle_panic(error: &PanicInfo) -> ! {
     crate::irq::suppress(|| crate::dma::pause_dma(|| handle_panic_inner(error)))

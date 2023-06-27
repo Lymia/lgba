@@ -5,14 +5,9 @@ use crate::{
         reg::*,
         sys::{DmaAddrCnt, DmaCnt},
     },
-    sync::{RawMutex, RawMutexGuard},
+    sync::{memory_write_hint, RawMutex, RawMutexGuard},
 };
-use core::{
-    arch::asm,
-    ffi::c_void,
-    mem,
-    sync::atomic::{compiler_fence, Ordering},
-};
+use core::{arch::asm, ffi::c_void, mem};
 
 static DMA_LOCK: [RawMutex; 4] =
     [RawMutex::new(), RawMutex::new(), RawMutex::new(), RawMutex::new()];
@@ -277,7 +272,7 @@ fn dma_is_external() -> ! {
 }
 
 /// Pauses running DMAs and restores them afterwards.
-pub fn pause_dma<R>(func: impl FnOnce() -> R) -> R {
+pub fn pause_dma<R>(mut func: impl FnOnce() -> R) -> R {
     unsafe {
         let mut dma_cnt = [DmaCnt::default(); 4];
         for i in 0..4 {
@@ -289,9 +284,9 @@ pub fn pause_dma<R>(func: impl FnOnce() -> R) -> R {
             }
         }
 
-        compiler_fence(Ordering::Acquire);
-        let result = func();
-        compiler_fence(Ordering::Release);
+        memory_write_hint(&mut func);
+        let mut result = func();
+        memory_write_hint(&mut result);
 
         for i in 0..4 {
             if dma_cnt[i].enabled() {

@@ -4,6 +4,7 @@ use crate::mmio::{
     reg::{KEYCNT, KEYINPUT},
     sys::{ButtonCondition, KeyCnt},
 };
+use core::ops::Range;
 use enumset::EnumSet;
 
 /// Crashes the console on purpose, preventing it from running any code until it is reset.
@@ -11,6 +12,8 @@ use enumset::EnumSet;
 /// This sets the GBA into a state where no functions (such as DMA or interrupts) are running, and
 /// no further code will be run. This will also disable sound to prevent this state from hurting
 /// the player's ears.
+///
+/// This function is available to assembly code under the name `__lgba_abort`.
 #[inline(always)]
 pub fn abort() -> ! {
     crate::asm::abort()
@@ -61,6 +64,36 @@ pub fn set_keypad_irq_combo(combo: impl Into<EnumSet<Button>>) {
 /// [`Keypad`]: crate::irq::Interrupt::Keypad
 pub fn disable_keypad_irq() {
     KEYCNT.write(KeyCnt::default());
+}
+
+/// The range of iwram that isn't allocated by either the stack or static variables.
+pub fn iwram_free_range() -> Range<*const u8> {
+    let raw_range = crate::asm::iwram_free_range();
+    raw_range.start as *const u8..raw_range.end as *const u8
+}
+
+/// The range of ewram that isn't allocated by static variables.
+pub fn ewram_free_range() -> Range<*const u8> {
+    let raw_range = crate::asm::ewram_free_range();
+    raw_range.start as *const u8..raw_range.end as *const u8
+}
+
+/// Manually checks that the canary for the user stack has not been changed.
+///
+/// If it has been, this function panics.
+#[cfg(feature = "low_level")]
+#[doc(cfg(feature = "low_level"))]
+pub fn check_user_canary() {
+    crate::asm::check_user_canary();
+}
+
+/// Manually checks that the canary for the interrupt stack has not been changed.
+///
+/// If it has been, this function panics.
+#[cfg(feature = "low_level")]
+#[doc(cfg(feature = "low_level"))]
+pub fn check_interrupt_canary() {
+    crate::asm::check_interrupt_canary();
 }
 
 mod bios;

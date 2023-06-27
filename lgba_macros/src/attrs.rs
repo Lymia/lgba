@@ -48,7 +48,7 @@ pub fn ewram_impl(input: TokenStream) -> TokenStream {
 pub fn arm_impl(input: TokenStream) -> TokenStream {
     let input: SynTokenStream = input.into();
     (quote! {
-        #[instruction_set(arm::a32)]
+        #[cfg_attr(not(doc), instruction_set(arm::a32))]
         #input
     })
     .into()
@@ -58,7 +58,7 @@ pub fn arm_impl(input: TokenStream) -> TokenStream {
 pub fn thumb_impl(input: TokenStream) -> TokenStream {
     let input: SynTokenStream = input.into();
     (quote! {
-        #[instruction_set(arm::t32)]
+        #[cfg_attr(not(doc), instruction_set(arm::t32))]
         #input
     })
     .into()
@@ -169,7 +169,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
     };
 
     let interrupt_stack_size = attrs.interrupt_stack_size.unwrap_or(1024);
-    let user_stack_size = attrs.stack_size.unwrap_or(1024 * 2);
+    let user_stack_size = attrs.stack_size.unwrap_or(1024 * 4);
 
     assert!(interrupt_stack_size % 8 == 0 && interrupt_stack_size > 8);
     assert!(user_stack_size % 8 == 0 && user_stack_size > 8);
@@ -220,7 +220,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
                 __lgba_config_user_stack_top - #user_stack_size - 8;
 
             #[no_mangle]
-            pub static __lgba_config_iwram_end: usize = __lgba_config_user_stack_canary;
+            pub static __lgba_config_iwram_free_end: usize = __lgba_config_user_stack_canary;
 
             #[no_mangle]
             pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");

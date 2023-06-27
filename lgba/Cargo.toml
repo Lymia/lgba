@@ -15,6 +15,7 @@ license = "MIT/Apache-2.0"
 [features]
 default = ["allocator"]
 allocator = ["linked_list_allocator"]
+low_level = []
 
 [dependencies]
 enumset = "1"

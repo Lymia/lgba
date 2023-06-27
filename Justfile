@@ -7,6 +7,9 @@ run-example name:
     just _build_example "{{name}}"
     mgba-qt "target/roms/{{name}}.gba"
 
+doc:
+    cargo doc -Z build-std=std,core,alloc --target "{{local_target}}" -p lgba -p lgba_phf --all-features
+
 #####################
 # Builder functions #
 #####################

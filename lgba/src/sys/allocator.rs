@@ -61,6 +61,7 @@ fn ewram_alloc(layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
 }
 
 /// Allocator for iwram.
+#[doc(cfg(feature = "allocator"))]
 #[derive(Copy, Clone, Default)]
 pub struct Iwram;
 unsafe impl Allocator for Iwram {
@@ -77,6 +78,7 @@ unsafe impl Allocator for Iwram {
 }
 
 /// Allocator for ewram.
+#[doc(cfg(feature = "allocator"))]
 #[derive(Copy, Clone, Default)]
 pub struct Ewram;
 unsafe impl Allocator for Ewram {
@@ -111,11 +113,13 @@ unsafe impl GlobalAlloc for DefaultAlloc {
         check_interrupt();
         let layout = map_layout(layout);
         if let Some(ptr) = NonNull::new(ptr) {
-            let addr = (ptr.as_ptr() as usize);
-            if addr > 0x2000000 && addr < 0x2010000 {
+            let addr = ptr.as_ptr() as usize;
+            if addr >= 0x2000000 && addr < 0x2010000 {
                 dealloc(&mut IWRAM_HEAP.lock(), &IWRAM_ALLOC, ptr, layout);
-            } else if addr > 0x3000000 && addr < 0x2040000 {
+                dealloc_invalid_address();
+            } else if addr >= 0x3000000 && addr < 0x3040000 {
                 dealloc(&mut EWRAM_HEAP.lock(), &EWRAM_ALLOC, ptr, layout);
+                dealloc_invalid_address();
             } else {
                 dealloc_invalid_address();
             }
@@ -137,36 +141,42 @@ extern "C" {
 }
 
 /// Returns the total amount of bytes of heap available in iwram.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn iwram_capacity() -> usize {
     IWRAM_SIZE.read()
 }
 
 /// Returns the number of bytes of heap that are already allocated in iwram.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn iwram_used() -> usize {
     IWRAM_ALLOC.read()
 }
 
 /// Returns the total amount of bytes of heap available in ewram.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn ewram_capacity() -> usize {
     EWRAM_SIZE.read()
 }
 
 /// Returns the number of bytes of heap that are already allocated in ewram.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn ewram_used() -> usize {
     EWRAM_ALLOC.read()
 }
 
 /// Returns the total amount of bytes of heap available.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn heap_capacity() -> usize {
     IWRAM_SIZE.read() + EWRAM_SIZE.read()
 }
 
 /// Returns the number of bytes of heap that are already allocated.
+#[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn heap_used() -> usize {
     IWRAM_ALLOC.read() + EWRAM_ALLOC.read()
@@ -176,8 +186,8 @@ fn align_alloc(range: Range<usize>) -> Range<usize> {
     ((range.start + 63) & !63)..range.end
 }
 pub(crate) unsafe fn init_rust_alloc() {
-    let iwram = align_alloc(crate::asm::iwram_alloc_range());
-    let ewram = align_alloc(crate::asm::ewram_alloc_range());
+    let iwram = align_alloc(crate::asm::iwram_free_range());
+    let ewram = align_alloc(crate::asm::ewram_free_range());
 
     IWRAM_HEAP.lock().init(iwram.start as *mut u8, iwram.len());
     EWRAM_HEAP.lock().init(ewram.start as *mut u8, ewram.len());

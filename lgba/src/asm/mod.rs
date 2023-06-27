@@ -7,23 +7,35 @@ pub mod gba_header;
 extern crate compiler_builtins_local;
 
 mod interface {
-    use crate::mmio::{
-        reg::{BIOS_IRQ_ENTRY, IME},
-        sys::Interrupt,
+    use crate::{
+        arm,
+        mmio::{
+            reg::{BIOS_IRQ_ENTRY, IME},
+            sys::Interrupt,
+        },
     };
 
     #[no_mangle]
-    pub unsafe extern "C" fn __lgba_init_rust() {
+    pub unsafe extern "C" fn __lgba_init() {
+        // initialize stack canaries
+        let int_canary: *mut u64 = __lgba_config_int_stack_canary as *mut u64;
+        let user_canary: *mut u64 = __lgba_config_user_stack_canary as *mut u64;
+        *int_canary = __lgba_config_canary;
+        *user_canary = __lgba_config_canary;
+
+        // initialize the global allocator
+        #[cfg(feature = "allocator")]
+        crate::sys::allocator::init_rust_alloc();
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn __lgba_setup() {
         // initialize IRQs
-        BIOS_IRQ_ENTRY.write(entry_interrupt_handler);
+        BIOS_IRQ_ENTRY.write(__lgba_interrupt_handler);
         IME.write(true);
 
         // enable the vblank IRQ
         crate::irq::enable(Interrupt::VBlank);
-
-        // enable the global allocator
-        #[cfg(feature = "allocator")]
-        crate::sys::allocator::init_rust_alloc();
     }
 
     #[no_mangle]
@@ -31,8 +43,9 @@ mod interface {
         crate::panic_handler::static_panic("Internal error: Main function returned?")
     }
 
-    #[instruction_set(arm::a32)]
-    pub extern "C" fn entry_interrupt_handler() {
+    #[arm]
+    #[no_mangle]
+    pub unsafe extern "C" fn __lgba_interrupt_handler() {
         crate::irq::interrupt_handler();
     }
 
@@ -67,7 +80,7 @@ mod interface {
 
         pub static __ewram_end: usize;
         pub static __bss_end: usize;
-        pub static __lgba_config_iwram_end: usize;
+        pub static __lgba_config_iwram_free_end: usize;
     }
 }
 
@@ -136,12 +149,65 @@ pub fn check_interrupt_canary() {
     }
 }
 
-pub fn iwram_alloc_range() -> Range<usize> {
+pub fn iwram_free_range() -> Range<usize> {
     let start = unsafe { &interface::__bss_end as *const _ as usize };
-    let end = unsafe { interface::__lgba_config_iwram_end };
+    let end = unsafe { interface::__lgba_config_iwram_free_end };
     start..end
 }
-pub fn ewram_alloc_range() -> Range<usize> {
+
+pub fn ewram_free_range() -> Range<usize> {
     let start = unsafe { &interface::__ewram_end as *const _ as usize };
     start..0x2040000
 }
+
+/// Initializes the internal state of this crate.
+///
+/// This should be called before any other functions of lgba are called, and should only ever be
+/// called once. As it is normally called by the `crt0.s` code provided by lgba, this is only
+/// required if you are writing a custom entry point in assembly code.
+///
+/// This function is available to assembly code under the name `__lgba_init`, even if the
+/// `low_level` feature is not enabled.
+///
+/// # Safety
+///
+/// This function should only ever be called once, and at the start of your code's execution,
+/// before you use any lgba functionality.
+#[cfg(feature = "low_level")]
+#[doc(cfg(feature = "low_level"))]
+pub unsafe fn init_lgba() {
+    interface::__lgba_init();
+}
+
+/// Sets up the default state of the GBA on startup.
+///
+/// Specifically, this currently does the following actions:
+///
+/// * Sets the interrupt handler to `__lgba_interrupt_handler`.
+/// * Enables interrupts.
+/// * Enables the vblank interrupt in both [`DISPSTAT`] and [`IE`].
+///
+/// This is separate from [`init_lgba`] because the operations done here are optional and may
+/// clash with the hardware configuration needed during tasks such as modding an existing ROM.
+/// As with that function, it is called automatically by the `crt0.s` provided by lgba.
+///
+/// This function is available to assembly code under the name `__lgba_setup`, even if the
+/// `low_level` feature is not enabled.
+///
+/// [`DISPSTAT`]: https://mgba-emu.github.io/gbatek/#4000004h---dispstat---general-lcd-status-readwrite
+/// [`IE`]: https://mgba-emu.github.io/gbatek/#4000200h---ie---interrupt-enable-register-rw
+///
+/// # Safety
+///
+/// This function is unsafe because it enables interrupts with no checking. See
+/// [`set_interrupts_enabled`] for more information.
+///
+/// [`set_interrupts_enabled`]: crate::irq::set_interrupts_enabled
+#[cfg(feature = "low_level")]
+#[doc(cfg(feature = "low_level"))]
+pub unsafe fn setup_lgba() {
+    interface::__lgba_setup();
+}
+
+#[cfg(feature = "low_level")]
+pub static DEFAULT_INTERRUPT_HANDLER: unsafe extern "C" fn() = interface::__lgba_interrupt_handler;

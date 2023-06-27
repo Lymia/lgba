@@ -1,6 +1,44 @@
+//! A low-level GBA library designed to allow maximum control over the hardware without sacrificing
+//! memory safety or ergonomics.
 //!
+//! # Cargo Features
+//!
+//! * The `allocator` feature registers a global allocator. This feature is enabled by default, and
+//!   can be disabled if you want to use a different memory allocator.
+//! * The `low_level` feature enables low-level and extremely unsafe functions that are not useful
+//!   for typical homebrew. The features used here are meant for software such as ROM hacks that
+//!   must manually setup `lgba` and work with existing hardware state controlled by external code.
+//!
+//! # Using a custom entry point
+//!
+//! `lgba` is designed to be used with a custom entry point for more advanced use cases. While
+//! you cannot disable the `__start` symbol, you can edit `lgba.ld` to use a different symbol as
+//! the start in your project.
+//!
+//! Your custom initialization function should do the following:
+//!
+//! * Call `__lgba_init_memory` before *any* Rust code is executed. This function copies the
+//!   initial contents of iwram and ewram from the ROM. In most modern systems this is done by a
+//!   executable loader, but the GBA has none. This subroutine has no parameters and may clobber
+//!   any register.
+//! * Call `__lgba_init` from assembly code, or [`init_lgba`] from Rust code. This must be done
+//!   before using any other lgba functionality.
+//! * Optionally, call `__lgba_setup` from assembly, or [`setup_lgba`] from Rust code. This should
+//!   be done after `__lgba_init`.
+//!
+//! TODO: stack canaries, offsets for iwram/ewram, etc
+//!
+//! # Stability
+//!
+//! Any item containing `__` or that is marked `#[doc(hidden)]` is not public API and should not be
+//! used. Furthermore, while this crate contains many `#[no_mangle]` symbols, they are not public
+//! API and there are no stability guarantees unless otherwise stated.
 
-#![feature(alloc_error_handler, panic_info_message, allocator_api, slice_ptr_get)]
+#![feature(allocator_api)]
+#![feature(alloc_error_handler)]
+#![feature(panic_info_message)]
+#![feature(slice_ptr_get)]
+#![feature(doc_cfg)]
 #![no_std]
 
 extern crate alloc;
@@ -20,7 +58,9 @@ pub mod sys;
 pub mod timer;
 
 // public reexports
-pub use lgba_macros::{entry, ewram, iwram};
+#[cfg(feature = "low_level")]
+pub use asm::{init_lgba, setup_lgba};
+pub use lgba_macros::{arm, entry, ewram, iwram, thumb};
 
 // hack for the procedural macros
 use crate as lgba;

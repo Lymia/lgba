@@ -47,7 +47,11 @@ __lgba_start:
     bl __lgba_init_memory
 
     @ Call lgba initialization code
-    ldr r0, =__lgba_init_rust
+    ldr r0, =__lgba_init
+    bl 2f
+
+    @ Call lgba setup code
+    ldr r0, =__lgba_setup
     bl 2f
 
     @ Jump to user code
@@ -91,7 +95,7 @@ __lgba_joybus_start:
     .thumb_func
     .global __lgba_init_memory
 __lgba_init_memory:
-    push {r4,lr}
+    push {lr}
 
     @ Sets up constants before-hand
     movs r4, #1
@@ -129,7 +133,6 @@ __lgba_init_memory:
     bl 1f
 
     @ Return from the function
-    pop {r4}
     pop {r0}
     bx r0
 
