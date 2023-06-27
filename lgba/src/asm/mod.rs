@@ -22,7 +22,7 @@ mod interface {
         crate::irq::enable(Interrupt::VBlank);
 
         // enable the global allocator
-        #[cfg(feature = "global_allocator")]
+        #[cfg(feature = "allocator")]
         crate::sys::allocator::init_rust_alloc();
     }
 

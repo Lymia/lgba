@@ -19,9 +19,21 @@ static TIMER_LOCK: [RawMutex; 4] =
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
 #[repr(u8)]
 pub enum TimerId {
+    /// The first timer.
+    ///
+    /// Cascades from nothing and cascades to `Timer2`.
     Timer0,
+    /// The second timer.
+    ///
+    /// Cascades from `Timer1` and cascades to `Timer3`.
     Timer1,
+    /// The third timer.
+    ///
+    /// Cascades from `Timer2` and cascades to `Timer4`.
     Timer2,
+    /// The fourth timer.
+    ///
+    /// Cascades from `Timer3` and cascades to nothing.
     Timer3,
 }
 impl TimerId {

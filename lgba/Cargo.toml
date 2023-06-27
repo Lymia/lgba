@@ -13,8 +13,8 @@ readme = "../README.md"
 license = "MIT/Apache-2.0"
 
 [features]
-default = ["global_allocator"]
-global_allocator = ["linked_list_allocator"]
+default = ["allocator"]
+allocator = ["linked_list_allocator"]
 
 [dependencies]
 enumset = "1"

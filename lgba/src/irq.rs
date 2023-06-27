@@ -13,6 +13,8 @@ use enumset::EnumSet;
 
 pub use crate::mmio::sys::Interrupt;
 
+// TODO: Better document limitations and expectations for interrupt handlers in lgba.
+
 const INIT_STATIC_NONE: Static<*mut InterruptHandlerNode> = Static::new(core::ptr::null_mut());
 static INTERRUPT_TABLE: [Static<*mut InterruptHandlerNode>; 14] = [INIT_STATIC_NONE; 14];
 static IS_IN_INTERRUPT: Static<bool> = Static::new(false);

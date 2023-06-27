@@ -1,6 +1,6 @@
 //!
 
-#![feature(alloc_error_handler, panic_info_message)]
+#![feature(alloc_error_handler, panic_info_message, allocator_api, slice_ptr_get)]
 #![no_std]
 
 extern crate alloc;
