@@ -1,5 +1,7 @@
 //! Contains things that integrate with very low level Rust things or the ASM part of the codebase.
 
+use core::ops::Range;
+
 mod build_asm;
 pub mod gba_header;
 
@@ -14,6 +16,7 @@ mod interface {
             sys::Interrupt,
         },
     };
+    use core::ops::Range;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init() {
@@ -82,6 +85,23 @@ mod interface {
         pub static __bss_end: usize;
         pub static __lgba_config_iwram_free_end: usize;
     }
+
+    pub fn iwram_free_range() -> Range<usize> {
+        let start = unsafe { &__bss_end as *const _ as usize };
+        let end = unsafe { __lgba_config_iwram_free_end };
+        start..end
+    }
+
+    pub fn ewram_free_range() -> Range<usize> {
+        let start = unsafe { &__ewram_end as *const _ as usize };
+        start..0x2040000
+    }
+
+    #[linkage = "weak"]
+    #[no_mangle]
+    pub fn __lgba_config_alloc_zones(callback: fn(&[Range<usize>])) {
+        callback(&[iwram_free_range(), ewram_free_range()])
+    }
 }
 
 #[inline(always)]
@@ -91,7 +111,6 @@ pub fn abort() -> ! {
     }
 }
 
-use core::ops::Range;
 pub use interface::{
     __lgba_exh_lgba_version as EXH_LGBA_VERSION, __lgba_exh_rom_cname as EXH_ROM_CNAME,
     __lgba_exh_rom_cver as EXH_ROM_CVER, __lgba_exh_rom_repository as EXH_ROM_REPO,
@@ -150,14 +169,15 @@ pub fn check_interrupt_canary() {
 }
 
 pub fn iwram_free_range() -> Range<usize> {
-    let start = unsafe { &interface::__bss_end as *const _ as usize };
-    let end = unsafe { interface::__lgba_config_iwram_free_end };
-    start..end
+    interface::iwram_free_range()
 }
 
 pub fn ewram_free_range() -> Range<usize> {
-    let start = unsafe { &interface::__ewram_end as *const _ as usize };
-    start..0x2040000
+    interface::ewram_free_range()
+}
+
+pub fn alloc_zones(callback: fn(&[Range<usize>])) {
+    interface::__lgba_config_alloc_zones(callback)
 }
 
 /// Initializes the internal state of this crate.

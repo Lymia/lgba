@@ -1,3 +1,5 @@
+#![feature(doc_cfg)]
+
 mod attrs;
 mod build_fonts;
 
@@ -65,6 +67,14 @@ pub fn thumb(_: TokenStream, input: TokenStream) -> TokenStream {
     attrs::thumb_impl(input)
 }
 
+// TODO: Document
+#[doc(cfg(feature = "low_level"))]
+#[proc_macro_attribute]
+pub fn unsafe_alloc_zones(args: TokenStream, input: TokenStream) -> TokenStream {
+    attrs::unsafe_alloc_zones(args, input)
+}
+
+// TODO: Document
 #[proc_macro_attribute]
 pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     attrs::entry(args, input)

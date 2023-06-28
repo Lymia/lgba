@@ -375,7 +375,7 @@ pub unsafe fn set_interrupt_handler(handler: unsafe extern "C" fn()) {
 /// condition.
 #[cfg(feature = "low_level")]
 #[doc(cfg(feature = "low_level"))]
-pub unsafe fn mark_in_interrupt<R>(mut func: impl FnOnce() -> R) -> R {
+pub unsafe fn mark_in_interrupt<R>(func: impl FnOnce() -> R) -> R {
     mark_in_interrupt_0(func)
 }
 fn mark_in_interrupt_0<R>(mut func: impl FnOnce() -> R) -> R {

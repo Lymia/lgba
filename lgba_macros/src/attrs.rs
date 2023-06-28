@@ -64,6 +64,33 @@ pub fn thumb_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+pub fn unsafe_alloc_zones(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input: SynTokenStream = input.into();
+    let input: ItemFn = match syn::parse2(input) {
+        Ok(v) => v,
+        Err(_) => {
+            return Error::new(
+                SynTokenStream::from(args).span(),
+                "#[lgba::unsafe_alloc_zones] must be placed on a function.",
+            )
+            .to_compile_error()
+            .into()
+        }
+    };
+
+    let ident = &input.sig.ident;
+    (quote! {
+        #input
+        const _: () = {
+            #[export_name = "__lgba_config_alloc_zones"]
+            fn config_alloc_zones(callback: fn(&[Range<usize>])) {
+                #ident(callback)
+            }
+        };
+    })
+    .into()
+}
+
 pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     let args: SynTokenStream = args.into();
     let input: SynTokenStream = input.into();

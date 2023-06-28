@@ -1,19 +1,19 @@
 use crate::sync::{Mutex, Static};
 use core::{
-    alloc::{AllocError, Allocator, GlobalAlloc, Layout},
+    alloc::{AllocError, GlobalAlloc, Layout},
     ops::Range,
     ptr,
     ptr::NonNull,
 };
 use linked_list_allocator::Heap;
 
-static IWRAM_HEAP: Mutex<Heap> = Mutex::new(Heap::empty());
-static EWRAM_HEAP: Mutex<Heap> = Mutex::new(Heap::empty());
+// TODO: Implement `Allocator`s
 
-static IWRAM_ALLOC: Static<usize> = Static::new(0);
-static EWRAM_ALLOC: Static<usize> = Static::new(0);
-static IWRAM_SIZE: Static<usize> = Static::new(0);
-static EWRAM_SIZE: Static<usize> = Static::new(0);
+type HeapInfo = (Range<usize>, Heap);
+
+static HEAP_ZONES: Mutex<Option<&'static mut [HeapInfo]>> = Mutex::new(None);
+static HEAP_ALLOC: Static<usize> = Static::new(0);
+static HEAP_SIZE: Static<usize> = Static::new(0);
 
 fn check_interrupt() {
     if crate::irq::is_in_interrupt() {
@@ -35,63 +35,19 @@ fn map_layout(l: Layout) -> Layout {
         l
     }
 }
-fn alloc(
-    heap: &mut Heap,
-    alloc: &Static<usize>,
-    layout: Layout,
-) -> Result<NonNull<[u8]>, AllocError> {
+fn alloc(heap: &mut Heap, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
     let result = heap.allocate_first_fit(layout);
     match result {
         Ok(v) => {
-            alloc.write(alloc.read() + layout.size());
+            HEAP_ALLOC.write(HEAP_ALLOC.read() + layout.size());
             Ok(NonNull::slice_from_raw_parts(v, layout.size()))
         }
         Err(_) => Err(AllocError),
     }
 }
-unsafe fn dealloc(heap: &mut Heap, alloc: &Static<usize>, ptr: NonNull<u8>, layout: Layout) {
-    alloc.write(alloc.read() - layout.size());
+unsafe fn dealloc(heap: &mut Heap, ptr: NonNull<u8>, layout: Layout) {
+    HEAP_ALLOC.write(HEAP_ALLOC.read() - layout.size());
     heap.deallocate(ptr, layout);
-}
-fn iwram_alloc(layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-    alloc(&mut IWRAM_HEAP.lock(), &IWRAM_SIZE, layout)
-}
-fn ewram_alloc(layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-    alloc(&mut EWRAM_HEAP.lock(), &EWRAM_SIZE, layout)
-}
-
-/// Allocator for iwram.
-#[doc(cfg(feature = "allocator"))]
-#[derive(Copy, Clone, Default)]
-pub struct Iwram;
-unsafe impl Allocator for Iwram {
-    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        check_interrupt();
-        let layout = map_layout(layout);
-        iwram_alloc(layout)
-    }
-    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-        check_interrupt();
-        let layout = map_layout(layout);
-        dealloc(&mut IWRAM_HEAP.lock(), &IWRAM_ALLOC, ptr, layout);
-    }
-}
-
-/// Allocator for ewram.
-#[doc(cfg(feature = "allocator"))]
-#[derive(Copy, Clone, Default)]
-pub struct Ewram;
-unsafe impl Allocator for Ewram {
-    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        check_interrupt();
-        let layout = map_layout(layout);
-        ewram_alloc(layout)
-    }
-    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-        check_interrupt();
-        let layout = map_layout(layout);
-        dealloc(&mut EWRAM_HEAP.lock(), &EWRAM_ALLOC, ptr, layout);
-    }
 }
 
 struct DefaultAlloc;
@@ -99,28 +55,31 @@ unsafe impl GlobalAlloc for DefaultAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         check_interrupt();
         let layout = map_layout(layout);
-        let result = if layout.size() <= 64 {
-            iwram_alloc(layout).or_else(|_| ewram_alloc(layout))
-        } else {
-            ewram_alloc(layout).or_else(|_| iwram_alloc(layout))
-        };
-        match result {
-            Ok(v) => v.as_ptr().as_mut_ptr(),
-            Err(_) => ptr::null_mut(),
+
+        let mut zones = HEAP_ZONES.lock();
+        let zones = zones.as_mut().unwrap();
+        for (range, zone) in zones.iter_mut() {
+            match alloc(zone, layout) {
+                Ok(v) => return v.as_ptr().as_mut_ptr(),
+                Err(_) => {}
+            }
         }
+        ptr::null_mut()
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         check_interrupt();
-        let layout = map_layout(layout);
-        if let Some(ptr) = NonNull::new(ptr) {
-            let addr = ptr.as_ptr() as usize;
-            if addr >= 0x2000000 && addr < 0x2010000 {
-                dealloc(&mut IWRAM_HEAP.lock(), &IWRAM_ALLOC, ptr, layout);
-            } else if addr >= 0x3000000 && addr < 0x3040000 {
-                dealloc(&mut EWRAM_HEAP.lock(), &EWRAM_ALLOC, ptr, layout);
-            } else {
-                dealloc_invalid_address();
+        if !ptr.is_null() {
+            let layout = map_layout(layout);
+
+            let mut zones = HEAP_ZONES.lock();
+            let zones = zones.as_mut().unwrap();
+            for (range, zone) in zones.iter_mut() {
+                if range.contains(&(ptr as usize)) {
+                    dealloc(zone, NonNull::new_unchecked(ptr), layout);
+                    return;
+                }
             }
+            dealloc_invalid_address();
         }
     }
 }
@@ -138,58 +97,71 @@ extern "C" {
     static __heap_start: u8;
 }
 
-/// Returns the total amount of bytes of heap available in iwram.
-#[doc(cfg(feature = "allocator"))]
-#[inline(always)]
-pub fn iwram_capacity() -> usize {
-    IWRAM_SIZE.read()
-}
-
-/// Returns the number of bytes of heap that are already allocated in iwram.
-#[doc(cfg(feature = "allocator"))]
-#[inline(always)]
-pub fn iwram_used() -> usize {
-    IWRAM_ALLOC.read()
-}
-
-/// Returns the total amount of bytes of heap available in ewram.
-#[doc(cfg(feature = "allocator"))]
-#[inline(always)]
-pub fn ewram_capacity() -> usize {
-    EWRAM_SIZE.read()
-}
-
-/// Returns the number of bytes of heap that are already allocated in ewram.
-#[doc(cfg(feature = "allocator"))]
-#[inline(always)]
-pub fn ewram_used() -> usize {
-    EWRAM_ALLOC.read()
-}
-
 /// Returns the total amount of bytes of heap available.
 #[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn heap_capacity() -> usize {
-    IWRAM_SIZE.read() + EWRAM_SIZE.read()
+    HEAP_SIZE.read()
 }
 
 /// Returns the number of bytes of heap that are already allocated.
 #[doc(cfg(feature = "allocator"))]
 #[inline(always)]
 pub fn heap_used() -> usize {
-    IWRAM_ALLOC.read() + EWRAM_ALLOC.read()
+    HEAP_ALLOC.read()
 }
 
+fn check_range_validity(range: Range<usize>) -> Range<usize> {
+    if range.end < range.start {
+        range.start..range.start
+    } else {
+        range
+    }
+}
+fn align_array(range: Range<usize>) -> Range<usize> {
+    check_range_validity(((range.start + 7) & !7)..range.end)
+}
 fn align_alloc(range: Range<usize>) -> Range<usize> {
-    ((range.start + 63) & !63)..range.end
+    check_range_validity(((range.start + 63) & !63)..range.end)
+}
+fn find_control_zone(layout: Layout, zones: &[Range<usize>]) -> usize {
+    // try to find an appropriate iwram zone
+    for (i, zone) in zones.iter().enumerate() {
+        if layout.size() <= align_array(zone.clone()).len() && zone.start >= 0x3000000 {
+            return i;
+        }
+    }
+
+    // try to find an appropriate zone
+    for (i, zone) in zones.iter().enumerate() {
+        if layout.size() <= align_array(zone.clone()).len() {
+            return i;
+        }
+    }
+
+    // opps
+    panic!("could not find control zone for allocation")
 }
 pub(crate) unsafe fn init_rust_alloc() {
-    let iwram = align_alloc(crate::asm::iwram_free_range());
-    let ewram = align_alloc(crate::asm::ewram_free_range());
+    crate::asm::alloc_zones(|zones| {
+        let required_size = Layout::array::<HeapInfo>(zones.len()).unwrap();
+        let control_zone = find_control_zone(required_size, zones);
+        let control_range = align_array(zones[control_zone].clone());
 
-    IWRAM_HEAP.lock().init(iwram.start as *mut u8, iwram.len());
-    EWRAM_HEAP.lock().init(ewram.start as *mut u8, ewram.len());
+        let start_range = control_range.start as *mut HeapInfo;
+        for i in 0..zones.len() {
+            let range = if i == control_zone {
+                align_alloc(control_range.start + required_size.size()..control_range.end)
+            } else {
+                align_alloc(zones[i].clone())
+            };
+            ptr::write(
+                start_range.offset(i as isize),
+                (range.clone(), Heap::new(range.start as *mut u8, range.len())),
+            );
+        }
 
-    IWRAM_SIZE.write(iwram.len());
-    EWRAM_SIZE.write(ewram.len());
+        let slice = core::slice::from_raw_parts_mut(start_range, zones.len());
+        *HEAP_ZONES.lock() = Some(slice);
+    });
 }

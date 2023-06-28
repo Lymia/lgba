@@ -7,7 +7,7 @@ use crate::{
     mmio::{reg::Register, sys::WaitState},
     save::{utils::Timeout, Error, MediaInfo, MediaType, RawSaveAccess},
 };
-use core::cmp;
+use core::{cmp, ffi::c_void};
 
 const PORT: Register<u16> = unsafe { Register::new(0x0DFFFF00) };
 const SECTOR_SHIFT: usize = 3;
@@ -17,22 +17,20 @@ const SECTOR_MASK: usize = SECTOR_LEN - 1;
 /// Sends a DMA command to EEPROM.
 fn dma_send(source: &[u32], ct: usize) {
     crate::dma::pause_dma(|| unsafe {
-        DmaChannelId::Dma3.create().unsafe_transfer_u16(
-            source.as_ptr() as *const u16,
-            0x0DFFFF00 as *mut u16,
-            ct,
-        );
+        DmaChannelId::Dma3
+            .create()
+            .force_u16_transfer()
+            .unsafe_transfer(source.as_ptr() as *const c_void, 0x0DFFFF00 as *mut c_void, ct * 2);
     });
 }
 
 /// Receives a DMA packet from EEPROM.
 fn dma_receive(target: &mut [u32], ct: usize) {
     crate::dma::pause_dma(|| unsafe {
-        DmaChannelId::Dma3.create().unsafe_transfer_u16(
-            0x0DFFFF00 as *const u16,
-            target.as_ptr() as *mut u16,
-            ct,
-        );
+        DmaChannelId::Dma3
+            .create()
+            .force_u16_transfer()
+            .unsafe_transfer(0x0DFFFF00 as *const c_void, target.as_ptr() as *mut c_void, ct * 2);
     });
 }
 

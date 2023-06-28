@@ -38,6 +38,7 @@ impl DmaChannelId {
         DmaChannel {
             channel: self,
             irq_notify: false,
+            force_u16: false,
             _lock: DMA_LOCK[self as usize]
                 .try_lock()
                 .unwrap_or_else(|| dma_channel_in_use()),
@@ -68,10 +69,12 @@ fn check_align(
     src: *const c_void,
     dst: *mut c_void,
     byte_count: usize,
+    force_u16: bool,
 ) -> (bool, u16) {
     check_dma(src_internal, dst_internal, src, dst, byte_count);
 
     let is_u32 = (src as usize) % 4 == 0 || (dst as usize) % 4 == 0 || byte_count % 4 == 0;
+    let is_u32 = is_u32 && !force_u16;
     let word_shift = is_u32 as usize + 1;
     let word_count = byte_count >> word_shift;
     if word_count >= 0x10000 {
@@ -102,12 +105,20 @@ unsafe fn raw_tx(
 pub struct DmaChannel {
     channel: DmaChannelId,
     irq_notify: bool,
+    force_u16: bool,
     _lock: RawMutexGuard<'static>,
 }
 impl DmaChannel {
     /// Triggers an IRQ whenever this DMA transfer completes successfully.
     pub fn with_irq_notify(mut self) -> Self {
         self.irq_notify = true;
+        self
+    }
+
+    /// Forces the transfer to be done with 16-bit transfers, even if 32-bit transfers would be
+    /// possible given the size and alignment.
+    pub fn force_u16_transfer(mut self) -> Self {
+        self.force_u16 = true;
         self
     }
 
@@ -137,9 +148,9 @@ impl DmaChannel {
         dst: *mut T,
         word_count: usize,
     ) -> &mut Self {
-        let is_u32 = if core::mem::size_of::<T>() == 2 && core::mem::align_of::<T>() == 2 {
+        let is_u32 = if mem::size_of::<T>() == 2 && mem::align_of::<T>() == 2 {
             false
-        } else if core::mem::size_of::<T>() == 4 && core::mem::align_of::<T>() == 4 {
+        } else if mem::size_of::<T>() == 4 && mem::align_of::<T>() == 4 {
             true
         } else {
             dma_invalid_size()
@@ -200,37 +211,13 @@ impl DmaChannel {
             src,
             dst,
             byte_count,
+            self.force_u16,
         );
         let cnt = DmaCnt::default()
             .with_send_irq(self.irq_notify)
             .with_transfer_u32(is_u32)
             .with_enabled(true);
         raw_tx(self.channel, src, dst, word_count, cnt);
-        self
-    }
-
-    #[inline]
-    #[track_caller]
-    pub(crate) unsafe fn unsafe_transfer_u16(
-        &mut self,
-        src: *const u16,
-        dst: *mut u16,
-        word_count: usize,
-    ) -> &mut Self {
-        check_dma(
-            self.channel.is_source_internal_only(),
-            self.channel.is_target_internal_only(),
-            src,
-            dst,
-            word_count,
-        );
-        if word_count >= 0x10000 {
-            dma_too_large()
-        }
-        let cnt = DmaCnt::default()
-            .with_send_irq(self.irq_notify)
-            .with_enabled(true);
-        raw_tx(self.channel, src as *const _, dst as *mut _, word_count as u16, cnt);
         self
     }
 }

@@ -39,6 +39,7 @@
 #![feature(panic_info_message)]
 #![feature(slice_ptr_get)]
 #![feature(doc_cfg)]
+#![feature(linkage)]
 #![no_std]
 
 extern crate alloc;
@@ -60,6 +61,8 @@ pub mod timer;
 // public reexports
 #[cfg(feature = "low_level")]
 pub use asm::{init_lgba, setup_lgba};
+#[cfg(feature = "low_level")]
+pub use lgba_macros::unsafe_alloc_zones;
 pub use lgba_macros::{arm, entry, ewram, iwram, thumb};
 
 // hack for the procedural macros
