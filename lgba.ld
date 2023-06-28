@@ -32,6 +32,10 @@ SECTIONS {
         __ewram_start = ABSOLUTE(.);
         *(.ewram .ewram.*);
         . = ALIGN(4);
+    } >ewram AT>rom
+    .ewram_text : {
+        *(.ewram_text .ewram_text.*);
+        . = ALIGN(4);
         __ewram_end = ABSOLUTE(.);
     } >ewram AT>rom
 
@@ -41,6 +45,10 @@ SECTIONS {
         __iwram_start = ABSOLUTE(.);
         *(.data .data.*);
         *(.iwram .iwram.*);
+        . = ALIGN(4);
+    } >iwram AT>rom
+    .iwram_text : {
+        *(.iwram_text .iwram_text.*);
         . = ALIGN(4);
         __iwram_end = ABSOLUTE(.);
     } >iwram AT>rom

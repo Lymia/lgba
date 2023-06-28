@@ -19,6 +19,7 @@ fn check_bounds(offset: usize, len: usize) -> Result<(), Error> {
 }
 
 /// The [`RawSaveAccess`] used for battery backed SRAM.
+#[derive(Debug)]
 pub struct BatteryBackedAccess;
 impl RawSaveAccess for BatteryBackedAccess {
     fn on_create(&self) {

@@ -437,6 +437,7 @@ impl ChipInfo {
 }
 
 /// The [`RawSaveAccess`] used for flash save media.
+#[derive(Debug)]
 pub struct FlashAccess;
 impl RawSaveAccess for FlashAccess {
     fn on_create(&self) {}

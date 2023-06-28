@@ -21,7 +21,9 @@ pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
         WaitText,
         WaitRoData,
         WaitEwram,
+        WaitEwramText,
         WaitIwram,
+        WaitIwramText,
         WaitBss,
         End,
     }
@@ -60,10 +62,20 @@ pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
             State::WaitEwram => {
                 assert_eq!(name, ".ewram", "Wrong section found!");
                 rom_program.extend(segment_data);
+                state = State::WaitEwramText;
+            }
+            State::WaitEwramText => {
+                assert_eq!(name, ".ewram_text", "Wrong section found!");
+                rom_program.extend(segment_data);
                 state = State::WaitIwram;
             }
             State::WaitIwram => {
                 assert_eq!(name, ".iwram", "Wrong section found!");
+                rom_program.extend(segment_data);
+                state = State::WaitIwramText;
+            }
+            State::WaitIwramText => {
+                assert_eq!(name, ".iwram_text", "Wrong section found!");
                 rom_program.extend(segment_data);
                 state = State::WaitBss;
             }

@@ -170,7 +170,7 @@ impl MediaInfo {
 }
 
 /// A trait allowing low-level saving and writing to save media.
-trait RawSaveAccess: Sync {
+trait RawSaveAccess: core::fmt::Debug + Sync {
     fn on_create(&self);
     fn info(&self) -> Result<&'static MediaInfo, Error>;
     fn read(&self, offset: usize, buffer: &mut [u8], timeout: &mut Timeout) -> Result<(), Error>;
@@ -208,6 +208,7 @@ impl SaveAccess {
     fn new(timer: Option<TimerId>) -> Result<SaveAccess, Error> {
         match get_save_implementation() {
             Some(access) => {
+                crate::println!("{access:?}");
                 access.on_create();
                 Ok(SaveAccess {
                     _lock: utils::lock_media_access()?,

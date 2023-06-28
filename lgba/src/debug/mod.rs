@@ -9,7 +9,7 @@ use crate::{
         emulator,
         emulator::{MgbaDebugFlag, MgbaDebugLevel},
     },
-    sync::{InitOnce, Static},
+    sync::Static,
 };
 use core::fmt::{Arguments, Debug, Error, Write};
 
@@ -21,6 +21,7 @@ pub enum DebugLevel {
     Warn,
     Info,
     Debug,
+    Trace,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -30,33 +31,29 @@ enum DebugType {
     NoCash,
 }
 
-/// Debug interface detection only happens once.
-static CACHED_DEBUG_TYPE: InitOnce<DebugType> = InitOnce::new();
-fn detect_debug_type() -> DebugType {
-    *CACHED_DEBUG_TYPE.get(|| {
-        crate::irq::suppress(|| {
-            // check if this is mgba
-            emulator::MGBA_DEBUG_ENABLE.write(emulator::MGBA_DEBUG_ENABLE_INPUT);
-            if emulator::MGBA_DEBUG_ENABLE.read() == emulator::MGBA_DEBUG_ENABLE_OUTPUT {
-                return DebugType::MGba;
-            }
+/// Debug interface detection
+static DEBUG_TYPE: Static<DebugType> = Static::new(DebugType::None);
+static DEBUG_MASTER_FLAG: Static<bool> = Static::new(false);
+fn detect_debug_type() {
+    crate::irq::suppress(|| {
+        // check if this is mgba
+        emulator::MGBA_DEBUG_ENABLE.write(emulator::MGBA_DEBUG_ENABLE_INPUT);
+        if emulator::MGBA_DEBUG_ENABLE.read() == emulator::MGBA_DEBUG_ENABLE_OUTPUT {
+            DEBUG_TYPE.write(DebugType::MGba);
+            DEBUG_MASTER_FLAG.write(true);
+            return;
+        }
 
-            // check if this is no$gba
-            let is_no_cash = (0..emulator::NO_CASH_EXPECTED_SIG.len()).all(|i| {
-                emulator::NO_CASH_SIG.index(i).read() == emulator::NO_CASH_EXPECTED_SIG[i]
-            });
-            if is_no_cash {
-                return DebugType::NoCash;
-            }
-
-            // we are either on real hardware or an emulator we don't recognize
-            DEBUG_MASTER_FLAG.write(false);
-            DebugType::None
-        })
+        // check if this is no$gba
+        let is_no_cash = (0..emulator::NO_CASH_EXPECTED_SIG.len())
+            .all(|i| emulator::NO_CASH_SIG.index(i).read() == emulator::NO_CASH_EXPECTED_SIG[i]);
+        if is_no_cash {
+            DEBUG_TYPE.write(DebugType::NoCash);
+            DEBUG_MASTER_FLAG.write(true);
+            return;
+        }
     })
 }
-
-static DEBUG_MASTER_FLAG: Static<bool> = Static::new(true);
 
 /// Returns whether debugging will actually log any messages.
 #[inline(always)]
@@ -65,7 +62,7 @@ pub fn is_enabled() -> bool {
 }
 
 struct MGBADebug {
-    flag: emulator::MgbaDebugFlag,
+    flag: MgbaDebugFlag,
     bytes_written: usize,
 }
 impl Write for MGBADebug {
@@ -164,7 +161,7 @@ impl<T: DebugPrintable> DebugPrintableLowered for T {
 
 fn debug_print_0(level: DebugLevel, args: &dyn DebugPrintableLowered) -> Result<(), Error> {
     if DEBUG_MASTER_FLAG.read() {
-        match detect_debug_type() {
+        match DEBUG_TYPE.read() {
             DebugType::None => Ok(()),
             DebugType::MGba => {
                 let level = match level {
@@ -172,6 +169,7 @@ fn debug_print_0(level: DebugLevel, args: &dyn DebugPrintableLowered) -> Result<
                     DebugLevel::Warn => MgbaDebugLevel::Warn,
                     DebugLevel::Info => MgbaDebugLevel::Info,
                     DebugLevel::Debug => MgbaDebugLevel::Debug,
+                    DebugLevel::Trace => MgbaDebugLevel::Debug,
                 };
                 args.print_mgba(MGBADebug {
                     flag: MgbaDebugFlag::default().with_level(level).with_send(true),
@@ -186,6 +184,7 @@ fn debug_print_0(level: DebugLevel, args: &dyn DebugPrintableLowered) -> Result<
                     DebugLevel::Warn => write.write_str("Warn")?,
                     DebugLevel::Info => write.write_str("Info")?,
                     DebugLevel::Debug => write.write_str("Debug")?,
+                    DebugLevel::Trace => write.write_str("Trace")?,
                 }
                 args.print_nocash(write)
             }
@@ -346,6 +345,19 @@ macro_rules! debug {
     };
 }
 
+/// Logs a message in the debug log at the trace level.
+///
+/// This macro takes an argument list identical to [`format_args!`]. See the documentation for
+/// that macro for further details.
+///
+/// [`format_args!`]: https://doc.rust-lang.org/std/macro.format_args.html
+#[macro_export]
+macro_rules! trace {
+    ($($rest:tt)*) => {
+        $crate::log!(Trace, $($rest)*)
+    };
+}
+
 /// Prints and returns the value of a given expression for quick and dirty debugging.
 ///
 /// This is based on the [`std::dbg!`](https://doc.rust-lang.org/std/macro.dbg.html) macro (which
@@ -377,4 +389,17 @@ macro_rules! dbg {
     ($($val:expr),+ $(,)?) => {
         ($($crate::dbg!($val)),+,)
     };
+}
+
+#[cfg(feature = "log")]
+mod log;
+
+pub(crate) fn init_debug() {
+    detect_debug_type();
+
+    // initialize `log` logger
+    #[cfg(feature = "log")]
+    unsafe {
+        ::log::set_logger_racy(&log::GbaLogger).unwrap();
+    }
 }

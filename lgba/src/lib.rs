@@ -8,6 +8,10 @@
 //! * The `low_level` feature enables low-level and extremely unsafe functions that are not useful
 //!   for typical homebrew. The features used here are meant for software such as ROM hacks that
 //!   must manually setup `lgba` and work with existing hardware state controlled by external code.
+//! * The `log` feature enables compatibility with the [`log`] crate, registering a logger on
+//!   startup.
+//!
+//! [`log`]: https://docs.rs/log/latest/log/
 //!
 //! # Using a custom entry point
 //!

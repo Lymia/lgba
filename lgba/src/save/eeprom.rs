@@ -245,6 +245,7 @@ const PROPS_512B: EepromProperties = EepromProperties { addr_bits: 6, byte_len: 
 const PROPS_8K: EepromProperties = EepromProperties { addr_bits: 14, byte_len: 8 * 1024 };
 
 /// The [`RawSaveAccess`] used for 512 byte EEPROM.
+#[derive(Debug)]
 pub struct Eeprom512B;
 impl RawSaveAccess for Eeprom512B {
     fn on_create(&self) {
@@ -276,6 +277,7 @@ impl RawSaveAccess for Eeprom512B {
 }
 
 /// The [`RawSaveAccess`] used for 8 KiB EEPROM.
+#[derive(Debug)]
 pub struct Eeprom8K;
 impl RawSaveAccess for Eeprom8K {
     fn on_create(&self) {

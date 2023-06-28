@@ -23,6 +23,7 @@ low_level = []
 enumset = "1"
 num_enum = { version = "0.6", default-features = false }
 linked_list_allocator = { version = "0.10", optional = true, features = ["alloc_ref"], default-features = false }
+log = { version = "0.4", optional = true, default-features = false }
 
 lgba_macros = { version = "0.1", path = "../lgba_macros" }
 lgba_phf = { version = "0.1", path = "../lgba_phf" }

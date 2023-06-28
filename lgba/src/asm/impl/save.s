@@ -3,7 +3,7 @@
 @
 @ A routine that reads a byte from a given memory offset.
 @
-    .section .iwram.__lgba_ReadByte, "ax", %progbits
+    .section .iwram_text.__lgba_ReadByte, "ax", %progbits
     .thumb_func
     .global __lgba_ReadByte
 __lgba_ReadByte:
@@ -15,7 +15,7 @@ __lgba_ReadByte:
 @
 @ A routine that compares two memory offsets.
 @
-    .section .iwram.__lgba_VerifyBuf, "ax", %progbits
+    .section .iwram_text.__lgba_VerifyBuf, "ax", %progbits
     .thumb_func
     .global __lgba_VerifyBuf
 __lgba_VerifyBuf:
@@ -43,7 +43,7 @@ __lgba_VerifyBuf:
 @
 @ A routine that copies one buffer into another.
 @
-    .section .iwram.__lgba_TransferBuf, "ax", %progbits
+    .section .iwram_text.__lgba_TransferBuf, "ax", %progbits
     .thumb_func
     .global __lgba_TransferBuf
 __lgba_TransferBuf:

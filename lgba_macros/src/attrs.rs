@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as SynTokenStream};
 use quote::quote;
 use std::hash::{Hash, Hasher};
-use syn::{spanned::Spanned, Error, ItemFn, ReturnType, Type};
+use syn::{spanned::Spanned, Error, ItemFn, ReturnType, Type, ImplItemFn};
 
 /// Decodes the custom attributes for our custom derive.
 #[derive(FromAttributes, Default, Hash)]
@@ -26,10 +26,30 @@ struct EntryAttrs {
     stack_size: Option<usize>,
 }
 
+enum ItemType {
+    Function,
+    Other,
+}
+impl ItemType {
+    fn type_for(input: TokenStream) -> ItemType {
+        if syn::parse::<ItemFn>(input.clone()).is_ok() {
+            ItemType::Function
+        } else if syn::parse::<ImplItemFn>(input.clone()).is_ok() {
+            ItemType::Function
+        } else {
+            ItemType::Other
+        }
+    }
+}
+
 pub fn iwram_impl(input: TokenStream) -> TokenStream {
     let input: SynTokenStream = input.into();
+    let section = match ItemType::type_for(input.clone().into()) {
+        ItemType::Function => ".iwram_text",
+        ItemType::Other => ".iwram",
+    };
     (quote! {
-        #[link_section = ".iwram"]
+        #[link_section = #section]
         #input
     })
     .into()
@@ -38,8 +58,12 @@ pub fn iwram_impl(input: TokenStream) -> TokenStream {
 /// Stores the item this is placed on in ewram rather than its default location.
 pub fn ewram_impl(input: TokenStream) -> TokenStream {
     let input: SynTokenStream = input.into();
+    let section = match ItemType::type_for(input.clone().into()) {
+        ItemType::Function => ".ewram_text",
+        ItemType::Other => ".ewram",
+    };
     (quote! {
-        #[link_section = ".ewram"]
+        #[link_section = #section]
         #input
     })
     .into()

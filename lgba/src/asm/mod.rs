@@ -26,6 +26,9 @@ mod interface {
         *int_canary = __lgba_config_canary;
         *user_canary = __lgba_config_canary;
 
+        // initialize the logger
+        crate::debug::init_debug();
+
         // initialize the global allocator
         #[cfg(feature = "allocator")]
         crate::sys::allocator::init_rust_alloc();
@@ -117,7 +120,7 @@ pub use interface::{
 };
 
 /// Copies data from a given memory address into a buffer.
-#[inline(always)]
+#[inline(never)]
 pub unsafe fn sram_read_raw_buf(dst: &mut [u8], src: usize) {
     if !dst.is_empty() {
         interface::__lgba_TransferBuf(src as _, dst.as_mut_ptr(), dst.len());
@@ -125,7 +128,7 @@ pub unsafe fn sram_read_raw_buf(dst: &mut [u8], src: usize) {
 }
 
 /// Copies data from a buffer into a given memory address.
-#[inline(always)]
+#[inline(never)]
 pub unsafe fn sram_write_raw_buf(dst: usize, src: &[u8]) {
     if !src.is_empty() {
         interface::__lgba_TransferBuf(src.as_ptr(), dst as _, src.len());
@@ -133,7 +136,7 @@ pub unsafe fn sram_write_raw_buf(dst: usize, src: &[u8]) {
 }
 
 /// Verifies that the data in a buffer matches that in a given memory address.
-#[inline(always)]
+#[inline(never)]
 pub unsafe fn sram_verify_raw_buf(buf1: &[u8], buf2: usize) -> bool {
     if !buf1.is_empty() {
         interface::__lgba_VerifyBuf(buf1.as_ptr(), buf2 as _, buf1.len() - 1)
