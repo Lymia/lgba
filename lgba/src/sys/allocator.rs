@@ -58,7 +58,7 @@ unsafe impl GlobalAlloc for DefaultAlloc {
 
         let mut zones = HEAP_ZONES.lock();
         let zones = zones.as_mut().unwrap();
-        for (range, zone) in zones.iter_mut() {
+        for (_, zone) in zones.iter_mut() {
             match alloc(zone, layout) {
                 Ok(v) => return v.as_ptr().as_mut_ptr(),
                 Err(_) => {}

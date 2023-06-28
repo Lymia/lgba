@@ -11,10 +11,10 @@ resolver = "2"
 
 [profile.dev]
 opt-level = 1
-debug = 1
+debug = 2
 lto = false
 
 [profile.release]
 opt-level = 3
-debug = 1
+debug = 2
 lto = true

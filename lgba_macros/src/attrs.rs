@@ -83,7 +83,7 @@ pub fn unsafe_alloc_zones(args: TokenStream, input: TokenStream) -> TokenStream 
         #input
         const _: () = {
             #[export_name = "__lgba_config_alloc_zones"]
-            fn config_alloc_zones(callback: fn(&[Range<usize>])) {
+            pub fn config_alloc_zones(callback: fn(&[Range<usize>])) {
                 #ident(callback)
             }
         };
