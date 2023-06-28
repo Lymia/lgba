@@ -65,6 +65,13 @@ pub use lgba_macros::{arm, entry, ewram, iwram, thumb};
 // hack for the procedural macros
 use crate as lgba;
 
+/// A module allowing easier usage of memory-mapped registers.
+#[cfg(feature = "low_level")]
+#[doc(cfg(feature = "low_level"))]
+pub mod reg {
+    pub use crate::mmio::reg::{RegArray, RegSpanned, Register, Safe, Unsafe};
+}
+
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {

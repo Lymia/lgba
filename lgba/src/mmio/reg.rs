@@ -5,11 +5,19 @@ use crate::mmio::{
 use core::{ffi::c_void, marker::PhantomData};
 use enumset::EnumSet;
 
+// TODO: Document and consider using voladdress.
+
+/// Marks registers that are safe to read or write.
+#[doc(cfg(feature = "low_level"))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum Safe {}
+
+/// Marks registers that are unsafe to read or write.
+#[doc(cfg(feature = "low_level"))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum Unsafe {}
 
+#[doc(cfg(feature = "low_level"))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct Register<T: Copy, S = Safe>(*mut T, PhantomData<S>);
 impl<T: Copy, S> Register<T, S> {
@@ -40,6 +48,7 @@ impl<T: Copy> Register<T, Unsafe> {
     }
 }
 
+#[doc(cfg(feature = "low_level"))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct RegArray<T: Copy, const COUNT: usize, S = Safe>(*mut T, PhantomData<S>);
 impl<T: Copy, const COUNT: usize, S> RegArray<T, COUNT, S> {
@@ -58,6 +67,7 @@ impl<T: Copy, const COUNT: usize, S> RegArray<T, COUNT, S> {
     }
 }
 
+#[doc(cfg(feature = "low_level"))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct RegSpanned<T: Copy, const COUNT: usize, const SPAN: usize, S = Safe>(
     *mut T,
