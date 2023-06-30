@@ -62,7 +62,10 @@ fn execute(cli: Cli) -> Result<()> {
 }
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    env_logger::init();
 
     let cli = Cli::parse();
     match execute(cli) {

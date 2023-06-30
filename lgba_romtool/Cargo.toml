@@ -14,7 +14,7 @@ license = "MIT/Apache-2.0"
 
 [features]
 default = ["binary"]
-binary = ["clap", "tracing-subscriber"]
+binary = ["clap", "env_logger"]
 
 [dependencies]
 anyhow = "1.0"
@@ -22,8 +22,8 @@ byteorder = "1.4"
 derive_setters = "0.1"
 dirs = "5.0"
 goblin = "0.6"
-tracing = "0.1"
+log = "0.4"
 
 # Only used for the binary
 clap = { version = "4.3", optional = true, features = ["derive", "color"] }
-tracing-subscriber = { version = "0.3", optional = true }
+env_logger = { version = "0.10", optional = true }

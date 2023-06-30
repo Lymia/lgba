@@ -1,7 +1,7 @@
 use anyhow::*;
 use derive_setters::Setters;
 use std::{path::PathBuf, process::Command};
-use tracing::{debug, info};
+use log::{debug, info};
 
 #[derive(Setters)]
 #[setters(strip_option)]
@@ -12,14 +12,17 @@ pub struct BuildBinConfig {
     output: PathBuf,
     #[setters(into)]
     linker_script: Option<PathBuf>,
+    linker_script_data: Option<String>,
 }
 impl BuildBinConfig {
     pub fn new(package: String, output: PathBuf) -> Self {
-        BuildBinConfig { package, output, linker_script: None }
+        BuildBinConfig { package, output, linker_script: None, linker_script_data: None }
     }
 }
 
 pub fn build_bin(args: &BuildBinConfig) -> Result<()> {
+    assert!(!(args.linker_script.is_some() && args.linker_script_data.is_some()));
+
     info!("Compiling package {} to '{}'...", args.package, args.output.display());
 
     let home = dirs::home_dir().expect("Could not find home directory");
@@ -33,7 +36,11 @@ pub fn build_bin(args: &BuildBinConfig) -> Result<()> {
     let linker_script = match &args.linker_script {
         None => {
             let tmp_path = PathBuf::from(format!("{}/target/lgba.ld", rootdir.display()));
-            std::fs::write(&tmp_path, include_bytes!("lgba.ld"))?;
+            if let Some(linker_script_data) = &args.linker_script_data {
+                std::fs::write(&tmp_path, linker_script_data)?;
+            } else {
+                std::fs::write(&tmp_path, include_bytes!("lgba.ld"))?;
+            }
             tmp_path
         }
         Some(script) => script.clone(),

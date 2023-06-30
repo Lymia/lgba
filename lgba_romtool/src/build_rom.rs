@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, LE};
 use derive_setters::Setters;
 use goblin::elf::section_header::SHF_ALLOC;
 use std::{io::Cursor, path::PathBuf};
-use tracing::{debug, error, info};
+use log::{debug, error, info};
 
 #[derive(Setters)]
 #[setters(strip_option)]
