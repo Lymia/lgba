@@ -18,6 +18,8 @@ default = ["allocator"]
 allocator = ["linked_list_allocator"]
 # Enables low-level features
 low_level = []
+# Disables debugging functionality entirely
+disable_debug = ["log/max_level_off", "log/release_max_level_off"]
 
 [dependencies]
 enumset = "1"

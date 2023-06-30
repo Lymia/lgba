@@ -8,7 +8,7 @@ run-example name:
     mgba-qt "target/roms/{{name}}.gba"
 
 doc:
-    cargo doc -Z build-std=std,core,alloc --target "{{local_target}}" -p lgba -p lgba_phf --all-features
+    cargo doc -Z build-std=std,core,alloc -p lgba -p lgba_phf --all-features
 
 #####################
 # Builder functions #
@@ -18,29 +18,33 @@ _roms_directory:
     mkdir -p target/roms
 
 _build_romtool:
-    cargo build --target "{{local_target}}" -Z build-std=std,core,alloc -p lgba_romtool
+    cargo build -p lgba_romtool
 
 _build_example name: _build_romtool _roms_directory
-    cargo build -p "{{name}}" --release
-    "{{romtool}}" build-rom "target/thumbv4t-none-eabi/release/{{name}}" "target/roms/{{name}}.gba"
+    "{{romtool}}" build-bin "{{name}}" "target/roms/{{name}}.elf"
+    "{{romtool}}" build-rom "target/roms/{{name}}.elf" "target/roms/{{name}}.gba"
 
 ####################
 # Helper functions #
 ####################
 
-target_suffix := if os() == "linux" {
-    "-unknown-linux-gnu"
-} else if os() == "windows" {
-    "-pc-windows-msvc"
-} else if os() == "macos" {
-    "-apple-darwin"
-} else {
-    error("unknown platform")
-}
-local_target := arch() + target_suffix
-
 romtool := if os_family() == "windows" {
-    "target/" + local_target + "/debug/lgba_romtool.exe"
+    "target/debug/lgba_romtool.exe"
 } else {
-    "target/" + local_target + "/debug/lgba_romtool"
+    "target/debug/lgba_romtool"
 }
+
+home_path := env_var('HOME')
+sysroot_path := `rustc +nightly --print sysroot`
+rootdir := justfile_directory()
+export RUSTFLAGS := "
+    -Z trim-diagnostic-paths=on
+    --remap-path-prefix " + home_path + "/=/
+    --remap-path-prefix " + home_path + "/.cargo/=/
+    --remap-path-prefix " + home_path + "/.cargo/registry/src/github.com-1ecc6299db9ec823/=/
+    --remap-path-prefix " + home_path + "/.cargo/git/checkouts/=/
+    --remap-path-prefix " + sysroot_path + "/lib/rustlib/src/=
+    --remap-path-prefix " + sysroot_path + "/lib/rustlib/src/rust/library/=rustlib
+    --remap-path-prefix " + rootdir + "/=
+    --remap-path-prefix " + rootdir + "/src/=
+"

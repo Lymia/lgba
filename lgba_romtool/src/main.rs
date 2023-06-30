@@ -1,7 +1,10 @@
+#![feature(exit_status_error)]
+
 use anyhow::*;
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, result::Result::Ok};
 
+mod build_bin;
 mod build_rom;
 
 #[derive(Parser)]
@@ -12,15 +15,28 @@ struct Cli {
     command: Commands,
 }
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+struct BuildBin {
+    #[arg(long)]
+    linker_script: Option<PathBuf>,
+    package_name: String,
+    output_path: PathBuf,
+}
+
 #[derive(Subcommand)]
 enum Commands {
-    /// Converts an ELF format binary to a proper GBA ROM
-    BuildROM { elf_path: PathBuf, rom_path: PathBuf },
+    /// Compiles a GBA binary from a cargo package
+    BuildBin(BuildBin),
+    /// Converts a GBA binary to a proper GBA ROM
+    BuildRom { elf_path: PathBuf, rom_path: PathBuf },
 }
 
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::BuildROM { elf_path, rom_path } => build_rom::build_rom(&elf_path, &rom_path)?,
+        Commands::BuildBin(v) => build_bin::build_bin(&v)?,
+        Commands::BuildRom { elf_path, rom_path } => build_rom::build_rom(&elf_path, &rom_path)?,
     }
     Ok(())
 }

@@ -1,6 +1,0 @@
-[unstable]
-build-std = ["core", "alloc", "std"]
-build-std-features = []
-
-[build]
-target = "x86_64-unknown-linux-gnu"

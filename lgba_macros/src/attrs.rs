@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as SynTokenStream};
 use quote::quote;
 use std::hash::{Hash, Hasher};
-use syn::{spanned::Spanned, Error, ItemFn, ReturnType, Type, ImplItemFn};
+use syn::{spanned::Spanned, Error, ImplItemFn, ItemFn, ReturnType, Type};
 
 /// Decodes the custom attributes for our custom derive.
 #[derive(FromAttributes, Default, Hash)]
