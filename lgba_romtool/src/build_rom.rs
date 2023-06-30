@@ -1,15 +1,30 @@
 use anyhow::*;
 use byteorder::{ReadBytesExt, LE};
+use derive_setters::Setters;
 use goblin::elf::section_header::SHF_ALLOC;
-use std::{io::Cursor, path::Path};
+use std::{io::Cursor, path::PathBuf};
 use tracing::{debug, error, info};
 
-pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
-    info!("Translating '{}' -> '{}'", elf_path.display(), rom_path.display());
+#[derive(Setters)]
+#[setters(strip_option)]
+pub struct BuildRomConfig {
+    #[setters(skip)]
+    binary: PathBuf,
+    #[setters(skip)]
+    output: PathBuf,
+}
+impl BuildRomConfig {
+    pub fn new(binary: PathBuf, output: PathBuf) -> Self {
+        BuildRomConfig { binary, output }
+    }
+}
+
+pub fn build_rom(args: &BuildRomConfig) -> Result<()> {
+    info!("Translating '{}' -> '{}'", args.binary.display(), args.output.display());
 
     // parse binary and translate into a GBA file
     info!("Parsing binary...");
-    let data = std::fs::read(elf_path)?;
+    let data = std::fs::read(&args.binary)?;
     let elf = goblin::elf::Elf::parse(&data)?;
 
     assert!(!elf.is_lib, "Error: Given ELF file is a dynamic library.");
@@ -152,7 +167,7 @@ pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
     info!("==================================================================");
     info!("Statistics");
     info!("==================================================================");
-    info!("ROM File       : {}", rom_path.display());
+    info!("ROM File       : {}", args.binary.display());
     info!("ROM Version    : {rom_cname} {rom_cver}");
     info!("LGBA Version   : lgba {lgba_version}");
     info!("Bug Report URL : {rom_repository}");
@@ -163,7 +178,7 @@ pub fn build_rom(elf_path: &Path, rom_path: &Path) -> Result<()> {
 
     // write the final ROM file to disk
     info!("Writing rom file...");
-    std::fs::write(rom_path, vec)?;
+    std::fs::write(&args.output, vec)?;
     info!("Done!");
 
     Ok(())

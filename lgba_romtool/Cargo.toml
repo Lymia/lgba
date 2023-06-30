@@ -13,12 +13,17 @@ readme = "../README.md"
 license = "MIT/Apache-2.0"
 
 [features]
+default = ["binary"]
+binary = ["clap", "tracing-subscriber"]
 
 [dependencies]
 anyhow = "1.0"
 byteorder = "1.4"
-clap = { version = "4.3", features = ["derive", "color"] }
+derive_setters = "0.1"
 dirs = "5.0"
 goblin = "0.6"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+
+# Only used for the binary
+clap = { version = "4.3", optional = true, features = ["derive", "color"] }
+tracing-subscriber = { version = "0.3", optional = true }

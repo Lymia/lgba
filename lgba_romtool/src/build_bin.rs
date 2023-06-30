@@ -1,10 +1,26 @@
-use crate::BuildBin;
 use anyhow::*;
+use derive_setters::Setters;
 use std::{path::PathBuf, process::Command};
 use tracing::{debug, info};
 
-pub(crate) fn build_bin(args: &BuildBin) -> Result<()> {
-    info!("Compiling package {} to '{}'...", args.package_name, args.output_path.display());
+#[derive(Setters)]
+#[setters(strip_option)]
+pub struct BuildBinConfig {
+    #[setters(skip)]
+    package: String,
+    #[setters(skip)]
+    output: PathBuf,
+    #[setters(into)]
+    linker_script: Option<PathBuf>,
+}
+impl BuildBinConfig {
+    pub fn new(package: String, output: PathBuf) -> Self {
+        BuildBinConfig { package, output, linker_script: None }
+    }
+}
+
+pub fn build_bin(args: &BuildBinConfig) -> Result<()> {
+    info!("Compiling package {} to '{}'...", args.package, args.output.display());
 
     let home = dirs::home_dir().expect("Could not find home directory");
     let sysroot = String::from_utf8(
@@ -19,7 +35,7 @@ pub(crate) fn build_bin(args: &BuildBin) -> Result<()> {
             let tmp_path = PathBuf::from(format!("{}/target/lgba.ld", rootdir.display()));
             std::fs::write(&tmp_path, include_bytes!("lgba.ld"))?;
             tmp_path
-        },
+        }
         Some(script) => script.clone(),
     };
     let rust_args = format!(
@@ -55,7 +71,7 @@ pub(crate) fn build_bin(args: &BuildBin) -> Result<()> {
     debug!("rustc flags: {cleaned_args:?}");
     Command::new("cargo")
         .arg("+nightly")
-        .args(["build", "-p", &args.package_name, "--release"])
+        .args(["build", "-p", &args.package, "--release"])
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
         .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])
@@ -64,10 +80,9 @@ pub(crate) fn build_bin(args: &BuildBin) -> Result<()> {
         .exit_ok()?;
 
     info!("Copying binary...");
-    let output_path =
-        PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package_name));
-    debug!("output path: {}", output_path.display());
-    std::fs::copy(output_path, &args.output_path)?;
+    let final_path = PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package));
+    debug!("output path: {}", final_path.display());
+    std::fs::copy(final_path, &args.output)?;
 
     Ok(())
 }

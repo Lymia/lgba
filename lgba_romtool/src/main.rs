@@ -1,11 +1,10 @@
-#![feature(exit_status_error)]
-
 use anyhow::*;
 use clap::{Parser, Subcommand};
+use lgba_romtool::{BuildBinConfig, BuildRomConfig};
 use std::{path::PathBuf, result::Result::Ok};
 
-mod build_bin;
-mod build_rom;
+#[cfg(not(feature = "binary"))]
+compile_error!("`binary` feature must be enabled to compile binary. -w-");
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -21,8 +20,20 @@ struct Cli {
 struct BuildBin {
     #[arg(long)]
     linker_script: Option<PathBuf>,
-    package_name: String,
-    output_path: PathBuf,
+    #[arg(short = 'p', long)]
+    package: String,
+    #[arg(short = 'o', long)]
+    output: PathBuf,
+}
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+struct BuildRom {
+    #[arg(short = 'b', long)]
+    binary: PathBuf,
+    #[arg(short = 'o', long)]
+    output: PathBuf,
 }
 
 #[derive(Subcommand)]
@@ -30,16 +41,26 @@ enum Commands {
     /// Compiles a GBA binary from a cargo package
     BuildBin(BuildBin),
     /// Converts a GBA binary to a proper GBA ROM
-    BuildRom { elf_path: PathBuf, rom_path: PathBuf },
+    BuildRom(BuildRom),
 }
 
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::BuildBin(v) => build_bin::build_bin(&v)?,
-        Commands::BuildRom { elf_path, rom_path } => build_rom::build_rom(&elf_path, &rom_path)?,
+        Commands::BuildBin(v) => {
+            let mut config = BuildBinConfig::new(v.package, v.output);
+            if let Some(linker_script) = v.linker_script {
+                config = config.linker_script(linker_script);
+            }
+            lgba_romtool::build_bin(&config)?;
+        }
+        Commands::BuildRom(v) => {
+            let config = BuildRomConfig::new(v.binary, v.output);
+            lgba_romtool::build_rom(&config)?;
+        }
     }
     Ok(())
 }
+
 fn main() {
     tracing_subscriber::fmt::init();
 
