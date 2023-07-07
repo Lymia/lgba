@@ -21,7 +21,7 @@ anyhow = "1.0"
 byteorder = "1.4"
 derive_setters = "0.1"
 dirs = "5.0"
-goblin = "0.6"
+goblin = "0.7"
 log = "0.4"
 
 # Only used for the binary

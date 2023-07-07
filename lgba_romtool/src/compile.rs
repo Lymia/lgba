@@ -1,11 +1,11 @@
 use anyhow::*;
 use derive_setters::Setters;
-use std::{path::PathBuf, process::Command};
 use log::{debug, info};
+use std::{path::PathBuf, process::Command};
 
 #[derive(Setters)]
 #[setters(strip_option)]
-pub struct BuildBinConfig {
+pub struct CompileConfig {
     #[setters(skip)]
     package: String,
     #[setters(skip)]
@@ -14,13 +14,13 @@ pub struct BuildBinConfig {
     linker_script: Option<PathBuf>,
     linker_script_data: Option<String>,
 }
-impl BuildBinConfig {
+impl CompileConfig {
     pub fn new(package: String, output: PathBuf) -> Self {
-        BuildBinConfig { package, output, linker_script: None, linker_script_data: None }
+        CompileConfig { package, output, linker_script: None, linker_script_data: None }
     }
 }
 
-pub fn build_bin(args: &BuildBinConfig) -> Result<()> {
+pub fn compile(args: &CompileConfig) -> Result<()> {
     assert!(!(args.linker_script.is_some() && args.linker_script_data.is_some()));
 
     info!("Compiling package {} to '{}'...", args.package, args.output.display());

@@ -1,7 +1,7 @@
 use anyhow::*;
 use clap::{Parser, Subcommand};
-use lgba_romtool::{BuildBinConfig, BuildRomConfig};
-use std::{path::PathBuf, result::Result::Ok};
+use lgba_romtool::{CompileConfig, RomData};
+use std::{fs, path::PathBuf, result::Result::Ok};
 
 #[cfg(not(feature = "binary"))]
 compile_error!("`binary` feature must be enabled to compile binary. -w-");
@@ -17,7 +17,7 @@ struct Cli {
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
-struct BuildBin {
+struct Compile {
     #[arg(long)]
     linker_script: Option<PathBuf>,
     #[arg(short = 'p', long)]
@@ -39,23 +39,24 @@ struct BuildRom {
 #[derive(Subcommand)]
 enum Commands {
     /// Compiles a GBA binary from a cargo package
-    BuildBin(BuildBin),
+    Compile(Compile),
     /// Converts a GBA binary to a proper GBA ROM
     BuildRom(BuildRom),
 }
 
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::BuildBin(v) => {
-            let mut config = BuildBinConfig::new(v.package, v.output);
+        Commands::Compile(v) => {
+            let mut config = CompileConfig::new(v.package, v.output);
             if let Some(linker_script) = v.linker_script {
                 config = config.linker_script(linker_script);
             }
-            lgba_romtool::build_bin(&config)?;
+            lgba_romtool::compile(&config)?;
         }
         Commands::BuildRom(v) => {
-            let config = BuildRomConfig::new(v.binary, v.output);
-            lgba_romtool::build_rom(&config)?;
+            let rom = RomData::from_elf(&fs::read(v.binary)?)?;
+            rom.print_statistics()?;
+            fs::write(v.output, rom.produce_rom()?)?;
         }
     }
     Ok(())

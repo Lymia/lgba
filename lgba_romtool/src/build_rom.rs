@@ -1,185 +1,311 @@
-use anyhow::*;
-use byteorder::{ReadBytesExt, LE};
-use derive_setters::Setters;
+use anyhow::{bail, Result};
 use goblin::elf::section_header::SHF_ALLOC;
-use std::{io::Cursor, path::PathBuf};
-use log::{debug, error, info};
+use log::{debug, info, warn};
+use std::{collections::HashMap, fmt, fmt::Formatter, ops::Range};
 
-#[derive(Setters)]
-#[setters(strip_option)]
-pub struct BuildRomConfig {
-    #[setters(skip)]
-    binary: PathBuf,
-    #[setters(skip)]
-    output: PathBuf,
-}
-impl BuildRomConfig {
-    pub fn new(binary: PathBuf, output: PathBuf) -> Self {
-        BuildRomConfig { binary, output }
-    }
+#[derive(Clone, Debug)]
+struct ExhInfo {
+    version: u16,
+    range: Range<usize>,
 }
 
-pub fn build_rom(args: &BuildRomConfig) -> Result<()> {
-    info!("Translating '{}' -> '{}'", args.binary.display(), args.output.display());
+#[derive(Clone)]
+pub struct RomData {
+    data: Vec<u8>,
+    exh: HashMap<[u8; 4], ExhInfo>,
+    base_addr: Option<usize>,
+}
+impl RomData {
+    /// Produces a ROM from ELF data.
+    pub fn from_elf(elf_data: &[u8]) -> Result<Self> {
+        // parse binary and translate into a GBA file
+        info!("Parsing binary...");
+        let elf = goblin::elf::Elf::parse(elf_data)?;
 
-    // parse binary and translate into a GBA file
-    info!("Parsing binary...");
-    let data = std::fs::read(&args.binary)?;
-    let elf = goblin::elf::Elf::parse(&data)?;
+        assert!(!elf.is_lib, "Error: Given ELF file is a dynamic library.");
+        assert!(!elf.is_64, "Error: Given ELF file is 64-bit.");
 
-    assert!(!elf.is_lib, "Error: Given ELF file is a dynamic library.");
-    assert!(!elf.is_64, "Error: Given ELF file is 64-bit.");
+        let mut rom_program = Vec::<u8>::new();
+        const SECTION_ORDER: &[&str] = &[
+            ".header",
+            ".text",
+            ".rodata",
+            ".ewram",
+            ".ewram_text",
+            ".iwram",
+            ".iwram_text",
+            ".bss",
+        ];
 
-    let mut rom_program = Vec::<u8>::new();
-    enum State {
-        WaitHeader,
-        WaitText,
-        WaitRoData,
-        WaitEwram,
-        WaitEwramText,
-        WaitIwram,
-        WaitIwramText,
-        WaitBss,
-        End,
+        let mut section_no = 0;
+        for segment in &elf.section_headers {
+            let name = elf.shdr_strtab.get_at(segment.sh_name).unwrap();
+            debug!("Found segment: {name} = {segment:?}");
+
+            if segment.sh_flags as u32 & SHF_ALLOC == 0 {
+                continue;
+            }
+
+            let seg_start = segment.sh_offset as usize;
+            let seg_end = (segment.sh_offset + segment.sh_size) as usize;
+            let segment_data = &elf_data[seg_start..seg_end];
+            while rom_program.len() % segment.sh_addralign as usize != 0 {
+                rom_program.push(0);
+            }
+            assert_eq!(name, SECTION_ORDER[section_no], "Wrong section found!");
+            rom_program.extend(segment_data);
+            section_no += 1;
+        }
+        assert_eq!(
+            section_no,
+            SECTION_ORDER.len(),
+            "Expected section not found: {}",
+            SECTION_ORDER[section_no]
+        );
+
+        // build the final GBA file
+        info!("Building rom...");
+        assert!(rom_program.len() <= 1024 * 1024 * 32, "GBA ROMs have a maximum size of 32 MiB");
+        Self::from_bin(&rom_program)
     }
 
-    let mut state = State::WaitHeader;
-    for segment in &elf.section_headers {
-        let name = elf.shdr_strtab.get_at(segment.sh_name).unwrap();
-        debug!("Found segment: {name} = {segment:?}");
-
-        if segment.sh_flags as u32 & SHF_ALLOC == 0 {
-            continue;
+    /// Produces a ROM from binary data.
+    pub fn from_bin(bin_data: &[u8]) -> Result<Self> {
+        // check that this isn't an ELF binary
+        if bin_data.len() >= 4 && &bin_data[0..4] == b"\x7fELF" {
+            bail!("ELF binaries cannot be loaded with from_bin")
         }
 
-        let seg_start = segment.sh_offset as usize;
-        let seg_end = (segment.sh_offset + segment.sh_size) as usize;
-        let segment_data = &data[seg_start..seg_end];
-        while rom_program.len() % segment.sh_addralign as usize != 0 {
-            rom_program.push(0);
-        }
-        match state {
-            State::WaitHeader => {
-                assert_eq!(name, ".header", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitText;
-            }
-            State::WaitText => {
-                assert_eq!(name, ".text", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitRoData;
-            }
-            State::WaitRoData => {
-                assert_eq!(name, ".rodata", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitEwram;
-            }
-            State::WaitEwram => {
-                assert_eq!(name, ".ewram", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitEwramText;
-            }
-            State::WaitEwramText => {
-                assert_eq!(name, ".ewram_text", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitIwram;
-            }
-            State::WaitIwram => {
-                assert_eq!(name, ".iwram", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitIwramText;
-            }
-            State::WaitIwramText => {
-                assert_eq!(name, ".iwram_text", "Wrong section found!");
-                rom_program.extend(segment_data);
-                state = State::WaitBss;
-            }
-            State::WaitBss => {
-                assert_eq!(name, ".bss", "Wrong section found!");
-                state = State::End;
-            }
-            State::End => {
-                panic!("Wrong section found!");
-            }
-        }
-    }
+        // read exheaders
+        let mut exh = HashMap::new();
 
-    // build the final GBA file
-    info!("Building rom...");
-    assert!(rom_program.len() <= 1024 * 1024 * 32, "GBA ROMs have a maximum size of 32 MiB");
+        'find_exh: {
+            // finds the offset of the first exheader
+            let mut offset = 0;
+            'find_first_exh: {
+                while offset < 1024 && offset + 4 <= bin_data.len() {
+                    if &bin_data[offset..offset + 4] == b"lGex" {
+                        break 'find_first_exh;
+                    }
+                    offset += 4;
+                }
 
-    let mut size = None;
-    for s in [1, 2, 4, 8, 16, 32] {
-        if rom_program.len() <= 1024 * 1024 * s {
-            size = Some(1024 * 1024 * s);
-            break;
-        }
-    }
-    let size = size.unwrap();
-
-    let mut vec = vec![0; size];
-    vec[..rom_program.len()].copy_from_slice(&rom_program);
-
-    // print statistics about the ROM generated
-    let mut rom_cname = "unknown_crate";
-    let mut rom_cver = "<unknown>";
-    let mut rom_repository = "<unknown>";
-    let mut lgba_version = "<unknown>";
-    if &rom_program[0xE4..0xEC] == b"lgba_exh" {
-        debug!("Found lgba extra header.");
-
-        let mut read = Cursor::new(&rom_program[0xEC..]);
-        let major = read.read_u16::<LE>()?;
-        let minor = read.read_u16::<LE>()?;
-        debug!("exh version       : {major}.{minor}");
-
-        if major == 1 && minor == 0 {
-            let rom_cname_off = read.read_u32::<LE>()?;
-            let rom_cver_off = read.read_u32::<LE>()?;
-            let rom_repository_off = read.read_u32::<LE>()?;
-            let lgba_version_off = read.read_u32::<LE>()?;
-
-            debug!("rom_cname_off     : 0x{rom_cname_off:x}");
-            debug!("rom_cver_off      : 0x{rom_cver_off:x}");
-            debug!("rom_repository_off: 0x{rom_repository_off:x}");
-            debug!("lgba_version_off  : 0x{lgba_version_off:x}");
-
-            macro_rules! read_str {
-                ($ident:ident, $off:expr) => {{
-                    let mut read = Cursor::new(&rom_program[$off as usize - 0x8000000..]);
-                    // TODO: Don't depend on #[repr(Rust)], that is against the contract -w-
-                    let str_off = read.read_u32::<LE>()? as usize - 0x8000000;
-                    let str_len = read.read_u32::<LE>()? as usize;
-                    let data = &rom_program[str_off..str_off + str_len];
-                    $ident = std::str::from_utf8(data)?;
-                }};
+                // bail out early
+                warn!("Could not find lGex header.");
+                break 'find_exh;
             }
-            read_str!(rom_cname, rom_cname_off);
-            read_str!(rom_cver, rom_cver_off);
-            read_str!(rom_repository, rom_repository_off);
-            read_str!(lgba_version, lgba_version_off);
+
+            // finds each present exheader
+            while offset + 12 <= bin_data.len() {
+                // proper exh end tag
+                if &bin_data[offset..offset + 4] == b"exh_" {
+                    break 'find_exh;
+                }
+
+                // check that we have a correct exheader tag
+                if &bin_data[offset..offset + 4] != b"lGex" {
+                    warn!("Incorrect exheader magic number found! Ignoring exheaders.");
+                    exh.clear();
+                    break 'find_exh;
+                }
+
+                // parse exheader contents
+                let mut tag = [0; 4];
+                tag.copy_from_slice(&bin_data[offset + 4..offset + 8]);
+                let mut version = [0; 2];
+                version.copy_from_slice(&bin_data[offset + 8..offset + 10]);
+                let mut length = [0; 2];
+                length.copy_from_slice(&bin_data[offset + 10..offset + 12]);
+                let version = u16::from_le_bytes(version);
+                let length = u16::from_le_bytes(length);
+
+                // check header for correctness
+                let name = String::from_utf8_lossy(&tag);
+                if exh.contains_key(&tag) {
+                    warn!("Found duplicate exheader: '{}'", name);
+                    continue;
+                }
+                let end_offset = offset + 12 + length as usize;
+                if end_offset > bin_data.len() {
+                    warn!("Exheader length exceeds ROM length. Ignoring exheaders.");
+                    exh.clear();
+                    break 'find_exh;
+                }
+
+                // register header
+                debug!("Found exheader: name = '{}', len = {}", name, length);
+                exh.insert(tag, ExhInfo { version, range: offset + 12..end_offset });
+                offset = end_offset;
+            }
+        };
+
+        // try to calculate the base address
+        let base_addr = if let Some(x) = exh.get(b"meta") {
+            let range = x.range.clone();
+
+            let mut base = [0; 4];
+            base.copy_from_slice(&bin_data[range.start..range.start + 4]);
+            let base = u32::from_le_bytes(base) as usize;
+
+            Some(base - range.start)
         } else {
-            error!("lgba extra header version {major}.{minor} not recognized.");
+            warn!("meta exheader not found!");
+            None
+        };
+
+        Ok(RomData { data: Vec::from(bin_data), exh, base_addr })
+    }
+
+    /// Returns the data underlying this ROM.
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    /// Returns a mutable reference to the data underlying this ROM.
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+
+    /// Returns whether a given exheader exists.
+    pub fn exh_exists(&self, header: &[u8; 4]) -> bool {
+        self.exh.contains_key(header)
+    }
+
+    /// Returns the version for a specific exheader.
+    pub fn exh_version(&self, header: &[u8; 4]) -> Option<u16> {
+        self.exh.get(header).map(|x| x.version)
+    }
+
+    /// Returns the base offset for a specific exheader.
+    pub fn exh_base(&self, header: &[u8; 4]) -> Option<usize> {
+        self.exh.get(header).map(|x| x.range.start + self.base_addr.unwrap())
+    }
+
+    /// Returns the length for a specific exheader.
+    pub fn exh_len(&self, header: &[u8; 4]) -> Option<usize> {
+        self.exh.get(header).map(|x| x.range.len())
+    }
+
+    /// Returns the data for a specific exheader.
+    pub fn exh_data(&self, header: &[u8; 4]) -> Option<&[u8]> {
+        self.exh.get(header).map(|x| &self.data[x.range.clone()])
+    }
+
+    /// Returns a mutable view of the data for a specific exheader.
+    pub fn exh_data_mut(&mut self, header: &[u8; 4]) -> Option<&mut [u8]> {
+        self.exh
+            .get(header)
+            .map(|x| &mut self.data[x.range.clone()])
+    }
+
+    /// Returns the base address of this ROM.
+    pub fn base_addr(&self) -> Result<usize> {
+        match self.base_addr {
+            Some(x) => Ok(x),
+            None => bail!("exheaders could not be loaded."),
         }
     }
 
-    info!("");
-    info!("==================================================================");
-    info!("Statistics");
-    info!("==================================================================");
-    info!("ROM File       : {}", args.binary.display());
-    info!("ROM Version    : {rom_cname} {rom_cver}");
-    info!("LGBA Version   : lgba {lgba_version}");
-    info!("Bug Report URL : {rom_repository}");
-    info!("Code Usage     : {:.1} KiB", rom_program.len() as f32 / 1024.0);
-    info!("Rom Size       : {:} KiB", size / 1024);
-    info!("==================================================================");
-    info!("");
+    /// Reads a `u32` from a given offset
+    pub fn read_u32(&self, offset: usize) -> Result<u32> {
+        let base = self.base_addr()?;
+        let offset = match offset.checked_sub(base) {
+            Some(x) => x,
+            None => bail!("invalid offset"),
+        };
+        if offset + 4 > self.data.len() {
+            bail!("invalid offset");
+        }
 
-    // write the final ROM file to disk
-    info!("Writing rom file...");
-    std::fs::write(&args.output, vec)?;
-    info!("Done!");
+        let mut data = [0; 4];
+        data.copy_from_slice(&self.data[offset..offset + 4]);
+        Ok(u32::from_le_bytes(data))
+    }
 
-    Ok(())
+    /// Reads a `usize` from a given offset.
+    pub fn read_usize(&self, offset: usize) -> Result<usize> {
+        Ok(self.read_u32(offset)? as usize)
+    }
+
+    fn read_str(&self, offset: usize) -> Result<&str> {
+        // TODO: Don't depend on #[repr(Rust)], that is against the contract -w-
+        let base = self.base_addr()?;
+        let start = self.read_usize(offset)? - base;
+        let end = start + self.read_usize(offset + 4)?;
+        Ok(std::str::from_utf8(&self.data[start..end])?)
+    }
+
+    /// Prints statistics about the ROM using the `log` crate.
+    pub fn print_statistics(&self) -> Result<()> {
+        let mut rom_cname = "unknown_crate";
+        let mut rom_cver = "<unknown>";
+        let mut rom_repository = "<unknown>";
+        let mut lgba_version = "<unknown>";
+        if let Some(meta_offset) = self.exh_base(b"meta") {
+            if let Ok(str) = self.read_str(self.read_usize(meta_offset + 4)?) {
+                rom_cname = str;
+            }
+            if let Ok(str) = self.read_str(self.read_usize(meta_offset + 8)?) {
+                rom_cver = str;
+            }
+            if let Ok(str) = self.read_str(self.read_usize(meta_offset + 12)?) {
+                rom_repository = str;
+            }
+            if let Ok(str) = self.read_str(self.read_usize(meta_offset + 16)?) {
+                lgba_version = str;
+            }
+        }
+
+        info!("");
+        info!("==================================================================");
+        info!("Statistics");
+        info!("==================================================================");
+        info!("ROM Version    : {rom_cname} {rom_cver}");
+        info!("LGBA Version   : lgba {lgba_version}");
+        info!("Bug Report URL : {rom_repository}");
+        info!("Code Usage     : {:.1} KiB", self.data.len() as f32 / 1024.0);
+        info!("==================================================================");
+        info!("");
+
+        Ok(())
+    }
+
+    /// Produces a binary file based on this data.
+    ///
+    /// The output format is meant to be used with [`from_bin`](`RomData::from_bin`).
+    pub fn produce_bin(&self) -> Result<Vec<u8>> {
+        Ok(self.data.clone())
+    }
+
+    /// Produces a ROM based on this data.
+    pub fn produce_rom(&self) -> Result<Vec<u8>> {
+        info!("Padding rom...");
+
+        let mut size = None;
+        for s in [1, 2, 4, 8, 16, 32] {
+            if self.data.len() <= 1024 * 1024 * s {
+                size = Some(1024 * 1024 * s);
+                break;
+            }
+        }
+        let size = size.unwrap();
+
+        let mut vec = vec![0; size];
+        vec[..self.data.len()].copy_from_slice(&self.data);
+        Ok(vec)
+    }
+}
+impl fmt::Debug for RomData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        struct Length(usize);
+        impl fmt::Debug for Length {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "[{} bytes]", self.0)
+            }
+        }
+        f.debug_struct("RomData")
+            .field("data", &Length(self.data.len()))
+            .field("exh", &self.exh)
+            .finish()
+    }
 }

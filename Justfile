@@ -21,7 +21,7 @@ _build_romtool:
     cargo build -p lgba_romtool
 
 _build_example name: _build_romtool _roms_directory
-    "{{romtool}}" build-bin -p "{{name}}" -o "target/roms/{{name}}.elf"
+    "{{romtool}}" compile -p "{{name}}" -o "target/roms/{{name}}.elf"
     "{{romtool}}" build-rom -b "target/roms/{{name}}.elf" -o "target/roms/{{name}}.gba"
 
 ####################

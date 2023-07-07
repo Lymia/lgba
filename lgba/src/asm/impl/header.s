@@ -17,7 +17,7 @@ __start:
     .byte 0x78,0x00,0x90,0xCB,0x88,0x11,0x3A,0x94,0x65,0xC0,0x7C,0x63,0x87,0xF0,0x3C,0xAF
     .byte 0xD6,0x25,0xE4,0x8B,0x38,0x0A,0xAC,0x72,0x21,0xD4,0xF8,0x07
 
-    .section .lgba.header.extra, "ax", %progbits
+    .section .header.meta, "ax", %progbits
     .arm
     .global __lgba_header_extra
 __lgba_header_extra:
@@ -26,13 +26,20 @@ __lgba_header_extra:
     .space 0x1C
     b __lgba_joybus_start @ joybus entry point; not currently supported
 
-    @ lgba-specific header
-    .ascii "lgba_exh"
-    .short 1
-    .short 0
+    @ lgba metainfo header
+    .ascii "lGex"         @ lGex header
+    .ascii "meta"         @
+    .short 0              @ header version
+    .short 20             @ length
+0:  .word 0b
     .word __lgba_exh_rom_cname
     .word __lgba_exh_rom_cver
     .word __lgba_exh_rom_repository
     .word __lgba_exh_lgba_version
-    .word 0 @ Data partition offset
-    .word 0 @ Data partition information hash
+
+
+    .section .lgba.header.extra_end, "ax", %progbits
+    .arm
+    .global __lgba_header_extra_end
+__lgba_header_extra_end:
+    .ascii "exh_"

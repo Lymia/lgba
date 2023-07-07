@@ -12,8 +12,10 @@ SECTIONS {
         *(.lgba.header.fixed);
         KEEP(*(.lgba.header.dynamic));
         *(.lgba.header.dynamic);
-        KEEP(*(.lgba.header.extra));
-        *(.lgba.header.extra);
+        KEEP(*(.header .header.*));
+        *(.header .header.*);
+        KEEP(*(.lgba.header.extra_end));
+        *(.lgba.header.extra_end);
         . = ALIGN(4);
     } >rom
 

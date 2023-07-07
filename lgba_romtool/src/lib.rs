@@ -1,7 +1,7 @@
 #![feature(exit_status_error)]
 
-mod build_bin;
 mod build_rom;
+mod compile;
 
-pub use build_bin::*;
 pub use build_rom::*;
+pub use compile::*;
