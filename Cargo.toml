@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "lgba",
+    "lgba_common",
     "lgba_macros",
     "lgba_phf",
     "lgba_romtool",

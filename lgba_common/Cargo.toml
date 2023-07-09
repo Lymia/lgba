@@ -1,0 +1,15 @@
+[package]
+name = "lgba_common"
+version = "0.1.0"
+authors = ["Lymia Kanokawa <lymia@lymia.moe>"]
+edition = "2021"
+
+description = "Not public API!"
+license = "MIT/Apache-2.0"
+
+[features]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]

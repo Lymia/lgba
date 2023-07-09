@@ -12,7 +12,7 @@ struct ExhInfo {
 #[derive(Clone)]
 pub struct RomData {
     data: Vec<u8>,
-    exh: HashMap<[u8; 4], ExhInfo>,
+    exh: HashMap<[u8; 4], Vec<ExhInfo>>,
     base_addr: Option<usize>,
 }
 impl RomData {
@@ -134,13 +134,14 @@ impl RomData {
 
                 // register header
                 debug!("Found exheader: name = '{}', len = {}", name, length);
-                exh.insert(tag, ExhInfo { version, range: offset + 12..end_offset });
+                let new_exh = ExhInfo { version, range: offset + 12..end_offset };
+                exh.entry(tag).or_insert(Vec::new()).push(new_exh);
                 offset = end_offset;
             }
         };
 
         // try to calculate the base address
-        let base_addr = if let Some(x) = exh.get(b"meta") {
+        let base_addr = if let Some(x) = exh.get(b"meta").and_then(|x| x.first()) {
             let range = x.range.clone();
 
             let mut base = [0; 4];
@@ -156,6 +157,14 @@ impl RomData {
         Ok(RomData { data: Vec::from(bin_data), exh, base_addr })
     }
 
+    /// Returns the base address of this ROM.
+    pub fn base_addr(&self) -> Result<usize> {
+        match self.base_addr {
+            Some(x) => Ok(x),
+            None => bail!("exheaders could not be loaded."),
+        }
+    }
+
     /// Returns the data underlying this ROM.
     pub fn data(&self) -> &[u8] {
         &self.data
@@ -166,44 +175,41 @@ impl RomData {
         &mut self.data
     }
 
-    /// Returns whether a given exheader exists.
-    pub fn exh_exists(&self, header: &[u8; 4]) -> bool {
-        self.exh.contains_key(header)
-    }
-
-    /// Returns the version for a specific exheader.
-    pub fn exh_version(&self, header: &[u8; 4]) -> Option<u16> {
-        self.exh.get(header).map(|x| x.version)
-    }
-
-    /// Returns the base offset for a specific exheader.
-    pub fn exh_base(&self, header: &[u8; 4]) -> Option<usize> {
-        self.exh.get(header).map(|x| x.range.start + self.base_addr.unwrap())
-    }
-
-    /// Returns the length for a specific exheader.
-    pub fn exh_len(&self, header: &[u8; 4]) -> Option<usize> {
-        self.exh.get(header).map(|x| x.range.len())
-    }
-
-    /// Returns the data for a specific exheader.
-    pub fn exh_data(&self, header: &[u8; 4]) -> Option<&[u8]> {
-        self.exh.get(header).map(|x| &self.data[x.range.clone()])
-    }
-
-    /// Returns a mutable view of the data for a specific exheader.
-    pub fn exh_data_mut(&mut self, header: &[u8; 4]) -> Option<&mut [u8]> {
-        self.exh
-            .get(header)
-            .map(|x| &mut self.data[x.range.clone()])
-    }
-
-    /// Returns the base address of this ROM.
-    pub fn base_addr(&self) -> Result<usize> {
-        match self.base_addr {
-            Some(x) => Ok(x),
-            None => bail!("exheaders could not be loaded."),
+    /// Returns an extra header.
+    pub fn get_exh(&self, header: &[u8; 4]) -> Result<ExHeader> {
+        match self.exh.get(header) {
+            Some(v) => {
+                if v.len() == 1 {
+                    Ok(ExHeader { exh: v[0].clone(), base_addr: self.base_addr()? })
+                } else {
+                    bail!("Multiple headers found. Use `iter_exh` instead.")
+                }
+            }
+            None => bail!("No such header found."),
         }
+    }
+
+    /// Iterates the exheaders for a given item.
+    pub fn iter_exh(&self, header: &[u8; 4]) -> Result<impl Iterator<Item = ExHeader> + '_> {
+        let base_addr = self.base_addr()?;
+        match self.exh.get(header) {
+            Some(v) => Ok(v
+                .iter()
+                .map(move |x| ExHeader { exh: x.clone(), base_addr })),
+            None => bail!("No such header found."),
+        }
+    }
+
+    /// Returns the data for an extra header.
+    pub fn get_exh_data(&self, header: &[u8; 4]) -> Result<&[u8]> {
+        let exh = self.get_exh(header)?;
+        Ok(&self.data[exh.file_range()])
+    }
+
+    /// Returns a mutable view of the data for an extra header.
+    pub fn get_exh_data_mut(&mut self, header: &[u8; 4]) -> Result<&mut [u8]> {
+        let exh = self.get_exh(header)?;
+        Ok(&mut self.data[exh.file_range()])
     }
 
     /// Reads a `u32` from a given offset
@@ -241,7 +247,8 @@ impl RomData {
         let mut rom_cver = "<unknown>";
         let mut rom_repository = "<unknown>";
         let mut lgba_version = "<unknown>";
-        if let Some(meta_offset) = self.exh_base(b"meta") {
+        if let Ok(exh) = self.get_exh(b"meta") {
+            let meta_offset = exh.start_addr();
             if let Ok(str) = self.read_str(self.read_usize(meta_offset + 4)?) {
                 rom_cname = str;
             }
@@ -307,5 +314,33 @@ impl fmt::Debug for RomData {
             .field("data", &Length(self.data.len()))
             .field("exh", &self.exh)
             .finish()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ExHeader {
+    exh: ExhInfo,
+    base_addr: usize,
+}
+impl ExHeader {
+    pub fn version(&self) -> u16 {
+        self.exh.version
+    }
+
+    pub fn start_addr(&self) -> usize {
+        self.exh.range.start + self.base_addr
+    }
+
+    pub fn len(&self) -> usize {
+        self.exh.range.len()
+    }
+
+    pub fn file_range(&self) -> Range<usize> {
+        self.exh.range.clone()
+    }
+
+    pub fn mem_range(&self) -> Range<usize> {
+        let base_addr = self.start_addr();
+        base_addr..self.len()
     }
 }

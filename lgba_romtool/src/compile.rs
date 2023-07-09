@@ -60,6 +60,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
             -C target-cpu=arm7tdmi
             -C opt-level=3
             -C lto=fat
+            -C debuginfo=full
         ",
         home = home.display(),
         sysroot = sysroot.trim(),
