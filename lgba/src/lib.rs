@@ -82,10 +82,10 @@ pub mod reg {
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {
-    pub use core;
-    pub use lgba_phf;
-
     pub use crate::asm::gba_header;
+    pub use core;
+    pub use lgba_common::base_repr::StaticStr;
+    pub use lgba_phf;
 
     //noinspection RsAssertEqual
     pub const fn xfer_u8_u16<const N: usize>(data: &[u8]) -> [u16; N] {

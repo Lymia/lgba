@@ -8,8 +8,15 @@ description = "Not public API!"
 license = "MIT/Apache-2.0"
 
 [features]
+data = ["phf", "fnv"]
+generator = ["phf", "serde", "ssmarshal", "lgba_phf/generator"]
+phf = ["lgba_phf"]
 
 [dependencies]
+fnv = { version = "1.0", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
+ssmarshal = { version = "1.0", optional = true }
+
+lgba_phf = { version = "0.1", path = "../lgba_phf", optional = true }
 
 [dev-dependencies]

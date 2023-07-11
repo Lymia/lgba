@@ -5,5 +5,13 @@
 
 #![no_std]
 
+#[cfg(feature = "generator")]
+extern crate std;
+
 pub mod base_repr;
+
+#[cfg(feature = "data")]
 pub mod data;
+
+#[cfg(feature = "phf")]
+pub mod phf;

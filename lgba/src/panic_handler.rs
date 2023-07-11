@@ -35,11 +35,11 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
 
     // write bug report message
     unsafe {
-        if !EXH_ROM_REPO.is_empty() {
+        if !EXH_ROM_REPO.as_str().is_empty() {
             write!(
                 terminal.write(),
                 "This is likely a bug. You can report it at this URL:\n{}\n\n",
-                EXH_ROM_REPO
+                EXH_ROM_REPO.as_str(),
             );
         }
     }
@@ -49,9 +49,9 @@ fn write_panic_head(terminal: &mut ActiveTerminalAccess<TerminalFontAscii>) {
         write!(
             terminal.write(),
             "Version : {} {} / lgba {}\n",
-            EXH_ROM_CNAME,
-            EXH_ROM_CVER,
-            EXH_LGBA_VERSION,
+            EXH_ROM_CNAME.as_str(),
+            EXH_ROM_CVER.as_str(),
+            EXH_LGBA_VERSION.as_str(),
         );
     }
 }

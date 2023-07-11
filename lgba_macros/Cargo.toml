@@ -10,6 +10,9 @@ license = "MIT/Apache-2.0"
 [lib]
 proc-macro = true
 
+[features]
+data = []
+
 [dependencies]
 darling = { version = "0.20", default-features = false }
 fnv = { version = "1.0", default-features = false }
@@ -26,7 +29,7 @@ unic-ucd-common = "0.9"
 unic-ucd-normal = "0.9"
 
 # Other crates in project
-lgba_phf = { version = "0.1.0", path = "../lgba_phf", features = ["generator", "generator_proc_macro"] }
+lgba_phf = { version = "0.1", path = "../lgba_phf", features = ["generator", "generator_proc_macro"] }
 
 [dev-dependencies]
 anyhow = "1"

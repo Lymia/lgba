@@ -234,7 +234,6 @@ impl RomData {
     }
 
     fn read_str(&self, offset: usize) -> Result<&str> {
-        // TODO: Don't depend on #[repr(Rust)], that is against the contract -w-
         let base = self.base_addr()?;
         let start = self.read_usize(offset)? - base;
         let end = start + self.read_usize(offset + 4)?;

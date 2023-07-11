@@ -6,6 +6,7 @@ pub struct Hashes {
     pub f2: u32,
 }
 
+/// The data type used to store displacement data.
 pub type DisplacementData = u16;
 
 #[cfg(feature = "generator")]
@@ -34,6 +35,7 @@ pub const fn get_index(
     displace(hashes.f1, hashes.f2, d1, d2) & len_mask
 }
 
+/// The data type used to store a hash key.
 pub type HashKey = u32;
 #[inline(always)]
 pub fn make_hash<T: ?Sized + Hash>(key: HashKey, value: &T) -> Hashes {

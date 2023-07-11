@@ -24,6 +24,8 @@ struct Compile {
     package: String,
     #[arg(short = 'o', long)]
     output: PathBuf,
+    #[arg(long)]
+    release: bool,
 }
 
 #[derive(Parser)]
@@ -50,6 +52,9 @@ fn execute(cli: Cli) -> Result<()> {
             let mut config = CompileConfig::new(v.package, v.output);
             if let Some(linker_script) = v.linker_script {
                 config = config.linker_script(linker_script);
+            }
+            if v.release {
+                config = config.release();
             }
             lgba_romtool::compile(&config)?;
         }

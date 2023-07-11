@@ -242,7 +242,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
-            use #internal::gba_header::*;
+            use #internal::{gba_header::*, StaticStr};
 
             #[no_mangle]
             #[link_section = ".lgba.header.dynamic"]
@@ -274,11 +274,11 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
             pub static __lgba_config_iwram_free_end: usize = __lgba_config_user_stack_canary;
 
             #[no_mangle]
-            pub static __lgba_exh_rom_cname: &str = env!("CARGO_PKG_NAME");
+            pub static __lgba_exh_rom_cname: StaticStr = StaticStr::new(env!("CARGO_PKG_NAME"));
             #[no_mangle]
-            pub static __lgba_exh_rom_cver: &str = env!("CARGO_PKG_VERSION");
+            pub static __lgba_exh_rom_cver: StaticStr = StaticStr::new(env!("CARGO_PKG_VERSION"));
             #[no_mangle]
-            pub static __lgba_exh_rom_repository: &str = #report_url;
+            pub static __lgba_exh_rom_repository: StaticStr = StaticStr::new(#report_url);
 
             #[no_mangle]
             pub unsafe extern "C" fn __lgba_rom_entry() -> ! {

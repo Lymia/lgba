@@ -13,10 +13,18 @@ pub struct CompileConfig {
     #[setters(into)]
     linker_script: Option<PathBuf>,
     linker_script_data: Option<String>,
+    #[setters(bool)]
+    release: bool,
 }
 impl CompileConfig {
     pub fn new(package: String, output: PathBuf) -> Self {
-        CompileConfig { package, output, linker_script: None, linker_script_data: None }
+        CompileConfig {
+            package,
+            output,
+            linker_script: None,
+            linker_script_data: None,
+            release: false,
+        }
     }
 }
 
@@ -76,10 +84,13 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
     }
     let rust_args = cleaned_args.join(" ");
 
+    let release_args: &[&str] = if args.release { &["--release"] } else { &[] };
+
     debug!("rustc flags: {cleaned_args:?}");
     Command::new("cargo")
         .arg("+nightly")
-        .args(["build", "-p", &args.package, "--release"])
+        .args(["build", "-p", &args.package])
+        .args(release_args)
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
         .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])

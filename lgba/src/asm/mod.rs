@@ -17,6 +17,7 @@ mod interface {
         },
     };
     use core::ops::Range;
+    use lgba_common::base_repr::StaticStr;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init() {
@@ -66,7 +67,7 @@ mod interface {
     }
 
     #[no_mangle]
-    pub static __lgba_exh_lgba_version: &str = env!("CARGO_PKG_VERSION");
+    pub static __lgba_exh_lgba_version: StaticStr = StaticStr::new(env!("CARGO_PKG_VERSION"));
 
     extern "C" {
         pub fn __lgba_abort() -> !;
@@ -76,9 +77,9 @@ mod interface {
     }
 
     extern "Rust" {
-        pub static __lgba_exh_rom_cname: &'static str;
-        pub static __lgba_exh_rom_cver: &'static str;
-        pub static __lgba_exh_rom_repository: &'static str;
+        pub static __lgba_exh_rom_cname: StaticStr;
+        pub static __lgba_exh_rom_cver: StaticStr;
+        pub static __lgba_exh_rom_repository: StaticStr;
 
         pub static __lgba_config_canary: u64;
         pub static __lgba_config_int_stack_canary: usize;
