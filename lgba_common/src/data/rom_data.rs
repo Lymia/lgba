@@ -1,25 +1,28 @@
 use crate::{
-    base_repr::{ExHeader, ExHeaderType, SerialSlice},
+    base_repr::{ExHeader, ExHeaderType, SerialSlice, StaticStr},
     phf::PhfTable,
 };
 use core::hash::{Hash, Hasher};
 use fnv::FnvHasher;
-#[cfg(feature = "generator")]
+#[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum FilesystemDataType {
     FileData,
     DirectoryData,
     DirectoryRoot,
+    Invalid,
+
+    // phf types
     PhfU16,
     PhfU16U16,
     PhfU32,
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct FileData {
@@ -31,11 +34,11 @@ impl FileData {
     }
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryData {
-    pub child_names: SerialSlice<SerialSlice<u8>>,
+    pub child_names: SerialSlice<StaticStr>,
     pub child_offsets: SerialSlice<u32>,
 }
 impl DirectoryData {
@@ -44,10 +47,7 @@ impl DirectoryData {
             panic!("children names not available")
         }
 
-        self.child_names
-            .as_slice()
-            .iter()
-            .map(|x| core::str::from_utf8_unchecked(x.as_slice()))
+        self.child_names.as_slice().iter().map(|x| x.as_str())
     }
 
     pub unsafe fn iter_offsets(&self) -> impl Iterator<Item = u32> {
@@ -59,12 +59,25 @@ impl DirectoryData {
     }
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryRoot {
-    pub entries: PhfTable<u64, FilesystemDataInfo>,
-    pub root: DirectoryData,
+    pub hash_lookup: PhfTable<u64, FilesystemDataInfo>,
+    pub root: Option<DirectoryData>,
+}
+impl DirectoryRoot {
+    pub unsafe fn lookup(&self, hash: u64) -> Option<FilesystemData> {
+        self.hash_lookup.lookup(&hash).map(|x| x.decode())
+    }
+    pub fn root(&self) -> &DirectoryData {
+        self.root.as_ref().unwrap_or_else(|| root_not_found())
+    }
+}
+
+#[inline(never)]
+fn root_not_found() -> ! {
+    panic!("DirectoryRoot has no root listing enabled!")
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -72,12 +85,15 @@ pub enum FilesystemData {
     FileData(&'static FileData),
     DirectoryData(&'static DirectoryData),
     DirectoryRoot(&'static DirectoryRoot),
+    Invalid,
+
+    // phf types
     PhfU16(&'static PhfTable<u16, FilesystemDataInfo>),
     PhfU16U16(&'static PhfTable<(u16, u16), FilesystemDataInfo>),
     PhfU32(&'static PhfTable<u32, FilesystemDataInfo>),
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct FilesystemDataInfo {
@@ -101,6 +117,7 @@ impl FilesystemDataInfo {
             FilesystemDataType::DirectoryRoot => {
                 FilesystemData::DirectoryRoot(&*(self.ptr as usize as *const _))
             }
+            FilesystemDataType::Invalid => FilesystemData::Invalid,
             FilesystemDataType::PhfU16 => {
                 FilesystemData::PhfU16(&*(self.ptr as usize as *const _))
             }
@@ -114,15 +131,15 @@ impl FilesystemDataInfo {
     }
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DataHeader {
-    pub hash: u64,
+    pub hash: [u8; 12],
     pub roots: SerialSlice<FilesystemDataInfo>,
 }
 impl DataHeader {
-    pub const fn new(hash: u64) -> DataHeader {
+    pub const fn new(hash: [u8; 12]) -> DataHeader {
         DataHeader { hash, roots: SerialSlice::default() }
     }
 

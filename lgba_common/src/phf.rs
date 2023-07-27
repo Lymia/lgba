@@ -1,10 +1,10 @@
 use crate::base_repr::SerialSlice;
 use core::hash::Hash;
 use lgba_phf::{DisplacementData, HashKey};
-#[cfg(feature = "generator")]
+#[cfg(feature = "generator_phf")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "generator_phf", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct PhfTable<K, V> {
@@ -42,7 +42,7 @@ impl<K, V> Default for PhfTable<K, V> {
     }
 }
 
-#[cfg(feature = "generator")]
+#[cfg(feature = "generator_phf")]
 pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     base_offset: u32,
     entries: &[(K, V)],

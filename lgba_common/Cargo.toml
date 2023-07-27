@@ -9,11 +9,20 @@ license = "MIT/Apache-2.0"
 
 [features]
 data = ["phf", "fnv"]
-generator = ["phf", "serde", "ssmarshal", "lgba_phf/generator"]
+data_manifest = ["generator_base", "data", "serde", "anyhow"]
+data_build = ["data_manifest", "generator_build", "generator_phf", "regex", "glob", "ssmarshal"]
+
+generator_base = ["log"]
+generator_build = ["serde"]
+generator_phf = ["phf", "lgba_phf/generator", "serde"]
 phf = ["lgba_phf"]
 
 [dependencies]
+anyhow = { version = "1.0", optional = true }
 fnv = { version = "1.0", default-features = false, optional = true }
+glob = { version = "0.3", optional = true }
+log = { version = "0.4", default-features = false, optional = true }
+regex = { version = "1.9", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ssmarshal = { version = "1.0", optional = true }
 

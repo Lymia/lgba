@@ -1,8 +1,8 @@
 use core::marker::PhantomData;
-#[cfg(feature = "generator")]
+#[cfg(feature = "generator_build")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "generator_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct ExHeader<T: ExHeaderType> {
@@ -38,7 +38,7 @@ pub trait ExHeaderType {
     const VERSION: u16;
 }
 
-#[cfg_attr(feature = "generator", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "generator_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct SerialSlice<T> {

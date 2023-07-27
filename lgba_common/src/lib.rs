@@ -5,7 +5,7 @@
 
 #![no_std]
 
-#[cfg(feature = "generator")]
+#[cfg(feature = "generator_base")]
 extern crate std;
 
 pub mod base_repr;
