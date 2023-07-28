@@ -6,6 +6,7 @@ use std::{
     string::{String, ToString},
     vec::Vec,
 };
+use crate::data::hashed;
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct ManifestDirectory {
@@ -57,6 +58,8 @@ impl ManifestIdMap {
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct FilesystemManifest {
+    #[serde(default)]
+    pub name: Option<String>,
     #[serde(default)]
     pub dir: Vec<ManifestDirectory>,
     #[serde(default)]
@@ -261,6 +264,7 @@ pub enum ParsedRoot {
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct ParsedManifest {
+    pub names: Option<String>,
     pub roots: BTreeMap<String, ParsedRoot>,
 }
 impl ParsedManifest {
@@ -280,7 +284,13 @@ impl ParsedManifest {
             roots.insert(id_map.name.clone(), ParsedRoot::IdMap(ParsedIdMap::parse(id_map)?));
         }
 
-        Ok(ParsedManifest { roots })
+        Ok(ParsedManifest { names: data.name, roots })
+    }
+
+    pub fn hash(&self) -> [u8; 12] {
+        let mut sub_hash = [0; 12];
+        sub_hash.copy_from_slice(&hashed(self, 0)[..12]);
+        sub_hash
     }
 }
 

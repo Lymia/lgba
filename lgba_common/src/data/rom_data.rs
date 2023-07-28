@@ -1,14 +1,15 @@
 use crate::{
-    base_repr::{ExHeader, ExHeaderType, SerialSlice, StaticStr},
+    base_repr::{ExHeader, ExHeaderType, SerialSlice, SerialStr},
     phf::PhfTable,
 };
 use core::hash::{Hash, Hasher};
 use fnv::FnvHasher;
+use num_enum::TryFromPrimitive;
 #[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, TryFromPrimitive)]
 #[repr(u8)]
 pub enum FilesystemDataType {
     FileData,
@@ -38,8 +39,8 @@ impl FileData {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryData {
-    pub child_names: SerialSlice<StaticStr>,
-    pub child_offsets: SerialSlice<u32>,
+    pub child_names: SerialSlice<SerialStr>,
+    pub child_offsets: SerialSlice<FilesystemDataInfo>,
 }
 impl DirectoryData {
     pub unsafe fn iter_children(&self) -> impl Iterator<Item = &'static str> {
@@ -50,11 +51,11 @@ impl DirectoryData {
         self.child_names.as_slice().iter().map(|x| x.as_str())
     }
 
-    pub unsafe fn iter_offsets(&self) -> impl Iterator<Item = u32> {
+    pub unsafe fn iter_offsets(&self) -> impl Iterator<Item = FilesystemDataInfo> {
         self.child_offsets.as_slice().iter().map(|x| *x)
     }
 
-    pub unsafe fn iter(&self) -> impl Iterator<Item = (&'static str, u32)> {
+    pub unsafe fn iter(&self) -> impl Iterator<Item = (&'static str, FilesystemDataInfo)> {
         self.iter_children().zip(self.iter_offsets())
     }
 }
@@ -63,15 +64,21 @@ impl DirectoryData {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryRoot {
-    pub hash_lookup: PhfTable<u64, FilesystemDataInfo>,
-    pub root: Option<DirectoryData>,
+    pub hash_lookup: u32,
+    pub root: u32,
 }
 impl DirectoryRoot {
     pub unsafe fn lookup(&self, hash: u64) -> Option<FilesystemData> {
-        self.hash_lookup.lookup(&hash).map(|x| x.decode())
+        let hash_lookup = self.hash_lookup as *const PhfTable<u64, FilesystemDataInfo>;
+        (*hash_lookup).lookup(&hash).map(|x| x.decode())
     }
-    pub fn root(&self) -> &DirectoryData {
-        self.root.as_ref().unwrap_or_else(|| root_not_found())
+
+    pub unsafe fn root(&self) -> &DirectoryData {
+        if self.root == 0 {
+            root_not_found()
+        } else {
+            &*(self.root() as *const DirectoryData)
+        }
     }
 }
 
@@ -95,37 +102,42 @@ pub enum FilesystemData {
 
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct FilesystemDataInfo {
-    pub ty: FilesystemDataType,
-    pub _padding: [u8; 3], // explicit padding for ssmarshal
-    pub ptr: u32,
-}
+#[repr(transparent)]
+pub struct FilesystemDataInfo(pub u32);
 impl FilesystemDataInfo {
-    pub const fn new(ty: FilesystemDataType, ptr: u32) -> Self {
-        FilesystemDataInfo { ty, _padding: [0; 3], ptr }
+    pub fn new(ty: FilesystemDataType, ptr: u32) -> Self {
+        assert_eq!(ptr & 0xFE000000, 0x08000000, "ptr must be in 0x8000000-0x9FFFFFF range.");
+        FilesystemDataInfo(ptr & 0xFE000000 | ((ty as u32) << 25))
+    }
+
+    pub fn ptr(&self) -> u32 {
+        (self.0 & 0x01FFFFFF) | 0x08000000
+    }
+
+    pub fn ty(&self) -> FilesystemDataType {
+        FilesystemDataType::try_from((self.0 >> 25) as u8).unwrap()
     }
 
     pub unsafe fn decode(&self) -> FilesystemData {
-        match self.ty {
+        match self.ty() {
             FilesystemDataType::FileData => {
-                FilesystemData::FileData(&*(self.ptr as usize as *const _))
+                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
             }
             FilesystemDataType::DirectoryData => {
-                FilesystemData::DirectoryData(&*(self.ptr as usize as *const _))
+                FilesystemData::DirectoryData(&*(self.ptr() as usize as *const _))
             }
             FilesystemDataType::DirectoryRoot => {
-                FilesystemData::DirectoryRoot(&*(self.ptr as usize as *const _))
+                FilesystemData::DirectoryRoot(&*(self.ptr() as usize as *const _))
             }
             FilesystemDataType::Invalid => FilesystemData::Invalid,
             FilesystemDataType::PhfU16 => {
-                FilesystemData::PhfU16(&*(self.ptr as usize as *const _))
+                FilesystemData::PhfU16(&*(self.ptr() as usize as *const _))
             }
             FilesystemDataType::PhfU16U16 => {
-                FilesystemData::PhfU16U16(&*(self.ptr as usize as *const _))
+                FilesystemData::PhfU16U16(&*(self.ptr() as usize as *const _))
             }
             FilesystemDataType::PhfU32 => {
-                FilesystemData::PhfU32(&*(self.ptr as usize as *const _))
+                FilesystemData::PhfU32(&*(self.ptr() as usize as *const _))
             }
         }
     }
