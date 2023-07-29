@@ -9,10 +9,13 @@ license = "MIT/Apache-2.0"
 
 [features]
 data = ["phf", "fnv", "num_enum"]
-data_manifest = ["generator_base", "data", "blake3", "serde", "anyhow"]
+data_manifest = [
+    "generator_base", "data",
+    "anyhow", "blake3", "serde", "toml"
+]
 data_build = [
     "data_manifest", "generator_build", "generator_phf",
-    "regex", "glob", "ssmarshal"
+    "regex-lite", "glob", "serde_json", "ssmarshal"
 ]
 
 generator_base = ["log"]
@@ -27,9 +30,11 @@ fnv = { version = "1.0", default-features = false, optional = true }
 glob = { version = "0.3", optional = true }
 log = { version = "0.4", default-features = false, optional = true }
 num_enum = { version = "0.6.1", optional = true }
-regex = { version = "1.9", optional = true }
+regex-lite = { version = "0.1", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
 ssmarshal = { version = "1.0", optional = true }
+toml = { version = "0.7", optional = true }
 
 lgba_phf = { version = "0.1", path = "../lgba_phf", optional = true }
 

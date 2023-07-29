@@ -1,5 +1,5 @@
 use crate::{
-    params,
+    hash, params,
     params::{DisplacementData, HashKey},
 };
 use alloc::{vec, vec::Vec};
@@ -70,7 +70,8 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
         .map(|entry| crate::params::make_hash(key, entry))
         .collect();
 
-    let buckets_len = ((hashes.len() as f32 / delta) as usize - 1).next_power_of_two();
+    let buckets_len =
+        (core::cmp::max((hashes.len() as f32 / delta) as usize, 1) - 1).next_power_of_two();
     let mut buckets = (0..buckets_len)
         .map(|i| Bucket { idx: i, keys: vec![] })
         .collect::<Vec<_>>();
@@ -84,7 +85,7 @@ fn try_generate_hash<H: Hash>(delta: f32, key: HashKey, entries: &[H]) -> Option
     // Sort descending
     buckets.sort_by(|a, b| a.keys.len().cmp(&b.keys.len()).reverse());
 
-    let table_len = (hashes.len() - 1).next_power_of_two();
+    let table_len = hashes.len().next_power_of_two();
     let mut map = vec![None; table_len];
     let mut disps = vec![0; buckets_len];
 

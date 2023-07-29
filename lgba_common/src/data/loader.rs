@@ -69,6 +69,7 @@ pub trait DirVisitor {
 }
 
 /// Manager for creating directory managers from lists of filters.
+#[derive(Default)]
 pub struct FilterManager {
     new_filter: HashMap<String, Box<dyn Fn(Box<dyn DirVisitor>) -> Result<Box<dyn DirVisitor>>>>,
 }
@@ -153,13 +154,13 @@ impl DirVisitor for FileNodeVisitor {
         bail!("Single-file roots can only store single files.");
     }
 
-    fn visit_file(&mut self, name: &str, contents: Vec<u8>) -> Result<()> {
+    fn visit_file(&mut self, _: &str, contents: Vec<u8>) -> Result<()> {
         ensure!(self.0.borrow().is_none(), "Single-file roots can only store single files.");
         self.0.replace(Some(contents));
         Ok(())
     }
 
-    fn visit_invalid(&mut self, name: &str) -> Result<()> {
+    fn visit_invalid(&mut self, _: &str) -> Result<()> {
         bail!("Single-file roots can only store single files.");
     }
 }
@@ -170,6 +171,15 @@ fn send_dir_to_visitor(path: &Path, visitor: &mut dyn DirVisitor) -> Result<()> 
         warn!("Path '{}' is a symbolic link and cannot be properly stored.", path.display());
         visitor.visit_invalid(&name)?;
     } else if path.is_file() {
+        visitor.visit_file(&name, fs::read(&path)?)?;
+    } else if path.is_dir() {
+        visitor.visit_dir(&name, &mut |visitor| -> Result<()> {
+            for file in path.read_dir()? {
+                let file = file?;
+                send_dir_to_visitor(&file.path(), visitor)?;
+            }
+            Ok(())
+        })?;
     } else {
         warn!("Path '{}' is a special file and cannot be properly stored.", path.display());
         visitor.visit_invalid(&name)?;

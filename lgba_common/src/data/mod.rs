@@ -35,13 +35,13 @@ pub use manifest::*;
 mod loader;
 
 #[cfg(feature = "data_build")]
-pub use loader::{DirVisitor, FilterManager};
+pub use loader::{load, DirVisitor, FilterManager};
 
 #[cfg(feature = "data_build")]
 mod encoder;
 
 #[cfg(feature = "data_build")]
-pub use encoder::DataEncoder;
+pub use encoder::FilesystemEncoder;
 
 #[cfg(feature = "data_manifest")]
 fn hashed<T: core::hash::Hash + ?Sized>(data: &T, nonce: u32) -> [u8; 32] {

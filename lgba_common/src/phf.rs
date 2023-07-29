@@ -43,7 +43,7 @@ impl<K, V> Default for PhfTable<K, V> {
 }
 
 #[cfg(feature = "generator_phf")]
-pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
+pub fn build_phf<K: Eq + Hash + Clone + Serialize + std::fmt::Debug, V: Clone + Serialize>(
     base_offset: u32,
     entries: &[(K, V)],
 ) -> std::vec::Vec<u8> {

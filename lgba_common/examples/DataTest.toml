@@ -1,0 +1,13 @@
+[[file]]
+name = "file_a"
+path = "Cargo.toml"
+
+[[dir]]
+name = "dir_a"
+path = "../lgba_common/examples"
+
+[[dir]]
+name = "dir_b"
+path = "../lgba_common/examples"
+enable_dir_listing = true
+enable_file_names = true

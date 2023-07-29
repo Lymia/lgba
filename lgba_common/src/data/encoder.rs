@@ -2,8 +2,9 @@ use crate::{
     base_repr::{SerialSlice, SerialStr},
     data::{
         fs_hash, hashed,
-        loader::{LoadedDirectory, LoadedDirectoryNode, LoadedFilesystem, LoadedRoot},
-        DirectoryData, DirectoryRoot, FileData, FilesystemDataInfo, FilesystemDataType,
+        loader::{load, LoadedDirectory, LoadedDirectoryNode, LoadedFilesystem, LoadedRoot},
+        DataHeader, DirectoryData, DirectoryRoot, FileData, FilesystemDataInfo,
+        FilesystemDataType, FilterManager, ParsedManifest,
     },
 };
 use anyhow::Result;
@@ -11,21 +12,23 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     format,
+    path::Path,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
 
-pub struct DataEncoder {
+#[derive(Debug)]
+pub struct FilesystemEncoder {
     base: usize, // should actually be u32, but, convenience
     data: Vec<u8>,
     usage: HashMap<String, usize>,
     usage_hint: String,
     cached_objects: HashMap<[u8; 32], usize>,
 }
-impl DataEncoder {
+impl FilesystemEncoder {
     pub fn new(base: usize) -> Self {
-        DataEncoder {
+        FilesystemEncoder {
             base,
             data: vec![],
             usage: Default::default(),
@@ -126,7 +129,7 @@ impl DataEncoder {
                     }
 
                     // encode the child names list
-                    let mut child_names_start = self.cur_offset();
+                    let child_names_start = self.cur_offset();
                     for string in &strings {
                         self.encode(string)?;
                     }
@@ -138,7 +141,7 @@ impl DataEncoder {
 
                     // encode the child node list
                     let child_offsets: SerialSlice<FilesystemDataInfo> = if enable_file_names {
-                        let mut child_offsets_start = self.cur_offset();
+                        let child_offsets_start = self.cur_offset();
                         for offset in &offsets {
                             self.encode(offset)?;
                         }
@@ -222,7 +225,7 @@ impl DataEncoder {
         }
     }
 
-    pub fn write_filesystem(
+    fn write_filesystem(
         &mut self,
         loaded: &LoadedFilesystem,
     ) -> Result<SerialSlice<FilesystemDataInfo>> {
@@ -240,14 +243,29 @@ impl DataEncoder {
                     LoadedRoot::Directory(dir) => {
                         roots.push(self.write_directory_root(dir)?);
                     }
-                    LoadedRoot::File(_) => todo!(),
+                    LoadedRoot::File(data) => {
+                        roots.push(self.write_directory_node(
+                            &LoadedDirectoryNode::File(data.clone()),
+                            false,
+                        )?);
+                    }
                     LoadedRoot::MapU16(_) => todo!(),
                     LoadedRoot::MapU16U16(_) => todo!(),
                     LoadedRoot::MapU32(_) => todo!(),
                 }
             }
-
             Ok(SerialSlice { ptr: 0, len: 0, _phantom: Default::default() })
         }
+    }
+
+    pub fn load_filesystem(
+        &mut self,
+        root_dir: &Path,
+        manifest: &ParsedManifest,
+        filters: &FilterManager,
+    ) -> Result<DataHeader> {
+        let loaded = load(root_dir, manifest, filters)?;
+        let roots = self.write_filesystem(&loaded)?;
+        Ok(DataHeader { hash: manifest.hash(), roots })
     }
 }

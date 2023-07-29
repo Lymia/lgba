@@ -1,3 +1,4 @@
+use crate::data::hashed;
 use anyhow::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -6,14 +7,11 @@ use std::{
     string::{String, ToString},
     vec::Vec,
 };
-use crate::data::hashed;
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct ManifestDirectory {
     pub name: String,
     pub path: String,
-    #[serde(default)]
-    pub exclude: Vec<String>,
     #[serde(default)]
     pub enable_dir_listing: bool,
     #[serde(default)]
@@ -264,13 +262,17 @@ pub enum ParsedRoot {
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct ParsedManifest {
-    pub names: Option<String>,
+    pub name: Option<String>,
     pub roots: BTreeMap<String, ParsedRoot>,
 }
 impl ParsedManifest {
-    pub fn parse(data: FilesystemManifest) -> Result<ParsedManifest> {
-        let mut roots = BTreeMap::new();
+    pub fn parse(data: &str) -> Result<ParsedManifest> {
+        let raw_manifest = toml::from_str::<FilesystemManifest>(data)?;
+        Ok(ParsedManifest::parse_raw(raw_manifest)?)
+    }
 
+    pub fn parse_raw(data: FilesystemManifest) -> Result<ParsedManifest> {
+        let mut roots = BTreeMap::new();
         for dir in data.dir {
             ensure!(!roots.contains_key(&dir.name), "Duplicate root: {}", dir.name);
             roots.insert(dir.name.clone(), ParsedRoot::Directory(dir));
@@ -283,8 +285,7 @@ impl ParsedManifest {
             ensure!(!roots.contains_key(&id_map.name), "Duplicate root: {}", id_map.name);
             roots.insert(id_map.name.clone(), ParsedRoot::IdMap(ParsedIdMap::parse(id_map)?));
         }
-
-        Ok(ParsedManifest { names: data.name, roots })
+        Ok(ParsedManifest { name: data.name, roots })
     }
 
     pub fn hash(&self) -> [u8; 12] {
