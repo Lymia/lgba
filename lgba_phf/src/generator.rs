@@ -1,5 +1,5 @@
 use crate::{
-    hash, params,
+    params,
     params::{DisplacementData, HashKey},
 };
 use alloc::{vec, vec::Vec};

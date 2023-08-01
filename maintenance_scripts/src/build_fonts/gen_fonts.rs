@@ -1,11 +1,9 @@
-use crate::{
-    build_fonts::font_data::{data_is_half_width, load_fonts, CharacterInfo, CharacterSets},
-    Paths,
+use crate::build_fonts::font_data::{
+    data_is_half_width, load_fonts, CharacterInfo, CharacterSets,
 };
-use darling::FromAttributes;
 use kanji::Level;
 use lgba_phf::generator::SpecialTy;
-use proc_macro2::{Literal, Span, TokenStream as SynTokenStream};
+use proc_macro2::{Literal, TokenStream};
 use quote::quote;
 use std::collections::{HashMap, HashSet};
 use syn::Result;
@@ -14,23 +12,17 @@ use unic_ucd_block::Block;
 use unic_ucd_common::is_control;
 use unic_ucd_normal::is_combining_mark;
 
-#[derive(Clone, Debug, FromAttributes)]
-#[darling(attributes(font))]
+#[derive(Clone, Debug, Default)]
 pub struct FontConfig {
-    low_plane_limit: Option<usize>,
-    #[darling(multiple)]
-    disable_unscii: Vec<String>,
-    #[darling(multiple)]
-    disable_misaki: Vec<String>,
-    #[darling(multiple)]
-    chars: Vec<String>,
-    #[darling(multiple)]
-    block: Vec<String>,
-    #[darling(multiple)]
-    allow_halfwidth_blocks: Vec<String>,
-    fallback_char: Option<char>,
-    kanji_max_level: Option<String>,
-    delta: Option<f32>,
+    pub low_plane_limit: Option<usize>,
+    pub disable_unscii: Vec<String>,
+    pub disable_misaki: Vec<String>,
+    pub chars: Vec<String>,
+    pub block: Vec<String>,
+    pub allow_halfwidth_blocks: Vec<String>,
+    pub fallback_char: Option<char>,
+    pub kanji_max_level: Option<String>,
+    pub delta: Option<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -103,12 +95,7 @@ impl DecodedFontConfig {
                 "2" | "Two" | "two" => Level::Two,
                 "PreOne" | "preone" => Level::PreOne,
                 "1" | "One" | "one" => Level::One,
-                x => {
-                    return crate::error(
-                        Span::call_site(),
-                        format!("'{}' is not a valid kanji max level.", x),
-                    )
-                }
+                x => panic!("'{}' is not a valid kanji max level.", x),
             },
             delta: config.delta.unwrap_or(1.0),
         })
@@ -533,27 +520,25 @@ fn build_planes(config: &mut DecodedFontConfig, ch_data: CharacterData) -> Glyph
     }
 }
 
-fn make_u8_literal(data: &[u8]) -> SynTokenStream {
+fn make_u8_literal(data: &[u8]) -> TokenStream {
     let literal_data = Literal::byte_string(data);
     quote! { *#literal_data }
 }
-fn make_u16_literal(data: &[u16]) -> SynTokenStream {
+fn make_u16_literal(data: &[u16]) -> TokenStream {
     quote! { [#(#data,)*] }
 }
-fn make_u32_data_literal(paths: &Paths, data: &[u8]) -> SynTokenStream {
-    assert!(data.len() % 4 == 0);
+fn make_u32_data_literal(data: &[u8]) -> TokenStream {
+    assert_eq!(data.len() % 4, 0);
     let literal_data = Literal::byte_string(data);
     let data_len = data.len() / 4;
-    let internal = &paths.internal;
-    quote! { #internal::xfer_u8_u32::<#data_len>(#literal_data) }
+    quote! { crate::__macro_export::xfer_u8_u32::<#data_len>(#literal_data) }
 }
 
 fn make_glyphs_file(
-    paths: &Paths,
     config: &DecodedFontConfig,
     glyphs: GlyphData,
-    target_ty: SynTokenStream,
-) -> SynTokenStream {
+    target_ty: TokenStream,
+) -> TokenStream {
     // Creates the low plane table bitset
     let mut low_plane = vec![0u16; config.low_plane_limit / 16];
     for (i, is_low_glyph) in glyphs.low_plane.iter().enumerate() {
@@ -672,7 +657,7 @@ fn make_glyphs_file(
     let glyph_check_data = make_u16_literal(&glyph_check);
     let glyph_id_lo_data = make_u8_literal(&glyph_id_lo);
 
-    let font_data = make_u32_data_literal(paths, &glyphs.data);
+    let font_data = make_u32_data_literal(&glyphs.data);
     let font_data_size = glyphs.tile_count * 2;
 
     let (load_hi_defines, load_hi) = if hi_bits != 0 {
@@ -773,15 +758,14 @@ fn make_glyphs_file(
     }
 }
 
-pub fn generate_fonts(config: FontConfig, target_ty: SynTokenStream) -> Result<SynTokenStream> {
-    let paths = Paths::new()?;
+pub fn generate_fonts(config: FontConfig, target_ty: TokenStream) -> Result<TokenStream> {
     let characters = load_fonts();
 
     let mut config = DecodedFontConfig::from_config(config)?;
     let characters = build_from_fonts(&config, &characters);
     let character_list = filter_characters(&config, characters);
     let glyphs = build_planes(&mut config, character_list);
-    let tokens = make_glyphs_file(&paths, &config, glyphs, target_ty);
+    let tokens = make_glyphs_file(&config, glyphs, target_ty);
 
     Ok(tokens)
 }

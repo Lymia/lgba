@@ -13,7 +13,7 @@ readme = "../README.md"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-lgba_common = { version = "0.1", path = "../lgba_common" }
+lgba_common = { version = "0.1", path = "../lgba_common", features = ["data"] }
 lgba_macros = { version = "0.1", path = "../lgba_macros" }
 
 [dev-dependencies]

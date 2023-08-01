@@ -1,7 +1,6 @@
 #![feature(doc_cfg)]
 
 mod attrs;
-mod build_fonts;
 
 extern crate proc_macro;
 
@@ -78,12 +77,4 @@ pub fn unsafe_alloc_zones(args: TokenStream, input: TokenStream) -> TokenStream 
 #[proc_macro_attribute]
 pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     attrs::entry(args, input)
-}
-
-#[proc_macro_derive(TerminalFont, attributes(font))]
-pub fn derive_terminal_font(input: TokenStream) -> TokenStream {
-    match build_fonts::derive_terminal_font(input.into()) {
-        Ok(v) => v.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
 }

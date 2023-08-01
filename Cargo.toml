@@ -2,9 +2,12 @@
 members = [
     "lgba",
     "lgba_common",
+    "lgba_data",
     "lgba_macros",
     "lgba_phf",
     "lgba_romtool",
+
+    "maintenance_scripts",
 
     "examples/lgba_test_rom",
 ]

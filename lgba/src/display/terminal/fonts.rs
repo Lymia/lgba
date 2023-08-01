@@ -12,7 +12,6 @@ pub trait TerminalFont {
     /// Returns the raw character data used by the font.
     fn get_font_data() -> &'static [u32];
 }
-pub use lgba_macros::TerminalFont; // allow users to make custom terminal fonts
 
 /// A terminal font supporting only 7-bit ASCII characters.
 ///
