@@ -69,9 +69,6 @@ pub use asm::{init_lgba, setup_lgba};
 pub use lgba_macros::unsafe_alloc_zones;
 pub use lgba_macros::{arm, entry, ewram, iwram, thumb};
 
-// hack for the procedural macros
-use crate as lgba;
-
 /// A module allowing easier usage of memory-mapped registers.
 #[cfg(feature = "low_level")]
 #[doc(cfg(feature = "low_level"))]

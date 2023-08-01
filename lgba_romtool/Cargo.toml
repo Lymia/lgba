@@ -21,9 +21,9 @@ anyhow = "1.0"
 byteorder = "1.4"
 derive_setters = "0.1"
 dirs = "5.0"
-goblin = "0.7"
+goblin = { version = "0.7", default-features = false, features = ["std", "elf32", "elf64", "endian_fd"] }
 log = "0.4"
 
 # Only used for the binary
-clap = { version = "4.3", optional = true, features = ["derive", "color"] }
+clap = { version = "4.3", optional = true, default-features = false, features = ["std", "derive"] }
 env_logger = { version = "0.10", optional = true }

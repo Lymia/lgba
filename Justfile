@@ -10,6 +10,9 @@ run-example name:
 doc:
     cargo doc -p lgba -p lgba_phf --all-features
 
+run-codegen:
+    cargo run -p maintenance_scripts
+
 #####################
 # Builder functions #
 #####################

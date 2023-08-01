@@ -1,5 +1,6 @@
-use crate::build_fonts::font_data::{
-    data_is_half_width, load_fonts, CharacterInfo, CharacterSets,
+use crate::build_fonts::{
+    font_data::{data_is_half_width, load_fonts, CharacterInfo, CharacterSets},
+    FontConfig,
 };
 use kanji::Level;
 use lgba_phf::generator::SpecialTy;
@@ -12,26 +13,13 @@ use unic_ucd_block::Block;
 use unic_ucd_common::is_control;
 use unic_ucd_normal::is_combining_mark;
 
-#[derive(Clone, Debug, Default)]
-pub struct FontConfig {
-    pub low_plane_limit: Option<usize>,
-    pub disable_unscii: Vec<String>,
-    pub disable_misaki: Vec<String>,
-    pub chars: Vec<String>,
-    pub block: Vec<String>,
-    pub allow_halfwidth_blocks: Vec<String>,
-    pub fallback_char: Option<char>,
-    pub kanji_max_level: Option<String>,
-    pub delta: Option<f32>,
-}
-
 #[derive(Clone, Debug)]
 enum DecodedMap {
-    Contents(HashSet<String>),
+    Contents(HashSet<&'static str>),
     Wildcard,
 }
 impl DecodedMap {
-    fn from_list(list: Vec<String>) -> Self {
+    fn from_list(list: Vec<&'static str>) -> Self {
         let mut set = HashSet::new();
         for i in list {
             if i == "*" {
@@ -78,11 +66,7 @@ impl DecodedFontConfig {
             block: DecodedMap::from_list(config.block),
             allow_halfwidth_blocks: DecodedMap::from_list(config.allow_halfwidth_blocks),
             fallback_char: config.fallback_char.unwrap_or('?'),
-            kanji_max_level: match config
-                .kanji_max_level
-                .unwrap_or_else(|| "10".to_string())
-                .as_str()
-            {
+            kanji_max_level: match config.kanji_max_level.unwrap_or_else(|| "10") {
                 "10" | "Ten" | "ten" => Level::Ten,
                 "9" | "Nine" | "nine" => Level::Nine,
                 "8" | "Eight" | "eight" => Level::Eight,
@@ -736,7 +720,7 @@ fn make_glyphs_file(
         }
 
         #[doc = #documentation]
-        impl TerminalFont for #target_ty {
+        impl crate::display::TerminalFont for #target_ty {
             fn get_font_glyph(id: char) -> (u8, u16, bool) {
                 get_font_glyph(id)
             }

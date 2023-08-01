@@ -9,8 +9,8 @@ use crate::mmio::reg::{DISPSTAT, VCOUNT};
 
 pub use layers::{ActiveTileLayer, ActiveTileLayerEditGuard, TileLayer};
 pub use terminal::{
-    fonts::{TerminalFont, TerminalFontAscii, TerminalFontBasic, TerminalFontFull},
-    ActiveTerminal, ActiveTerminalAccess, ActiveTerminalWrite, Terminal,
+    ActiveTerminal, ActiveTerminalAccess, ActiveTerminalWrite, Terminal, TerminalFont,
+    TerminalFontAscii, TerminalFontBasic, TerminalFontFull,
 };
 pub use vram::{CharAccess, CharData, VramTile};
 
