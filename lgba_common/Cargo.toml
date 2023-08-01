@@ -10,8 +10,8 @@ license = "MIT/Apache-2.0"
 [features]
 data = ["phf", "fnv", "num_enum"]
 data_manifest = [
-    "generator_base", "data",
-    "anyhow", "blake3", "serde", "toml"
+    "generator_base", "data", "generator_hash",
+    "anyhow", "serde", "toml"
 ]
 data_build = [
     "data_manifest", "generator_build", "generator_phf",
@@ -19,8 +19,9 @@ data_build = [
 ]
 
 generator_base = ["log"]
-generator_build = ["serde"]
-generator_phf = ["phf", "lgba_phf/generator", "serde"]
+generator_build = ["generator_base", "serde", "generator_hash"]
+generator_phf = ["generator_build", "phf", "lgba_phf/generator", "serde"]
+generator_hash = ["blake3"]
 phf = ["lgba_phf"]
 
 [dependencies]

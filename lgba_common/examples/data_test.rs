@@ -1,3 +1,4 @@
+use std::fs;
 use lgba_common::data::{FilterManager, ParsedManifest};
 use std::path::PathBuf;
 
@@ -14,4 +15,6 @@ pub fn main() {
         .load_filesystem(&PathBuf::from("lgba_common"), &parsed, &FilterManager::default())
         .unwrap();
     println!("{:?}", encoded);
+
+    fs::write("test.bin", encoded.data()).unwrap();
 }

@@ -43,7 +43,7 @@ impl<K, V> Default for PhfTable<K, V> {
 }
 
 #[cfg(feature = "generator_phf")]
-pub fn build_phf<K: Eq + Hash + Clone + Serialize + std::fmt::Debug, V: Clone + Serialize>(
+pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     base_offset: u32,
     entries: &[(K, V)],
 ) -> std::vec::Vec<u8> {
@@ -74,6 +74,7 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize + std::fmt::Debug, V: Clone + 
                 ssmarshal::serialize(&mut data, &entries[*idx].0.clone()).unwrap(),
                 data.len(),
             );
+            new_data.extend(data);
             presence_table[i / 32] |= 1 << (i % 32);
         }
     }
@@ -88,6 +89,7 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize + std::fmt::Debug, V: Clone + 
                 ssmarshal::serialize(&mut data, &entries[*idx].1.clone()).unwrap(),
                 data.len(),
             );
+            new_data.extend(data);
         }
     }
 

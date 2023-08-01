@@ -1,96 +1,52 @@
 use crate::{
+    base_encoder::BaseEncoder,
     base_repr::{SerialSlice, SerialStr},
     data::{
-        fs_hash, hashed,
-        loader::{load, LoadedDirectory, LoadedDirectoryNode, LoadedFilesystem, LoadedRoot},
+        fs_hash, load,
+        loader::{LoadedDirectory, LoadedDirectoryNode, LoadedFilesystem, LoadedRoot},
         DataHeader, DirectoryData, DirectoryRoot, FileData, FilesystemDataInfo,
         FilesystemDataType, FilterManager, ParsedManifest,
     },
+    hashed,
 };
-use anyhow::Result;
-use serde::Serialize;
+use anyhow::*;
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     format,
     path::Path,
     string::{String, ToString},
-    vec,
     vec::Vec,
 };
 
 #[derive(Debug)]
 pub struct FilesystemEncoder {
-    base: usize, // should actually be u32, but, convenience
-    data: Vec<u8>,
-    usage: HashMap<String, usize>,
-    usage_hint: String,
-    cached_objects: HashMap<[u8; 32], usize>,
+    encoder: BaseEncoder,
 }
 impl FilesystemEncoder {
     pub fn new(base: usize) -> Self {
-        FilesystemEncoder {
-            base,
-            data: vec![],
-            usage: Default::default(),
-            usage_hint: "Game Data".to_string(),
-            cached_objects: Default::default(),
-        }
+        FilesystemEncoder { encoder: BaseEncoder::new(base) }
     }
     pub fn set_usage_hint(&mut self, str: &str) {
-        self.usage_hint = str.to_string();
+        self.encoder.set_usage_hint(str);
     }
     pub fn iter_usage(&self) -> impl Iterator<Item = (&str, usize)> + '_ {
-        self.usage.iter().map(|x| (x.0.as_str(), *x.1))
+        self.encoder.iter_usage()
     }
-
-    fn cur_offset(&self) -> usize {
-        self.base + self.data.len()
-    }
-    fn mark_usage(&mut self, start_offset: usize) {
-        if self.usage.contains_key(&self.usage_hint) {
-            *self.usage.get_mut(&self.usage_hint).unwrap() += self.cur_offset() - start_offset;
-        } else {
-            self.usage
-                .insert(self.usage_hint.clone(), self.cur_offset() - start_offset);
-        }
-    }
-
-    fn encode<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        let start_off = self.cur_offset();
-        let start = self.data.len();
-        self.data.resize(start + std::mem::size_of::<T>(), 0);
-        let written = ssmarshal::serialize(&mut self.data[start..], data)?;
-        assert_eq!(written, std::mem::size_of::<T>());
-        self.mark_usage(start_off);
-        Ok(())
-    }
-    fn encode_bytes(&mut self, data: &[u8]) -> Result<()> {
-        let start_off = self.cur_offset();
-        let start = self.data.len();
-        self.data.resize(start + data.len(), 0);
-        self.data[start..].copy_from_slice(data);
-        self.mark_usage(start_off);
-        Ok(())
+    pub fn data(&self) -> &[u8] {
+        self.encoder.data()
     }
 
     fn write_serial_bytes(&mut self, data: &[u8]) -> Result<SerialSlice<u8>> {
         let hash = hashed(data, 0);
-        if self.cached_objects.contains_key(&hash) {
-            Ok(SerialSlice {
-                ptr: self.cached_objects[&hash] as u32,
-                len: data.len() as u32,
-                _phantom: Default::default(),
-            })
-        } else {
-            let ptr = self.cur_offset();
-            self.encode_bytes(data)?;
-            self.cached_objects.insert(hash, ptr);
-            Ok(SerialSlice {
-                ptr: ptr as u32,
-                len: data.len() as u32,
-                _phantom: Default::default(),
-            })
+        if !self.encoder.cached_objects.contains_key(&hash) {
+            let ptr = self.encoder.encode_bytes(data)?;
+            self.encoder.cached_objects.insert(hash, ptr);
         }
+        Ok(SerialSlice {
+            ptr: self.encoder.cached_objects[&hash] as u32,
+            len: data.len() as u32,
+            _phantom: Default::default(),
+        })
     }
     fn write_serial_str(&mut self, data: &str) -> Result<SerialStr> {
         let slice = self.write_serial_bytes(data.as_bytes())?;
@@ -103,14 +59,11 @@ impl FilesystemEncoder {
         enable_file_names: bool,
     ) -> Result<FilesystemDataInfo> {
         let hash = hashed(&(node, enable_file_names), 1);
-        if self.cached_objects.contains_key(&hash) {
-            Ok(FilesystemDataInfo(self.cached_objects[&hash] as u32))
-        } else {
+        if !self.encoder.cached_objects.contains_key(&hash) {
             let new_data = match node {
                 LoadedDirectoryNode::File(file) => {
                     let slice = self.write_serial_bytes(file.as_slice())?;
-                    let offset = self.cur_offset();
-                    self.encode(&FileData { data: slice })?;
+                    let offset = self.encoder.encode(&FileData { data: slice })?;
                     FilesystemDataInfo::new(FilesystemDataType::FileData, offset as u32)
                 }
                 LoadedDirectoryNode::Directory(dir) => {
@@ -129,9 +82,9 @@ impl FilesystemEncoder {
                     }
 
                     // encode the child names list
-                    let child_names_start = self.cur_offset();
+                    let child_names_start = self.encoder.align::<SerialStr>();
                     for string in &strings {
-                        self.encode(string)?;
+                        self.encoder.encode(string)?;
                     }
                     let child_names: SerialSlice<SerialStr> = SerialSlice {
                         ptr: child_names_start as u32,
@@ -141,9 +94,9 @@ impl FilesystemEncoder {
 
                     // encode the child node list
                     let child_offsets: SerialSlice<FilesystemDataInfo> = if enable_file_names {
-                        let child_offsets_start = self.cur_offset();
+                        let child_offsets_start = self.encoder.align::<FilesystemDataInfo>();
                         for offset in &offsets {
-                            self.encode(offset)?;
+                            self.encoder.encode(offset)?;
                         }
                         SerialSlice {
                             ptr: child_offsets_start as u32,
@@ -155,24 +108,28 @@ impl FilesystemEncoder {
                     };
 
                     // encode the actual filesystem data offset
-                    let offset = self.cur_offset();
-                    self.encode(&DirectoryData { child_names, child_offsets })?;
+                    let offset = self
+                        .encoder
+                        .encode(&DirectoryData { child_names, child_offsets })?;
                     FilesystemDataInfo::new(FilesystemDataType::DirectoryData, offset as u32)
                 }
                 LoadedDirectoryNode::InvalidNode => {
                     FilesystemDataInfo::new(FilesystemDataType::Invalid, 0)
                 }
             };
-            self.cached_objects.insert(hash, new_data.0 as usize);
-            Ok(new_data)
+            self.encoder
+                .cached_objects
+                .insert(hash, new_data.0 as usize);
         }
+        Ok(FilesystemDataInfo(self.encoder.cached_objects[&hash] as u32))
     }
+
     fn iter_nodes(
         &mut self,
         path: &str,
         node: &LoadedDirectoryNode,
         dir: &LoadedDirectory,
-        root_index: &mut Vec<(u64, FilesystemDataInfo)>,
+        root_index: &mut Vec<(u32, FilesystemDataInfo)>,
     ) -> Result<()> {
         fn compose_name(a: &str, b: &str) -> String {
             if a.is_empty() {
@@ -196,9 +153,7 @@ impl FilesystemEncoder {
     }
     fn write_directory_root(&mut self, dir: &LoadedDirectory) -> Result<FilesystemDataInfo> {
         let hash = hashed(dir, 2);
-        if self.cached_objects.contains_key(&hash) {
-            Ok(FilesystemDataInfo(self.cached_objects[&hash] as u32))
-        } else {
+        if !self.encoder.cached_objects.contains_key(&hash) {
             let mut root_index = Vec::new();
 
             // create the full list of hashes and node offsets
@@ -212,17 +167,28 @@ impl FilesystemEncoder {
                 0
             };
 
+            // check PHF table for duplicates
+            {
+                let mut dupe_check = HashSet::new();
+                dupe_check.extend(root_index.iter().map(|x| x.0));
+                ensure!(dupe_check.len() == root_index.len(), "Hash collision in file table.");
+                std::println!("{:?}", dupe_check);
+            }
+
             // create the root PHF table
-            let phf_offset = self.cur_offset() as u32;
-            self.encode_bytes(&crate::phf::build_phf(phf_offset, &root_index))?;
+            std::println!("phf");
+            let phf_offset = self.encoder.cur_offset() as u32;
+            self.encoder
+                .encode_bytes(&crate::phf::build_phf(phf_offset, &root_index))?;
 
             // create the root object
-            let offset = self.cur_offset();
-            self.encode(&DirectoryRoot { hash_lookup: phf_offset, root })?;
+            let offset = self
+                .encoder
+                .encode(&DirectoryRoot { hash_lookup: phf_offset, root })?;
             let obj = FilesystemDataInfo::new(FilesystemDataType::DirectoryRoot, offset as u32);
-            self.cached_objects.insert(hash, obj.0 as usize);
-            Ok(obj)
+            self.encoder.cached_objects.insert(hash, obj.0 as usize);
         }
+        Ok(FilesystemDataInfo(self.encoder.cached_objects[&hash] as u32))
     }
 
     fn write_filesystem(
@@ -230,13 +196,7 @@ impl FilesystemEncoder {
         loaded: &LoadedFilesystem,
     ) -> Result<SerialSlice<FilesystemDataInfo>> {
         let hash = hashed(loaded, 3);
-        if self.cached_objects.contains_key(&hash) {
-            Ok(SerialSlice {
-                ptr: self.cached_objects[&hash] as u32,
-                len: loaded.roots.len() as u32,
-                _phantom: Default::default(),
-            })
-        } else {
+        if !self.encoder.cached_objects.contains_key(&hash) {
             let mut roots = Vec::new();
             for root in loaded.roots.values() {
                 match root {
@@ -254,8 +214,19 @@ impl FilesystemEncoder {
                     LoadedRoot::MapU32(_) => todo!(),
                 }
             }
-            Ok(SerialSlice { ptr: 0, len: 0, _phantom: Default::default() })
+
+            let offset = self.encoder.align::<LoadedDirectoryNode>();
+            for root in roots {
+                std::println!("{:x?}", root);
+                self.encoder.encode(&root)?;
+            }
+            self.encoder.cached_objects.insert(hash, offset);
         }
+        Ok(SerialSlice {
+            ptr: self.encoder.cached_objects[&hash] as u32,
+            len: loaded.roots.len() as u32,
+            _phantom: Default::default(),
+        })
     }
 
     pub fn load_filesystem(

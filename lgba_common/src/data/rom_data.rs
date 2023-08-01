@@ -68,8 +68,8 @@ pub struct DirectoryRoot {
     pub root: u32,
 }
 impl DirectoryRoot {
-    pub unsafe fn lookup(&self, hash: u64) -> Option<FilesystemData> {
-        let hash_lookup = self.hash_lookup as *const PhfTable<u64, FilesystemDataInfo>;
+    pub unsafe fn lookup(&self, hash: u32) -> Option<FilesystemData> {
+        let hash_lookup = self.hash_lookup as *const PhfTable<u32, FilesystemDataInfo>;
         (*hash_lookup).lookup(&hash).map(|x| x.decode())
     }
 
@@ -107,7 +107,7 @@ pub struct FilesystemDataInfo(pub u32);
 impl FilesystemDataInfo {
     pub fn new(ty: FilesystemDataType, ptr: u32) -> Self {
         assert_eq!(ptr & 0xFE000000, 0x08000000, "ptr must be in 0x8000000-0x9FFFFFF range.");
-        FilesystemDataInfo(ptr & 0xFE000000 | ((ty as u32) << 25))
+        FilesystemDataInfo(ptr & !0xFE000000 | ((ty as u32) << 25))
     }
 
     pub fn ptr(&self) -> u32 {
@@ -171,12 +171,12 @@ pub struct DataRoot {
     pub header: &'static ExHeader<DataHeader>,
 }
 
-pub fn fs_hash(name: &str) -> u64 {
+pub fn fs_hash(name: &str) -> u32 {
     let mut hash = FnvHasher::with_key(123456001);
     for path in name.split('/') {
         if !path.is_empty() {
             path.hash(&mut hash);
         }
     }
-    hash.finish()
+    hash.finish() as u32
 }

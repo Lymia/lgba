@@ -1,4 +1,4 @@
-use crate::data::hashed;
+use crate::hashed;
 use anyhow::*;
 use serde::{Deserialize, Serialize};
 use std::{
