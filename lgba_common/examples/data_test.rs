@@ -1,6 +1,5 @@
-use std::fs;
 use lgba_common::data::{FilterManager, ParsedManifest};
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 pub fn main() {
     let manifest = include_str!("DataTest.toml");

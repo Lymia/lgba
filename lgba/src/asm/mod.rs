@@ -17,7 +17,7 @@ mod interface {
         },
     };
     use core::ops::Range;
-    use lgba_common::base_repr::StaticStr;
+    use lgba_common::common::StaticStr;
 
     #[no_mangle]
     pub unsafe extern "C" fn __lgba_init() {

@@ -187,6 +187,13 @@ fn send_dir_to_visitor(path: &Path, visitor: &mut dyn DirVisitor) -> Result<()> 
     Ok(())
 }
 
+fn filter_file(path: &Path, filters: &FilterManager, filter_set: &[String]) -> Result<Vec<u8>> {
+    let file_ref = Rc::new(RefCell::new(None));
+    let mut visitor = filters.create(Box::new(FileNodeVisitor(file_ref.clone())), filter_set)?;
+    visitor.visit_file(&path.file_name().unwrap().to_string_lossy(), fs::read(path)?)?;
+    Ok(file_ref.replace(None).unwrap())
+}
+
 pub fn load(
     root_dir: &Path,
     manifest: &ParsedManifest,
@@ -212,18 +219,9 @@ pub fn load(
                 })
             }
             ParsedRoot::File(v) => {
-                let file_ref = Rc::new(RefCell::new(None));
                 let mut path = PathBuf::from(root_dir);
                 path.push(&v.path);
-                {
-                    let mut visitor =
-                        filters.create(Box::new(FileNodeVisitor(file_ref.clone())), &v.filters)?;
-                    visitor.visit_file(
-                        &path.file_name().unwrap().to_string_lossy(),
-                        fs::read(&path)?,
-                    )?;
-                }
-                LoadedRoot::File(file_ref.replace(None).unwrap())
+                LoadedRoot::File(filter_file(&path, filters, &v.filters)?)
             }
             ParsedRoot::IdMap(_) => todo!(),
         });

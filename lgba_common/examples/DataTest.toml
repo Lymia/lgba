@@ -1,6 +1,6 @@
 [[file]]
 name = "file_a"
-path = "Cargo.toml"
+path = "../LICENSE-MIT"
 
 [[dir]]
 name = "dir_a"

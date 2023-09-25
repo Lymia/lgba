@@ -1,4 +1,4 @@
-use crate::base_repr::SerialSlice;
+use crate::common::SerialSlice;
 use core::hash::Hash;
 use lgba_phf::{DisplacementData, HashKey};
 #[cfg(feature = "generator_phf")]

@@ -1,7 +1,6 @@
-use crate::Paths;
 use darling::FromAttributes;
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as SynTokenStream};
+use proc_macro2::{Ident, Span, TokenStream as SynTokenStream};
 use quote::quote;
 use std::hash::{Hash, Hasher};
 use syn::{spanned::Spanned, Error, ImplItemFn, ItemFn, ReturnType, Type};
@@ -24,6 +23,8 @@ struct EntryAttrs {
     interrupt_stack_size: Option<usize>,
     #[darling(default)]
     stack_size: Option<usize>,
+    #[darling(default)]
+    crate_name: Option<Ident>,
 }
 
 enum ItemType {
@@ -139,9 +140,6 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> {
-    let paths = Paths::new()?;
-    let internal = &paths.internal;
-
     // Check function signature
     match &input.sig.output {
         ReturnType::Type(_, ty) if matches!(**ty, Type::Never(_)) => {} // ok
@@ -218,6 +216,10 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
         None => quote! { env!("CARGO_PKG_REPOSITORY") },
         Some(report_url) => quote! { #report_url },
     };
+    let crate_name = match &attrs.crate_name {
+        Some(n) => n.clone(),
+        None => Ident::new("lgba", Span::call_site()),
+    };
 
     let interrupt_stack_size = attrs.interrupt_stack_size.unwrap_or(1024);
     let user_stack_size = attrs.stack_size.unwrap_or(1024 * 4);
@@ -242,7 +244,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
-            use #internal::{gba_header::*, StaticStr};
+            use #crate_name::__macro_export::{gba_header::*, StaticStr};
 
             #[no_mangle]
             #[link_section = ".lgba.header.dynamic"]

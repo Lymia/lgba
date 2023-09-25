@@ -67,15 +67,17 @@ impl BaseEncoder {
         Ok(start_off)
     }
     pub fn encode_bytes(&mut self, data: &[u8]) -> Result<usize> {
-        let start_off = self.cur_offset();
+        if let Some(start_off_raw) = self.data.windows(data.len()).position(|x| x == data) {
+            Ok(start_off_raw + self.base)
+        } else {
+            let start_off = self.cur_offset();
 
-        let start = self.data.len();
-        self.data.resize(start + data.len(), 0);
-        self.data[start..].copy_from_slice(data);
-        std::println!("{:?} {}", self.usage, data.len());
-        self.mark_usage(start_off);
-        std::println!("{:?}", self.usage);
+            let start = self.data.len();
+            self.data.resize(start + data.len(), 0);
+            self.data[start..].copy_from_slice(data);
+            self.mark_usage(start_off);
 
-        Ok(start_off)
+            Ok(start_off)
+        }
     }
 }

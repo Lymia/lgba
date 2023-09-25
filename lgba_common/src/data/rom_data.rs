@@ -1,5 +1,5 @@
 use crate::{
-    base_repr::{ExHeader, ExHeaderType, SerialSlice, SerialStr},
+    common::{ExHeader, ExHeaderType, SerialSlice, SerialStr},
     phf::PhfTable,
 };
 use core::hash::{Hash, Hasher};
@@ -9,7 +9,7 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, TryFromPrimitive)]
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum FilesystemDataType {
     FileData,
@@ -43,7 +43,7 @@ pub struct DirectoryData {
     pub child_offsets: SerialSlice<FilesystemDataInfo>,
 }
 impl DirectoryData {
-    pub unsafe fn iter_children(&self) -> impl Iterator<Item = &'static str> {
+    pub unsafe fn iter_child_names(&self) -> impl Iterator<Item = &'static str> {
         if self.child_names.ptr == 0 {
             panic!("children names not available")
         }
@@ -51,12 +51,12 @@ impl DirectoryData {
         self.child_names.as_slice().iter().map(|x| x.as_str())
     }
 
-    pub unsafe fn iter_offsets(&self) -> impl Iterator<Item = FilesystemDataInfo> {
+    pub unsafe fn iter_child_nodes(&self) -> impl Iterator<Item = FilesystemDataInfo> {
         self.child_offsets.as_slice().iter().map(|x| *x)
     }
 
     pub unsafe fn iter(&self) -> impl Iterator<Item = (&'static str, FilesystemDataInfo)> {
-        self.iter_children().zip(self.iter_offsets())
+        self.iter_child_names().zip(self.iter_child_nodes())
     }
 }
 
@@ -107,7 +107,7 @@ pub struct FilesystemDataInfo(pub u32);
 impl FilesystemDataInfo {
     pub fn new(ty: FilesystemDataType, ptr: u32) -> Self {
         assert_eq!(ptr & 0xFE000000, 0x08000000, "ptr must be in 0x8000000-0x9FFFFFF range.");
-        FilesystemDataInfo(ptr & !0xFE000000 | ((ty as u32) << 25))
+        FilesystemDataInfo(ptr & 0x01FFFFFF | ((ty as u32) << 25))
     }
 
     pub fn ptr(&self) -> u32 {

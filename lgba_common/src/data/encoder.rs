@@ -1,13 +1,13 @@
 use crate::{
-    base_encoder::BaseEncoder,
-    base_repr::{SerialSlice, SerialStr},
+    common::{SerialSlice, SerialStr},
     data::{
         fs_hash, load,
         loader::{LoadedDirectory, LoadedDirectoryNode, LoadedFilesystem, LoadedRoot},
         DataHeader, DirectoryData, DirectoryRoot, FileData, FilesystemDataInfo,
         FilesystemDataType, FilterManager, ParsedManifest,
     },
-    hashed,
+    encoder::BaseEncoder,
+    hashes::hashed,
 };
 use anyhow::*;
 use std::{
@@ -114,7 +114,7 @@ impl FilesystemEncoder {
                     FilesystemDataInfo::new(FilesystemDataType::DirectoryData, offset as u32)
                 }
                 LoadedDirectoryNode::InvalidNode => {
-                    FilesystemDataInfo::new(FilesystemDataType::Invalid, 0)
+                    FilesystemDataInfo::new(FilesystemDataType::Invalid, 0x8000000)
                 }
             };
             self.encoder
@@ -172,11 +172,9 @@ impl FilesystemEncoder {
                 let mut dupe_check = HashSet::new();
                 dupe_check.extend(root_index.iter().map(|x| x.0));
                 ensure!(dupe_check.len() == root_index.len(), "Hash collision in file table.");
-                std::println!("{:?}", dupe_check);
             }
 
             // create the root PHF table
-            std::println!("phf");
             let phf_offset = self.encoder.cur_offset() as u32;
             self.encoder
                 .encode_bytes(&crate::phf::build_phf(phf_offset, &root_index))?;
@@ -191,6 +189,34 @@ impl FilesystemEncoder {
         Ok(FilesystemDataInfo(self.encoder.cached_objects[&hash] as u32))
     }
 
+    fn pre_encode_data(&mut self, node: &LoadedDirectoryNode) -> Result<()> {
+        match node {
+            LoadedDirectoryNode::File(data) => {
+                self.encoder.encode_bytes(data)?;
+            }
+            LoadedDirectoryNode::Directory(dir) => {
+                for (_, v) in dir {
+                    self.pre_encode_data(v)?;
+                }
+            }
+            LoadedDirectoryNode::InvalidNode => {}
+        }
+        Ok(())
+    }
+    fn pre_encode_names(&mut self, node: &LoadedDirectoryNode) -> Result<()> {
+        match node {
+            LoadedDirectoryNode::File(_) => {}
+            LoadedDirectoryNode::Directory(dir) => {
+                for (n, v) in dir {
+                    self.encoder.encode_bytes(n.as_bytes())?;
+                    self.pre_encode_names(v)?;
+                }
+            }
+            LoadedDirectoryNode::InvalidNode => {}
+        }
+        Ok(())
+    }
+
     fn write_filesystem(
         &mut self,
         loaded: &LoadedFilesystem,
@@ -198,6 +224,30 @@ impl FilesystemEncoder {
         let hash = hashed(loaded, 3);
         if !self.encoder.cached_objects.contains_key(&hash) {
             let mut roots = Vec::new();
+
+            // pre-encode data
+            for root in loaded.roots.values() {
+                match root {
+                    LoadedRoot::Directory(dir) => {
+                        self.pre_encode_data(&dir.root)?;
+                    }
+                    LoadedRoot::File(data) => {
+                        self.encoder.encode_bytes(data)?;
+                    }
+                    LoadedRoot::MapU16(_) => todo!(),
+                    LoadedRoot::MapU16U16(_) => todo!(),
+                    LoadedRoot::MapU32(_) => todo!(),
+                }
+            }
+
+            // pre-encode names
+            for root in loaded.roots.values() {
+                if let LoadedRoot::Directory(dir) = root {
+                    self.pre_encode_names(&dir.root)?;
+                }
+            }
+
+            // write actual data
             for root in loaded.roots.values() {
                 match root {
                     LoadedRoot::Directory(dir) => {
@@ -217,7 +267,6 @@ impl FilesystemEncoder {
 
             let offset = self.encoder.align::<LoadedDirectoryNode>();
             for root in roots {
-                std::println!("{:x?}", root);
                 self.encoder.encode(&root)?;
             }
             self.encoder.cached_objects.insert(hash, offset);
