@@ -35,7 +35,7 @@ pub use manifest::*;
 mod loader;
 
 #[cfg(feature = "data_build")]
-pub use loader::{load, DirVisitor, FilterManager};
+pub use loader::{load, FilterManager, FilterVisitor};
 
 #[cfg(feature = "data_build")]
 mod encoder;

@@ -48,7 +48,7 @@ impl PhfDataEntry {
 
 /// Stores the hash for a string name, for use in PhfData.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
-#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 #[repr(transparent)]
 pub struct StrHash(u32);
 impl StrHash {

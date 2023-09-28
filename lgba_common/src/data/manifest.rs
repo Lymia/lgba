@@ -42,7 +42,7 @@ pub struct FilesystemManifest {
     pub root: Vec<ManifestRoot>,
 }
 
-#[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ParsedSpecInclusion {
     Str,
     U16,
@@ -53,7 +53,7 @@ pub enum ParsedSpecInclusion {
     WildcardDir,
 }
 
-#[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ParsedSpecShape {
     Str,
     U16,
@@ -219,25 +219,62 @@ impl ParsedSpec {
         accum.push_str(self.segments.last().unwrap());
         Ok(accum)
     }
+
+    #[cfg(feature = "data_build")]
+    pub fn is_hex(&self) -> Result<Vec<bool>> {
+        self.check()?;
+
+        let mut accum = Vec::new();
+        for spec in self.spec {
+            match spec {
+                ParsedSpecInclusion::Str => accum.push(false),
+                ParsedSpecInclusion::U16 => accum.push(false),
+                ParsedSpecInclusion::U16Hex => accum.push(true),
+                ParsedSpecInclusion::U32 => accum.push(false),
+                ParsedSpecInclusion::U32Hex => accum.push(true),
+                ParsedSpecInclusion::Wildcard => {}
+                ParsedSpecInclusion::WildcardDir => {}
+            }
+        }
+        Ok(accum)
+    }
 }
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct ParsedRoot {
     pub name: String,
+    pub shape: ParsedSpecShape,
     pub partitions: BTreeMap<String, Option<ParsedSpec>>,
     pub filters: Vec<String>,
 }
 impl ParsedRoot {
     fn parse(data: ManifestRoot) -> Result<ParsedRoot> {
         let mut partitions = BTreeMap::new();
-        for (name, partition) in data.partitions {
-            partitions.insert(name, ParsedSpec::parse(&partition)?);
+        let mut shape = None;
+        for (name, partition) in data.all_partitions()? {
+            let parsed = ParsedSpec::parse(&partition)?;
+            if let Some(parsed) = &parsed {
+                match shape {
+                    Some(x) => ensure!(
+                        parsed.shape()? == x,
+                        "All partitions must have the same parameters."
+                    ),
+                    None => shape = Some(parsed.shape()?),
+                }
+            }
+            partitions.insert(name, parsed);
         }
-        Ok(ParsedRoot { name: data.name, partitions, filters: data.filters })
+        ensure!(shape.is_some(), "At least one partition must have file paths.");
+        Ok(ParsedRoot {
+            name: data.name,
+            shape: shape.unwrap(),
+            partitions,
+            filters: data.filters,
+        })
     }
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, Default)]
 pub struct ParsedManifest {
     pub name: Option<String>,
     pub roots: BTreeMap<String, ParsedRoot>,
