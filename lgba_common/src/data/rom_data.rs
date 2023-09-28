@@ -1,5 +1,5 @@
 use crate::{
-    common::{ExHeader, ExHeaderType, SerialSlice, SerialStr},
+    common::{ExHeader, ExHeaderType, SerialSlice},
     phf::PhfTable,
 };
 use core::hash::{Hash, Hasher};
@@ -7,6 +7,7 @@ use fnv::FnvHasher;
 use num_enum::TryFromPrimitive;
 #[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 /// The data underlying a PHF root.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
@@ -18,12 +19,16 @@ pub struct PhfData<T: Eq + Hash> {
 
     /// The underlying PHF data.
     ///
-    /// Pointer to a bare array of [`FilesystemDataInfo`] objects.
-    pub table: PhfTable<T, u32>,
+    /// Key is `T`.
+    /// Value is a pointer to a bare array of [`FilesystemDataInfo`] objects.
+    pub table: u32,
+
+    /// phantom data
+    pub _phantom: PhantomData<T>,
 }
 impl<T: Eq + Hash> PhfData<T> {
     pub unsafe fn lookup(&self, t: &T) -> Option<&'static [PhfDataEntry]> {
-        match self.table.lookup(t) {
+        match (*(self.table as *const PhfTable<T, u32>)).lookup(t) {
             None => None,
             Some(v) => {
                 Some(core::slice::from_raw_parts(*v as *const _, self.partition_count as usize))

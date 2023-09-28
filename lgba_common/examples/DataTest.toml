@@ -1,13 +1,7 @@
-[[file]]
-name = "file_a"
-path = "../LICENSE-MIT"
+[[root]]
+name = "test"
+spec = "examples/test_files/a_{u16}_{u16}.txt"
 
-[[dir]]
-name = "dir_a"
-path = "../lgba_common/examples"
-
-[[dir]]
-name = "dir_b"
-path = "../lgba_common/examples"
-enable_dir_listing = true
-enable_file_names = true
+[[root]]
+name = "test2"
+spec = "examples/test_files/*_{u16}_{u16}.txt"

@@ -92,22 +92,6 @@ impl StaticStr {
 unsafe impl Send for StaticStr {}
 unsafe impl Sync for StaticStr {}
 
-#[cfg_attr(feature = "generator_build", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct SerialStr {
-    pub ptr: u32,
-    pub len: u32,
-}
-impl SerialStr {
-    pub unsafe fn as_str(&self) -> &'static str {
-        core::str::from_utf8_unchecked(core::slice::from_raw_parts(
-            self.ptr as *const u8,
-            self.len as usize,
-        ))
-    }
-}
-
 #[inline(never)]
 fn slice_range_fail(offset: usize, len: u32) -> ! {
     panic!("offset longer than SerialSlice length. {offset} >= {len}")

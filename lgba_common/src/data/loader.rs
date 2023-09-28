@@ -3,29 +3,29 @@ use anyhow::{bail, ensure, Result};
 use log::{trace, warn};
 use std::{
     boxed::Box,
+    cell::RefCell,
     collections::{BTreeMap, HashMap},
     format, fs,
     hash::Hash,
     path::{Path, PathBuf},
+    rc::Rc,
     str::FromStr,
     string::{String, ToString},
     vec::Vec,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct LoadedRootData {
+pub struct LoadedEntry {
     pub partitions: BTreeMap<String, Vec<Vec<u8>>>,
 }
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum LoadedRoot {
     Empty,
-    MapStr(BTreeMap<StrHash, LoadedRootData>),
-    MapU16(BTreeMap<u16, LoadedRootData>),
-    MapU16U16(BTreeMap<(u16, u16), LoadedRootData>),
-    MapU32(BTreeMap<u32, LoadedRootData>),
+    MapStr(BTreeMap<StrHash, LoadedEntry>),
+    MapU16(BTreeMap<u16, LoadedEntry>),
+    MapU16U16(BTreeMap<(u16, u16), LoadedEntry>),
+    MapU32(BTreeMap<u32, LoadedEntry>),
 }
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Default)]
@@ -97,24 +97,21 @@ struct RootFilterVisitor {
 }
 impl RootFilterVisitor {
     fn visit_typed<T: Copy + Ord + Eq>(
-        map: &mut BTreeMap<T, LoadedRootData>,
+        map: &mut BTreeMap<T, LoadedEntry>,
         key: T,
         partition: &str,
         data: Vec<u8>,
     ) {
         if !map.contains_key(&key) {
-            map.insert(key, LoadedRootData { partitions: Default::default() });
+            map.insert(key, LoadedEntry { partitions: Default::default() });
         }
-        let partitions = &mut map[&key].partitions;
+        let partitions = &mut map.get_mut(&key).unwrap().partitions;
         if !partitions.contains_key(partition) {
             partitions.insert(partition.into(), Vec::new());
         }
-        partitions[partition].push(data);
+        partitions.get_mut(partition).unwrap().push(data);
     }
-    fn finalize_typed<T: Copy + Eq + Hash>(
-        map: &mut BTreeMap<T, LoadedRootData>,
-        root: &ParsedRoot,
-    ) {
+    fn finalize_typed<T: Copy + Eq + Hash>(map: &mut BTreeMap<T, LoadedEntry>, root: &ParsedRoot) {
         for (_, entry) in map {
             for (partition, _) in &root.partitions {
                 if !entry.partitions.contains_key(partition) {
@@ -149,7 +146,11 @@ impl FilterVisitor for RootFilterVisitor {
         unimplemented!()
     }
     fn visit(&mut self, root: &str, key: IdKey, partition: &str, data: Vec<u8>) -> Result<()> {
-        let name = &self.template.name.map_or("(unnamed)", |x| x.as_str());
+        let name = &self
+            .template
+            .name
+            .as_ref()
+            .map_or("(unnamed)", |x| x.as_str());
         if !self.template.roots.contains_key(root) {
             warn!(
                 "Could not store file data in '{name}:{root}/{key:?}/{partition}' \
@@ -175,14 +176,16 @@ impl FilterVisitor for RootFilterVisitor {
             macro_rules! dispatch_branch {
                 ($key:expr, $var:ident) => {{
                     let key = $key;
-                    if !self.filesystem.roots.contains_key(partition) {
+                    if !self.filesystem.roots.contains_key(root) {
                         let mut tree = Default::default();
                         Self::visit_typed(&mut tree, key, partition, data);
                         self.filesystem
                             .roots
-                            .insert(partition.into(), LoadedRoot::$var(tree));
-                    } else if let LoadedRoot::$var(tree) = &mut self.filesystem.roots[partition] {
-                        Self::visit_typed(&mut tree, key, partition, data);
+                            .insert(root.into(), LoadedRoot::$var(tree));
+                    } else if let LoadedRoot::$var(tree) =
+                        self.filesystem.roots.get_mut(root).unwrap()
+                    {
+                        Self::visit_typed(tree, key, partition, data);
                     } else {
                         panic!("invalid internal state")
                     }
@@ -201,11 +204,12 @@ impl FilterVisitor for RootFilterVisitor {
 
 struct RootFilterWrapper(Rc<RefCell<RootFilterVisitor>>);
 impl FilterVisitor for RootFilterWrapper {
-    fn create(parent: Box<dyn FilterVisitor>) -> Result<Self> where Self: Sized {
+    fn create(parent: Box<dyn FilterVisitor>) -> Result<Self>
+    where Self: Sized {
         unimplemented!()
     }
     fn visit(&mut self, root: &str, key: IdKey, partition: &str, data: Vec<u8>) -> Result<()> {
-        self.0.get_mut().visit(root, key, partition, data)
+        self.0.borrow_mut().visit(root, key, partition, data)
     }
 }
 
@@ -220,7 +224,7 @@ where T: TryFrom<u32> {
         Ok(v) => match T::try_from(v) {
             Ok(v) => Ok(v),
             Err(_) => bail!("Number out of range for {}", core::any::type_name::<T>()),
-        }
+        },
         Err(_) => bail!("Number out of range for {}", core::any::type_name::<T>()),
     }
 }
@@ -251,13 +255,13 @@ fn dispatch_root(
                     };
 
                     let id = match shape {
-                        ParsedSpecShape::Str => IdKey::Str(StrHash::new(&captures[0])),
-                        ParsedSpecShape::U16 => IdKey::U16(maybe_hex(&captures[0], is_hex[0])?),
+                        ParsedSpecShape::Str => IdKey::Str(StrHash::new(&captures[1])),
+                        ParsedSpecShape::U16 => IdKey::U16(maybe_hex(&captures[1], is_hex[0])?),
                         ParsedSpecShape::U16U16 => IdKey::U16U16(
-                            maybe_hex(&captures[0], is_hex[0])?,
-                            maybe_hex(&captures[1], is_hex[1])?,
+                            maybe_hex(&captures[1], is_hex[0])?,
+                            maybe_hex(&captures[2], is_hex[1])?,
                         ),
-                        ParsedSpecShape::U32 => IdKey::U32(maybe_hex(&captures[0], is_hex[0])?),
+                        ParsedSpecShape::U32 => IdKey::U32(maybe_hex(&captures[1], is_hex[0])?),
                     };
 
                     visitor.visit(&root.name, id, partition.as_str(), fs::read(path)?)?;
@@ -273,12 +277,13 @@ pub fn load(
     manifest: &ParsedManifest,
     filters: &FilterManager,
 ) -> Result<LoadedFilesystem> {
+    let root_dir = root_dir.canonicalize()?;
     let root_visitor = Rc::new(RefCell::new(RootFilterVisitor {
         template: manifest.clone(),
         filesystem: Default::default(),
     }));
     for (_, root) in &manifest.roots {
-        dispatch_root(root_dir, root_visitor.clone(), root, filters)?;
+        dispatch_root(&root_dir, root_visitor.clone(), root, filters)?;
     }
     Ok(root_visitor.replace(Default::default()).finalize())
 }

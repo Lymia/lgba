@@ -225,7 +225,7 @@ impl ParsedSpec {
         self.check()?;
 
         let mut accum = Vec::new();
-        for spec in self.spec {
+        for spec in &self.spec {
             match spec {
                 ParsedSpecInclusion::Str => accum.push(false),
                 ParsedSpecInclusion::U16 => accum.push(false),

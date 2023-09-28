@@ -8,12 +8,13 @@ pub fn main() {
     let loaded =
         lgba_common::data::load(&PathBuf::from("lgba_common"), &parsed, &FilterManager::default())
             .unwrap();
-    println!("{:?}", loaded);
+    println!("{:x?}", loaded);
     let mut encoded = lgba_common::data::FilesystemEncoder::new(0x8000000);
-    encoded
+    let header = encoded
         .load_filesystem(&PathBuf::from("lgba_common"), &parsed, &FilterManager::default())
         .unwrap();
-    println!("{:?}", encoded);
+    println!("{:x?}", encoded);
+    println!("{:x?}", header);
 
     fs::write("test.bin", encoded.data()).unwrap();
 }
