@@ -8,24 +8,79 @@ use num_enum::TryFromPrimitive;
 #[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
 
+/// The data underlying a PHF root.
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct PhfData<T: Eq + Hash> {
+    /// The size of the bare array `table` points to.
+    pub partition_count: u32,
+
+    /// The underlying PHF data.
+    ///
+    /// Pointer to a bare array of [`FilesystemDataInfo`] objects.
+    pub table: PhfTable<T, u32>,
+}
+impl<T: Eq + Hash> PhfData<T> {
+    pub unsafe fn lookup(&self, t: &T) -> Option<&'static [PhfDataEntry]> {
+        match self.table.lookup(t) {
+            None => None,
+            Some(v) => {
+                Some(core::slice::from_raw_parts(*v as *const _, self.partition_count as usize))
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(transparent)]
+pub struct PhfDataEntry(FilesystemDataInfo);
+impl PhfDataEntry {
+    pub unsafe fn as_slice(&self) -> &'static [FileData] {
+        match self.0.decode() {
+            FilesystemData::NoFiles => &[],
+            FilesystemData::FileData(v) => core::slice::from_ref(v),
+            FilesystemData::FileList(v) => v.as_slice(),
+            _ => type_error(),
+        }
+    }
+}
+
+/// Stores the hash for a string name, for use in PhfData.
+#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[repr(transparent)]
+pub struct StrHash(u32);
+impl StrHash {
+    pub fn new(name: &str) -> StrHash {
+        let mut hash = FnvHasher::with_key(123456001);
+        for path in name.split('/') {
+            if !path.is_empty() {
+                path.hash(&mut hash);
+            }
+        }
+        StrHash(hash.finish() as u32)
+    }
+}
+
 /// A marker type used to store the data type of a filesystem node.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum FilesystemDataType {
-    /// A file data node. Points to a [`FileData`].
+    /// There are no files present.
+    NoFiles,
+    /// The data for a single file.
     FileData,
-    /// A directory data node. Points to a [`DirectoryData`].
-    DirectoryData,
-    /// A directory root node. Points to a [`DirectoryRoot`].
-    DirectoryRoot,
-    /// An invalid directory entry. Does not point to anything.
-    Invalid,
-    /// A PHF ID node. Points to a [`PhfTable<u16, FilesystemDataInfo>`].
+    /// The data for multiple files.
+    FileList,
+    /// A PHF string node. Points to a [`PhfData<StrHash>`].
+    PhfStr,
+    /// A PHF ID node. Points to a [`PhfData<u16>`].
     PhfU16,
-    /// A PHF ID node. Points to a [`PhfTable<(u16, u16), FilesystemDataInfo>`].
+    /// A PHF ID node. Points to a [`PhfData<(u16, u16)>`].
     PhfU16U16,
-    /// A PHF ID node. Points to a [`PhfTable<u32, FilesystemDataInfo>`].
+    /// A PHF ID node. Points to a [`PhfData<u32>`].
     PhfU32,
 }
 
@@ -43,80 +98,30 @@ impl FileData {
     }
 }
 
-/// Stores the data for a single directory.
+/// Stores the data for a list of files.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct DirectoryData {
-    /// A list of file names, in order.
-    pub child_names: SerialSlice<SerialStr>,
-
-    /// A list of offsets to child nodes, in order.
-    ///
-    /// Can be `FileData`, `DirectoryData`, or `Invalid`s.
-    pub child_offsets: SerialSlice<FilesystemDataInfo>,
+pub struct FileList {
+    /// The contents of the file.s
+    pub data: SerialSlice<FileData>,
 }
-impl DirectoryData {
-    pub unsafe fn iter_child_names(&self) -> impl Iterator<Item = &'static str> {
-        if self.child_names.ptr == 0 {
-            panic!("children names not available")
-        }
-
-        self.child_names.as_slice().iter().map(|x| x.as_str())
+impl FileList {
+    pub unsafe fn as_slice(&self) -> &'static [FileData] {
+        self.data.as_slice()
     }
-
-    pub unsafe fn iter_child_nodes(&self) -> impl Iterator<Item = FilesystemDataInfo> {
-        self.child_offsets.as_slice().iter().map(|x| *x)
-    }
-
-    pub unsafe fn iter(&self) -> impl Iterator<Item = (&'static str, FilesystemDataInfo)> {
-        self.iter_child_names().zip(self.iter_child_nodes())
-    }
-}
-
-#[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct DirectoryRoot {
-    /// The offset of the hash lookup table.
-    ///
-    /// This points to a `PhfTable<u32, FilesystemDataInfo>`
-    pub hash_lookup: u32,
-    /// The root directory. Points to a [`DirectoryData`].
-    pub root: u32,
-}
-impl DirectoryRoot {
-    pub unsafe fn lookup(&self, hash: u32) -> Option<FilesystemData> {
-        let hash_lookup = self.hash_lookup as *const PhfTable<u32, FilesystemDataInfo>;
-        (*hash_lookup).lookup(&hash).map(|x| x.decode())
-    }
-
-    pub unsafe fn root(&self) -> &DirectoryData {
-        if self.root == 0 {
-            root_not_found()
-        } else {
-            &*(self.root() as *const DirectoryData)
-        }
-    }
-}
-
-#[inline(never)]
-fn root_not_found() -> ! {
-    panic!("DirectoryRoot has no root listing enabled!")
 }
 
 /// A typed [`FilesystemDataInfo`], used internally to decode them.
 #[derive(Copy, Clone, Debug)]
 pub enum FilesystemData {
+    NoFiles,
     FileData(&'static FileData),
-    DirectoryData(&'static DirectoryData),
-    DirectoryRoot(&'static DirectoryRoot),
-    Invalid,
-
-    // phf types
-    PhfU16(&'static PhfTable<u16, FilesystemDataInfo>),
-    PhfU16U16(&'static PhfTable<(u16, u16), FilesystemDataInfo>),
-    PhfU32(&'static PhfTable<u32, FilesystemDataInfo>),
+    FileList(&'static FileList),
+    PhfStr(&'static PhfData<StrHash>),
+    PhfU16(&'static PhfData<u16>),
+    PhfU16U16(&'static PhfData<(u16, u16)>),
+    PhfU32(&'static PhfData<u32>),
 }
 
 /// A pointer to a typed filesystem node.
@@ -143,16 +148,16 @@ impl FilesystemDataInfo {
 
     pub unsafe fn decode(&self) -> FilesystemData {
         match self.ty() {
+            FilesystemDataType::NoFiles => FilesystemData::NoFiles,
+            FilesystemDataType::FileList => {
+                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
+            }
+            FilesystemDataType::PhfStr => {
+                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
+            }
             FilesystemDataType::FileData => {
                 FilesystemData::FileData(&*(self.ptr() as usize as *const _))
             }
-            FilesystemDataType::DirectoryData => {
-                FilesystemData::DirectoryData(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::DirectoryRoot => {
-                FilesystemData::DirectoryRoot(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::Invalid => FilesystemData::Invalid,
             FilesystemDataType::PhfU16 => {
                 FilesystemData::PhfU16(&*(self.ptr() as usize as *const _))
             }
@@ -193,13 +198,7 @@ impl ExHeaderType for DataHeader {
     const VERSION: u16 = 0;
 }
 
-/// Hashes a file name for use in the lookup table of a directory root.
-pub fn fs_hash(name: &str) -> u32 {
-    let mut hash = FnvHasher::with_key(123456001);
-    for path in name.split('/') {
-        if !path.is_empty() {
-            path.hash(&mut hash);
-        }
-    }
-    hash.finish() as u32
+#[inline(never)]
+fn type_error() -> ! {
+    panic!("internal type error in lgba_data");
 }

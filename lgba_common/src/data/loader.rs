@@ -201,30 +201,7 @@ pub fn load(
 ) -> Result<LoadedFilesystem> {
     let mut loaded_roots = BTreeMap::new();
     for (name, root) in &manifest.roots {
-        loaded_roots.insert(name.clone(), match root {
-            ParsedRoot::Directory(v) => {
-                let new_node =
-                    Rc::new(RefCell::new(LoadedDirectoryNode::Directory(BTreeMap::new())));
-                let mut path = PathBuf::from(root_dir);
-                path.push(&v.path);
-                {
-                    let mut visitor =
-                        filters.create(Box::new(DirNodeVisitor(new_node.clone())), &v.filters)?;
-                    send_dir_to_visitor(&path, &mut *visitor)?;
-                }
-                LoadedRoot::Directory(LoadedDirectory {
-                    root: new_node.replace(LoadedDirectoryNode::InvalidNode),
-                    enable_dir_listing: v.enable_dir_listing,
-                    enable_file_names: v.enable_file_names,
-                })
-            }
-            ParsedRoot::File(v) => {
-                let mut path = PathBuf::from(root_dir);
-                path.push(&v.path);
-                LoadedRoot::File(filter_file(&path, filters, &v.filters)?)
-            }
-            ParsedRoot::IdMap(_) => todo!(),
-        });
+        todo!()
     }
     Ok(LoadedFilesystem { roots: loaded_roots })
 }

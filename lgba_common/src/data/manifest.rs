@@ -9,27 +9,7 @@ use std::{
 };
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct ManifestDirectory {
-    pub name: String,
-    pub path: String,
-    #[serde(default)]
-    pub enable_dir_listing: bool,
-    #[serde(default)]
-    pub enable_file_names: bool,
-    #[serde(default)]
-    pub filters: Vec<String>,
-}
-
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct ManifestFile {
-    pub name: String,
-    pub path: String,
-    #[serde(default)]
-    pub filters: Vec<String>,
-}
-
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct ManifestIdMap {
+pub struct ManifestRoot {
     pub name: String,
     #[serde(default)]
     pub spec: Option<String>,
@@ -38,7 +18,7 @@ pub struct ManifestIdMap {
     #[serde(default)]
     pub filters: Vec<String>,
 }
-impl ManifestIdMap {
+impl ManifestRoot {
     pub fn all_partitions(&self) -> Result<BTreeMap<String, String>> {
         let mut partitions = self.partitions.clone();
         if self.spec.is_some() {
@@ -59,15 +39,12 @@ pub struct FilesystemManifest {
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
-    pub dir: Vec<ManifestDirectory>,
-    #[serde(default)]
-    pub file: Vec<ManifestFile>,
-    #[serde(default)]
-    pub id_map: Vec<ManifestIdMap>,
+    pub root: Vec<ManifestRoot>,
 }
 
 #[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ParsedSpecInclusion {
+    Str,
     U16,
     U16Hex,
     U32,
@@ -78,6 +55,7 @@ pub enum ParsedSpecInclusion {
 
 #[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ParsedSpecShape {
+    Str,
     U16,
     U16U16,
     U32,
@@ -134,6 +112,7 @@ impl ParsedSpec {
                         idx += 1;
 
                         match &raw_text[seg_start..seg_end] {
+                            "str" => spec.push(ParsedSpecInclusion::Str),
                             "u16" => spec.push(ParsedSpecInclusion::U16),
                             "u16x" => spec.push(ParsedSpecInclusion::U16Hex),
                             "u32" => spec.push(ParsedSpecInclusion::U32),
@@ -173,6 +152,7 @@ impl ParsedSpec {
 
         #[derive(Debug)]
         enum Spec {
+            Str,
             U16,
             U32,
         }
@@ -180,6 +160,7 @@ impl ParsedSpec {
             .spec
             .iter()
             .filter_map(|x| match x {
+                ParsedSpecInclusion::Str => Some(Spec::Str),
                 ParsedSpecInclusion::U16 => Some(Spec::U16),
                 ParsedSpecInclusion::U16Hex => Some(Spec::U16),
                 ParsedSpecInclusion::U32 => Some(Spec::U32),
@@ -189,6 +170,7 @@ impl ParsedSpec {
             })
             .collect();
         match inclusions.as_slice() {
+            &[Spec::Str] => Ok(ParsedSpecShape::Str),
             &[Spec::U16] => Ok(ParsedSpecShape::U16),
             &[Spec::U16, Spec::U16] => Ok(ParsedSpecShape::U16U16),
             &[Spec::U32] => Ok(ParsedSpecShape::U32),
@@ -204,6 +186,7 @@ impl ParsedSpec {
         for (prefix, spec) in self.segments.iter().zip(self.spec.iter()) {
             accum.push_str(prefix);
             match spec {
+                ParsedSpecInclusion::Str => accum.push_str("*"),
                 ParsedSpecInclusion::U16 => accum.push_str("*"),
                 ParsedSpecInclusion::U16Hex => accum.push_str("*"),
                 ParsedSpecInclusion::U32 => accum.push_str("*"),
@@ -224,6 +207,7 @@ impl ParsedSpec {
         for (prefix, spec) in self.segments.iter().zip(self.spec.iter()) {
             accum.push_str(prefix);
             match spec {
+                ParsedSpecInclusion::Str => accum.push_str("([^/]+)"),
                 ParsedSpecInclusion::U16 => accum.push_str("([0-9]+)"),
                 ParsedSpecInclusion::U16Hex => accum.push_str("([0-9a-fA-F]+)"),
                 ParsedSpecInclusion::U32 => accum.push_str("([0-9]+)"),
@@ -238,26 +222,19 @@ impl ParsedSpec {
 }
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct ParsedIdMap {
+pub struct ParsedRoot {
     pub name: String,
     pub partitions: BTreeMap<String, Option<ParsedSpec>>,
     pub filters: Vec<String>,
 }
-impl ParsedIdMap {
-    fn parse(data: ManifestIdMap) -> Result<ParsedIdMap> {
+impl ParsedRoot {
+    fn parse(data: ManifestRoot) -> Result<ParsedRoot> {
         let mut partitions = BTreeMap::new();
         for (name, partition) in data.partitions {
             partitions.insert(name, ParsedSpec::parse(&partition)?);
         }
-        Ok(ParsedIdMap { name: data.name, partitions, filters: data.filters })
+        Ok(ParsedRoot { name: data.name, partitions, filters: data.filters })
     }
-}
-
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub enum ParsedRoot {
-    Directory(ManifestDirectory),
-    File(ManifestFile),
-    IdMap(ParsedIdMap),
 }
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
@@ -273,17 +250,9 @@ impl ParsedManifest {
 
     pub fn parse_raw(data: FilesystemManifest) -> Result<ParsedManifest> {
         let mut roots = BTreeMap::new();
-        for dir in data.dir {
-            ensure!(!roots.contains_key(&dir.name), "Duplicate root: {}", dir.name);
-            roots.insert(dir.name.clone(), ParsedRoot::Directory(dir));
-        }
-        for file in data.file {
-            ensure!(!roots.contains_key(&file.name), "Duplicate root: {}", file.name);
-            roots.insert(file.name.clone(), ParsedRoot::File(file));
-        }
-        for id_map in data.id_map {
-            ensure!(!roots.contains_key(&id_map.name), "Duplicate root: {}", id_map.name);
-            roots.insert(id_map.name.clone(), ParsedRoot::IdMap(ParsedIdMap::parse(id_map)?));
+        for root in data.root {
+            ensure!(!roots.contains_key(&root.name), "Duplicate root: {}", root.name);
+            roots.insert(root.name.clone(), ParsedRoot::parse(root)?);
         }
         Ok(ParsedManifest { name: data.name, roots })
     }
