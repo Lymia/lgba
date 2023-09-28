@@ -8,25 +8,33 @@ use num_enum::TryFromPrimitive;
 #[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
 
+/// A marker type used to store the data type of a filesystem node.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum FilesystemDataType {
+    /// A file data node. Points to a [`FileData`].
     FileData,
+    /// A directory data node. Points to a [`DirectoryData`].
     DirectoryData,
+    /// A directory root node. Points to a [`DirectoryRoot`].
     DirectoryRoot,
+    /// An invalid directory entry. Does not point to anything.
     Invalid,
-
-    // phf types
+    /// A PHF ID node. Points to a [`PhfTable<u16, FilesystemDataInfo>`].
     PhfU16,
+    /// A PHF ID node. Points to a [`PhfTable<(u16, u16), FilesystemDataInfo>`].
     PhfU16U16,
+    /// A PHF ID node. Points to a [`PhfTable<u32, FilesystemDataInfo>`].
     PhfU32,
 }
 
+/// Stores the data for a single file.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct FileData {
+    /// The contents of the file.s
     pub data: SerialSlice<u8>,
 }
 impl FileData {
@@ -35,11 +43,17 @@ impl FileData {
     }
 }
 
+/// Stores the data for a single directory.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryData {
+    /// A list of file names, in order.
     pub child_names: SerialSlice<SerialStr>,
+
+    /// A list of offsets to child nodes, in order.
+    ///
+    /// Can be `FileData`, `DirectoryData`, or `Invalid`s.
     pub child_offsets: SerialSlice<FilesystemDataInfo>,
 }
 impl DirectoryData {
@@ -64,7 +78,11 @@ impl DirectoryData {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DirectoryRoot {
+    /// The offset of the hash lookup table.
+    ///
+    /// This points to a `PhfTable<u32, FilesystemDataInfo>`
     pub hash_lookup: u32,
+    /// The root directory. Points to a [`DirectoryData`].
     pub root: u32,
 }
 impl DirectoryRoot {
@@ -87,6 +105,7 @@ fn root_not_found() -> ! {
     panic!("DirectoryRoot has no root listing enabled!")
 }
 
+/// A typed [`FilesystemDataInfo`], used internally to decode them.
 #[derive(Copy, Clone, Debug)]
 pub enum FilesystemData {
     FileData(&'static FileData),
@@ -100,6 +119,10 @@ pub enum FilesystemData {
     PhfU32(&'static PhfTable<u32, FilesystemDataInfo>),
 }
 
+/// A pointer to a typed filesystem node.
+///
+/// The type is compacted into the top 7 bits, and the offset into the bottom 7. This works by
+/// assuming the pointer is to the unmirrored ROM mapping.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -143,11 +166,14 @@ impl FilesystemDataInfo {
     }
 }
 
+/// The contents of the exheader for game data.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct DataHeader {
+    /// The hash derived from the manifest.
     pub hash: [u8; 12],
+    /// An array of roots for the manifest.
     pub roots: SerialSlice<FilesystemDataInfo>,
 }
 impl DataHeader {
@@ -167,10 +193,7 @@ impl ExHeaderType for DataHeader {
     const VERSION: u16 = 0;
 }
 
-pub struct DataRoot {
-    pub header: &'static ExHeader<DataHeader>,
-}
-
+/// Hashes a file name for use in the lookup table of a directory root.
 pub fn fs_hash(name: &str) -> u32 {
     let mut hash = FnvHasher::with_key(123456001);
     for path in name.split('/') {
