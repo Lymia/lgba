@@ -67,7 +67,6 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
             -C link-arg=-T{linker_script}
             -C target-cpu=arm7tdmi
             -C opt-level=3
-            -C lto=fat
             -C debuginfo=full
             -Z macro-backtrace
         ",
@@ -85,13 +84,16 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
     }
     let rust_args = cleaned_args.join(" ");
 
-    let release_args: &[&str] = if args.release { &["--release"] } else { &[] };
+    let rel_args: &[&str] = if args.release { &["--release"] } else { &[] };
+    let rel_path = if args.release { "release" } else { "debug" };
 
     debug!("rustc flags: {cleaned_args:?}");
     Command::new("cargo")
         .arg("+nightly")
+        .args(["--config", "profile.dev.lto=\"fat\""])
+        .args(["--config", "profile.release.lto=\"fat\""])
         .args(["build", "-p", &args.package])
-        .args(release_args)
+        .args(rel_args)
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
         .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])
@@ -100,7 +102,8 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
         .exit_ok()?;
 
     info!("Copying binary...");
-    let final_path = PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package));
+    let final_path =
+        PathBuf::from(format!("target/thumbv4t-none-eabi/{rel_path}/{}", args.package));
     debug!("output path: {}", final_path.display());
     std::fs::copy(final_path, &args.output)?;
 

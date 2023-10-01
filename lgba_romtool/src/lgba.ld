@@ -7,6 +7,8 @@ MEMORY {
 }
 
 SECTIONS {
+    __root_lma = .;
+
     /* ROM headers */
     .header : {
         /* The fixed early part of the header, including the JMP instruction and logo */
