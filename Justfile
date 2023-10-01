@@ -25,7 +25,9 @@ _build_romtool:
 
 _build_example name: _build_romtool _roms_directory
     "{{romtool}}" compile --release -p "{{name}}" -o "target/roms/{{name}}.elf"
-    "{{romtool}}" build-rom -b "target/roms/{{name}}.elf" -o "target/roms/{{name}}.gba"
+    "{{romtool}}" build-rom \
+      -b "target/roms/{{name}}.elf" -o "target/roms/{{name}}.gba" \
+      -d "examples/{{name}}/RomData.toml"
 
 ####################
 # Helper functions #

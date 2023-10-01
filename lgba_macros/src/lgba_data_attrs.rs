@@ -1,5 +1,5 @@
 use crate::error;
-use lgba_common::data::{ParsedManifest, ParsedSpecShape};
+use lgba_common::data::{ParsedManifest, ParsedSpecShape, RawStrHash};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as SynTokenStream};
 use quote::quote;
@@ -13,6 +13,22 @@ use syn::{
     spanned::Spanned,
     LitStr, Result, Token, Visibility,
 };
+
+fn hash_impl_0(input: SynTokenStream) -> Result<SynTokenStream> {
+    let input: SynTokenStream = input.into();
+    let parsed: LitStr = syn::parse2(input.clone())?;
+    let hashed = RawStrHash::new(&parsed.value()).0;
+    Ok(quote! {
+        lgba_data::__macro_export::new_hash(#hashed)
+    }
+    .into())
+}
+pub fn hash_impl(input: TokenStream) -> TokenStream {
+    match hash_impl_0(input.into()) {
+        Ok(x) => x.into(),
+        Err(e) => e.into_compile_error().into(),
+    }
+}
 
 struct LoadDataInvocation {
     vis: Visibility,
@@ -83,7 +99,11 @@ fn load_data_impl_0(args: SynTokenStream) -> Result<SynTokenStream> {
 
         // setup parameters for the code generation
         let (args, lookup_val, root_key) = match root.shape {
-            ParsedSpecShape::Str => todo!(),
+            ParsedSpecShape::Str => (
+                quote! { v: impl Into<StrHash> },
+                quote! { RawStrHash::from(v.into()) },
+                quote! { RawStrHash },
+            ),
             ParsedSpecShape::U16 => (quote! { v: u16 }, quote! { v }, quote! { u16 }),
             ParsedSpecShape::U16U16 => {
                 (quote! { a: u16, b: u16 }, quote! { (a, b) }, quote! { (u16, u16) })
@@ -125,10 +145,11 @@ fn load_data_impl_0(args: SynTokenStream) -> Result<SynTokenStream> {
             }
             pub fn #root_name_id(&self, #args) -> #type_name {
                 unsafe {
-                    let raw = RootAccess::<#root_key>::new(&#exh_name, #i).get(#lookup_val);
+                    let key = #lookup_val;
+                    let raw = RootAccess::<#root_key>::new(&#exh_name, #i).get(key);
                     match raw {
                         Some(v) => #type_name(v),
-                        None => not_found(#lookup_val, #source),
+                        None => not_found(key, #source),
                     }
                 }
             }
@@ -162,6 +183,7 @@ fn load_data_impl_0(args: SynTokenStream) -> Result<SynTokenStream> {
                 }
 
                 extern {
+                    // prevent static analysis from inlining the ptr=0, len=0
                     pub static #exh_name: ExHeader<DataHeader>;
                 }
 

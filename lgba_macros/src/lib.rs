@@ -3,9 +3,6 @@
 #[cfg(feature = "lgba")]
 mod lgba_attrs;
 
-#[cfg(feature = "hashes")]
-mod hashes;
-
 #[cfg(feature = "data")]
 mod lgba_data_attrs;
 
@@ -74,10 +71,10 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     lgba_attrs::entry(args, input)
 }
 
-#[cfg(feature = "hashes")]
+#[cfg(feature = "data")]
 #[proc_macro]
-pub fn hash_lgba_data(item: TokenStream) -> TokenStream {
-    hashes::hashed_impl(quote::quote! { lgba_data }, item)
+pub fn hash_impl(item: TokenStream) -> TokenStream {
+    lgba_data_attrs::hash_impl(item)
 }
 
 #[cfg(feature = "data")]

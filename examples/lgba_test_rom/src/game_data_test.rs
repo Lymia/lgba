@@ -3,7 +3,7 @@ use lgba::{
     dma::DmaChannelId,
 };
 
-lgba_data::load_data!(DataTest, "DataTest.toml");
+lgba_data::load_data!(RomData, "RomData.toml");
 
 pub fn run() -> ! {
     let mut terminal = Terminal::new();
@@ -13,7 +13,14 @@ pub fn run() -> ! {
     let mut terminal = terminal.lock();
 
     let cycles = lgba::timer::time_cycles(|| {
-        terminal.write_str(core::str::from_utf8(DataTest.test(1, 1).as_slice()).unwrap());
+        writeln!(
+            terminal.write(),
+            "testing strings: {:?} {:?}",
+            lgba_data::StrHash!("test string"),
+            lgba_data::StrHash::new("test string")
+        );
+        terminal.write_str(core::str::from_utf8(RomData.test(1, 1).as_slice()).unwrap());
+        terminal.write_str(core::str::from_utf8(RomData.test(10, 10).as_slice()).unwrap());
     });
     println!("Terminal screen rendered in {} cycles.", cycles);
 

@@ -36,6 +36,8 @@ struct BuildRom {
     binary: PathBuf,
     #[arg(short = 'o', long)]
     output: PathBuf,
+    #[arg(short = 'd', long)]
+    data_file: Vec<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -59,7 +61,10 @@ fn execute(cli: Cli) -> Result<()> {
             lgba_romtool::compile(&config)?;
         }
         Commands::BuildRom(v) => {
-            let rom = RomData::from_elf(&fs::read(v.binary)?)?;
+            let mut rom = RomData::from_elf(&fs::read(v.binary)?)?;
+            for file in v.data_file {
+                rom.add_data_source(file)?;
+            }
             rom.print_statistics()?;
             fs::write(v.output, rom.produce_rom()?)?;
         }

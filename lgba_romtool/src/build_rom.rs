@@ -1,7 +1,14 @@
 use anyhow::{bail, Result};
 use goblin::elf::section_header::SHF_ALLOC;
+use lgba_common::data::{FilesystemEncoder, FilterManager, ParsedManifest};
 use log::{debug, info, warn};
-use std::{collections::HashMap, fmt, fmt::Formatter, ops::Range};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    fmt::Formatter,
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone, Debug)]
 struct ExhInfo {
@@ -9,11 +16,14 @@ struct ExhInfo {
     range: Range<usize>,
 }
 
-#[derive(Clone)]
 pub struct RomData {
     data: Vec<u8>,
     exh: HashMap<[u8; 4], Vec<ExhInfo>>,
     base_addr: Option<usize>,
+    usage: BTreeMap<String, usize>,
+    filters: FilterManager,
+    // used for technical reasons
+    e_list: Vec<ExhInfo>,
 }
 impl RomData {
     /// Produces a ROM from ELF data.
@@ -154,7 +164,16 @@ impl RomData {
             None
         };
 
-        Ok(RomData { data: Vec::from(bin_data), exh, base_addr })
+        let mut usage = BTreeMap::new();
+        usage.insert("Binary Usage".to_string(), bin_data.len());
+        Ok(RomData {
+            data: Vec::from(bin_data),
+            exh,
+            base_addr,
+            usage,
+            filters: FilterManager::default(),
+            e_list: vec![],
+        })
     }
 
     /// Returns the base address of this ROM.
@@ -162,6 +181,26 @@ impl RomData {
         match self.base_addr {
             Some(x) => Ok(x),
             None => bail!("exheaders could not be loaded."),
+        }
+    }
+
+    /// Returns the address of the end of the currently written data.
+    pub fn cur_addr(&self) -> Result<usize> {
+        Ok(self.base_addr()? + self.data.len())
+    }
+
+    /// Aligns the underlying data to a given alignment.
+    pub fn align_to(&mut self, align: usize) {
+        while self.data.len() % align != 0 {
+            self.data.push(0)
+        }
+    }
+
+    /// Adds a new section of data to the ROM.
+    pub fn push_section(&mut self, usage_class: Option<impl Into<String>>, data: &[u8]) {
+        self.data.extend_from_slice(&data);
+        if let Some(class) = usage_class {
+            *self.usage.entry(class.into()).or_default() += data.len();
         }
     }
 
@@ -192,12 +231,11 @@ impl RomData {
     /// Iterates the exheaders for a given item.
     pub fn iter_exh(&self, header: &[u8; 4]) -> Result<impl Iterator<Item = ExHeader> + '_> {
         let base_addr = self.base_addr()?;
-        match self.exh.get(header) {
-            Some(v) => Ok(v
-                .iter()
-                .map(move |x| ExHeader { exh: x.clone(), base_addr })),
-            None => bail!("No such header found."),
-        }
+        let v = match self.exh.get(header) {
+            Some(v) => v.iter(),
+            None => self.e_list.iter(),
+        };
+        Ok(v.map(move |x| ExHeader { exh: x.clone(), base_addr }))
     }
 
     /// Returns the data for an extra header.
@@ -240,6 +278,36 @@ impl RomData {
         Ok(std::str::from_utf8(&self.data[start..end])?)
     }
 
+    /// Adds a data source to the rom.
+    pub fn add_data_source(&mut self, path: impl AsRef<Path>) -> Result<()> {
+        let manifest = ParsedManifest::parse(&std::fs::read_to_string(path.as_ref())?)?;
+        let hash = manifest.hash();
+
+        let mut target_exh = Vec::new();
+        for exh in self.iter_exh(b"data")? {
+            if &self.data()[exh.file_range()][..12] == hash.as_slice() {
+                target_exh.push(exh);
+            }
+        }
+
+        let mut parent_path = PathBuf::from(path.as_ref()).canonicalize()?;
+        parent_path.pop();
+
+        self.align_to(4);
+        let mut encoder = FilesystemEncoder::new(self.cur_addr()?);
+        let data = encoder.load_filesystem(&parent_path, &manifest, &self.filters)?;
+        self.push_section(Some("Game Data"), encoder.data());
+        println!("{encoder:x?}");
+
+        for exh in target_exh {
+            let target = &mut self.data_mut()[exh.file_range()];
+            target[12..16].copy_from_slice(&data.roots.ptr.to_le_bytes());
+            target[16..20].copy_from_slice(&data.roots.len.to_le_bytes());
+        }
+
+        Ok(())
+    }
+
     /// Prints statistics about the ROM using the `log` crate.
     pub fn print_statistics(&self) -> Result<()> {
         let mut rom_cname = "unknown_crate";
@@ -269,7 +337,12 @@ impl RomData {
         info!("ROM Version    : {rom_cname} {rom_cver}");
         info!("LGBA Version   : lgba {lgba_version}");
         info!("Bug Report URL : {rom_repository}");
-        info!("Code Usage     : {:.1} KiB", self.data.len() as f32 / 1024.0);
+        for (usage, value) in &self.usage {
+            info!("{usage:15}: {:.1} KiB", *value as f32 / 1024.0);
+        }
+        if self.usage.len() != 1 {
+            info!("Total Usage    : {:.1} KiB", self.data.len() as f32 / 1024.0);
+        }
         info!("==================================================================");
         info!("");
 

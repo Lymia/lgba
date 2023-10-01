@@ -3,8 +3,12 @@
 
 #![no_std]
 
-use core::ops::Index;
-use lgba_common::data::FileData;
+use core::{
+    hash::{Hash, Hasher},
+    ops::Index,
+};
+use fnv::FnvHasher;
+use lgba_common::data::{FileData, RawStrHash};
 
 mod raw;
 
@@ -13,18 +17,49 @@ mod raw;
 pub mod __macro_export {
     pub use crate::{
         raw::{EntryAccess, RootAccess, ValidRootKey},
-        FileList,
+        FileList, StrHash,
     };
     pub use core::marker::PhantomData;
     pub use lgba_common::{
         common::{ExHeader, SerialSlice},
-        data::DataHeader,
+        data::{DataHeader, RawStrHash},
     };
-    pub use lgba_macros::load_data_impl;
+    pub use lgba_macros::{hash_impl, load_data_impl};
+
+    pub fn new_hash(v: u32) -> StrHash {
+        StrHash(v)
+    }
 
     #[inline(never)]
     pub fn not_found<T: core::fmt::Debug>(entry: T, source: &str) -> ! {
         panic!("Entry '{entry:?}' not found in {source}")
+    }
+}
+
+/// A 32-bit hash of a string, used to index game data.
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[repr(transparent)]
+pub struct StrHash(u32);
+impl StrHash {
+    /// Creates a new [`StrHash`] from a string.
+    pub fn new(name: &str) -> StrHash {
+        let mut hash = FnvHasher::with_key(123456001);
+        for path in name.split('/') {
+            if !path.is_empty() {
+                path.hash(&mut hash);
+            }
+        }
+        StrHash(hash.finish() as u32)
+    }
+}
+impl<'a> From<&'a str> for StrHash {
+    fn from(value: &'a str) -> Self {
+        StrHash::new(value)
+    }
+}
+impl From<StrHash> for RawStrHash {
+    fn from(value: StrHash) -> Self {
+        RawStrHash(value.0)
     }
 }
 
@@ -73,6 +108,13 @@ fn empty_list_error() -> ! {
 #[inline(never)]
 fn multiple_items_error() -> ! {
     panic!("`FileList` contains multiple entries!");
+}
+
+#[macro_export]
+macro_rules! StrHash {
+    ($str:literal $(,)?) => {
+        $crate::__macro_export::hash_impl!($str)
+    };
 }
 
 #[macro_export]

@@ -1,16 +1,15 @@
-use core::marker::PhantomData;
+use core::{cell::UnsafeCell, marker::PhantomData};
 #[cfg(feature = "generator_build")]
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "generator_build", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
 #[repr(C)]
 pub struct ExHeader<T: ExHeaderType> {
     magic: [u8; 4],
     name: [u8; 4],
     version: u16,
     length: u16,
-    pub data: T,
+    pub data: UnsafeCell<T>, // represent out-of-compiler changes with UnsafeCell
 }
 impl<T: ExHeaderType> ExHeader<T> {
     pub const fn new(data: T) -> Self {
@@ -20,7 +19,7 @@ impl<T: ExHeaderType> ExHeader<T> {
             name: T::NAME,
             version: T::VERSION,
             length: core::mem::size_of::<T>() as u16,
-            data,
+            data: UnsafeCell::new(data),
         }
     }
 
@@ -32,6 +31,8 @@ impl<T: ExHeaderType> ExHeader<T> {
         self.version
     }
 }
+unsafe impl<T: ExHeaderType + Sync> Sync for ExHeader<T> {}
+unsafe impl<T: ExHeaderType + Send> Send for ExHeader<T> {}
 
 pub trait ExHeaderType {
     const NAME: [u8; 4];
@@ -57,7 +58,7 @@ impl<T> SerialSlice<T> {
     }
 
     pub unsafe fn offset(&self, idx: usize) -> *const T {
-        if idx < self.len as usize {
+        if idx >= self.len as usize {
             slice_range_fail(idx, self.len);
         }
         let raw_ptr = self.ptr as *const T;

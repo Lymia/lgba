@@ -6,6 +6,6 @@ spec = "test_files/a_{u16}_{u16}.txt"
 name = "test2"
 spec = "test_files/*_{u16}_{u16}.txt"
 
-#[[root]]
-#name = "test3"
-#spec = "test_files/{str}.txt"
+[[root]]
+name = "test3"
+spec = "test_files/{str}.txt"
