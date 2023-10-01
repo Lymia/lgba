@@ -297,7 +297,6 @@ impl RomData {
         let mut encoder = FilesystemEncoder::new(self.cur_addr()?);
         let data = encoder.load_filesystem(&parent_path, &manifest, &self.filters)?;
         self.push_section(Some("Game Data"), encoder.data());
-        println!("{encoder:x?}");
 
         for exh in target_exh {
             let target = &mut self.data_mut()[exh.file_range()];

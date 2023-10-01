@@ -17,7 +17,7 @@ pub struct PhfTable<K, V> {
 impl<K: Eq + Hash, V> PhfTable<K, V> {
     pub unsafe fn lookup(&self, k: &K) -> Option<&'static V> {
         let bucket =
-            lgba_phf::hash_dynamic(self.hash_key, self.disps.as_slice(), k, self.keys.len - 1);
+            lgba_phf::hash_dynamic(self.hash_key, self.disps.as_slice(), k, self.keys.len);
 
         if *self.presence_map.offset(bucket / 32) & (1 << (bucket % 32)) == 0 {
             None
@@ -58,11 +58,17 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     let mut new_data = Vec::new();
     new_data.extend(vec![0; mem::size_of::<PhfTable<K, V>>()]);
 
+    while new_data.len() % mem::align_of::<DisplacementData>() != 0 {
+        new_data.push(0);
+    }
     let start_disps_table = base_offset + new_data.len() as u32;
     for disp in &generator.disps {
         new_data.extend(disp.to_le_bytes());
     }
 
+    while new_data.len() % mem::align_of::<K>() != 0 {
+        new_data.push(0);
+    }
     let start_key_table = base_offset + new_data.len() as u32;
     let mut presence_table = vec![0u32; (generator.map.len() + 31) / 32];
     for (i, idx) in generator.map.iter().enumerate() {
@@ -79,6 +85,9 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
         }
     }
 
+    while new_data.len() % mem::align_of::<V>() != 0 {
+        new_data.push(0);
+    }
     let start_value_table = base_offset + new_data.len() as u32;
     for idx in &generator.map {
         if *idx == !0 {
@@ -93,6 +102,9 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
         }
     }
 
+    while new_data.len() % mem::align_of::<u32>() != 0 {
+        new_data.push(0);
+    }
     let start_presence_map = base_offset + new_data.len() as u32;
     for entry in &presence_table {
         new_data.extend(entry.to_le_bytes());

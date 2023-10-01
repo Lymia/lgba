@@ -1,5 +1,5 @@
 use crate::FileList;
-use core::hash::Hash;
+use core::{fmt::Debug, hash::Hash};
 use lgba_common::{
     common::ExHeader,
     data::{DataHeader, RawStrHash, RomDataType, RomPartitionData, RomRoot},
@@ -18,7 +18,7 @@ impl EntryAccess {
 }
 
 /// A type supported for a root's key.
-pub trait ValidRootKey: Copy + Eq + Hash + 'static {
+pub trait ValidRootKey: Copy + Eq + Hash + Debug + 'static {
     const ROM_TYPE: RomDataType;
 }
 macro_rules! simple_root_ty {

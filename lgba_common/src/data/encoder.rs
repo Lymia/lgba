@@ -11,7 +11,9 @@ use crate::{
 };
 use anyhow::*;
 use serde::Serialize;
-use std::{collections::BTreeMap, hash::Hash, marker::PhantomData, path::Path, vec::Vec};
+use std::{
+    collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, path::Path, vec::Vec,
+};
 
 // TODO: Increase amount of caching.
 
@@ -108,7 +110,7 @@ impl FilesystemEncoder {
         }
         Ok(offset as u32)
     }
-    fn encode_root_typed<T: Copy + Ord + Eq + Hash + Serialize>(
+    fn encode_root_typed<T: Copy + Ord + Eq + Hash + Serialize + Debug>(
         &mut self,
         data: &BTreeMap<T, LoadedEntry>,
         ty: RomDataType,
