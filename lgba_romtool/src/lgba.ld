@@ -7,54 +7,76 @@ MEMORY {
 }
 
 SECTIONS {
+    /* ROM headers */
     .header : {
+        /* The fixed early part of the header, including the JMP instruction and logo */
         KEEP(*(.lgba.header.fixed));
         *(.lgba.header.fixed);
+
+        /* The dynamic part of the header, generated from the #[entry] attribute */
         KEEP(*(.lgba.header.dynamic));
         *(.lgba.header.dynamic);
+
+        /* Extra headers used by lgba, to allow post-processing of the ROM */
         KEEP(*(.header .header.*));
         *(.header .header.*);
+
+        /* The end marker for the extra headers */
         KEEP(*(.lgba.header.extra_end));
         *(.lgba.header.extra_end);
         . = ALIGN(4);
     } >rom
 
+    /* The text segment, stored on ROM */
     .text : {
         *(.text .text.*);
         . = ALIGN(4);
     } >rom
 
+    /* The read-only segment, stored on ROM */
     .rodata : {
+        /* The list of constructors called by lgba's init function. */
+        . = ALIGN(4);
+        __ctor_start = ABSOLUTE(.);
+        KEEP(*(.ctor .ctor.*));
+        *(.ctor .ctor.*);
+        __ctor_end = ABSOLUTE(.);
+        . = ALIGN(4);
+
+        /* Rest of the read-only data */
         *(.rodata .rodata.*);
         . = ALIGN(4);
     } >rom
 
+    /* Data stored in EWRAM. This is stored in ROM initially and copied into RAM. */
     __ewram_lma = .;
     .ewram : {
         __ewram_start = ABSOLUTE(.);
-        *(.ewram .ewram.*);
+        *(.ewram .ewram.*); /* explicit ewram variables */
         . = ALIGN(4);
     } >ewram AT>rom
     .ewram_text : {
         *(.ewram_text .ewram_text.*);
         . = ALIGN(4);
-        __ewram_end = ABSOLUTE(.);
+        __ewram_end = ABSOLUTE(.); /* explicit ewram code */
     } >ewram AT>rom
 
+    /* Data stored in IWRAM. This is stored in ROM initially and copied into RAM. */
     . = __ewram_lma + (__ewram_end - __ewram_start);
     __iwram_lma = .;
     .iwram : {
         __iwram_start = ABSOLUTE(.);
-        *(.data .data.*);
-        *(.iwram .iwram.*);
+        *(.data .data.*); /* iwram is default storage location for variables */
+        *(.iwram .iwram.*); /* explicit iwram variables */
         . = ALIGN(4);
     } >iwram AT>rom
     .iwram_text : {
-        *(.iwram_text .iwram_text.*);
+        *(.iwram_text .iwram_text.*); /* explicit iwram code */
         . = ALIGN(4);
         __iwram_end = ABSOLUTE(.);
     } >iwram AT>rom
 
+    /* The part of IWRAM that is zeroed instead of having any initial contents */
     .bss : {
         __bss_start = ABSOLUTE(.);
         *(.bss .bss.*);

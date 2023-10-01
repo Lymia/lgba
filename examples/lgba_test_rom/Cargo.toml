@@ -8,4 +8,6 @@ description = "A test rom for the basic functionality of lgba."
 
 [dependencies]
 enumset = "1"
+
 lgba = { path = "../../lgba" }
+lgba_data = { path = "../../lgba_data" }

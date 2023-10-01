@@ -33,6 +33,9 @@ mod interface {
         // initialize the global allocator
         #[cfg(feature = "allocator")]
         crate::sys::allocator::init_rust_alloc();
+
+        // run ctors
+        __lgba_run_ctors();
     }
 
     #[no_mangle]
@@ -71,6 +74,7 @@ mod interface {
 
     extern "C" {
         pub fn __lgba_abort() -> !;
+        pub fn __lgba_run_ctors();
         pub fn __lgba_TransferBuf(src: *const u8, dst: *mut u8, count: usize);
         pub fn __lgba_ReadByte(src: *const u8) -> u8;
         pub fn __lgba_VerifyBuf(buf1: *const u8, buf2: *const u8, count: usize) -> bool;

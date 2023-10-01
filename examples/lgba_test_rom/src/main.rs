@@ -5,6 +5,7 @@
 extern crate lgba;
 extern crate alloc;
 
+mod game_data_test;
 mod interrupt_test;
 mod savegame_test;
 mod terminal_test;
@@ -21,10 +22,21 @@ static OPTIONS: &[(&'static str, fn() -> !)] = &[
     ("Test terminal function", || terminal_test::run()),
     ("Test savegame function", || savegame_test::run()),
     ("Test interrupt handlers", || interrupt_test::run()),
+    ("Test game data", || game_data_test::run()),
     ("Test panic handler", || {
         panic!("oh no something really bad happened!!! help!!!")
     }),
 ];
+
+#[lgba::ctor]
+fn ctor_test_1() {
+    lgba::println!("Hello world from #[ctor]! (1)");
+}
+
+#[lgba::ctor]
+fn ctor_test_2() {
+    lgba::println!("Hello world from #[ctor]! (2)");
+}
 
 #[lgba::entry]
 #[rom(title = "LGBA_TESTROM", code = "LGTR")]

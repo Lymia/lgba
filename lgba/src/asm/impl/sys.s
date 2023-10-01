@@ -51,3 +51,26 @@ __lgba_abort:
 0:  swi #0x02
     b 0b
 .pool
+
+@
+@ Runs the #[ctor]s defined in Rust code
+@ Written in assembly to dodge some aliasing unsoundness.
+@
+    .thumb_func
+    .global __lgba_run_ctors
+__lgba_run_ctors:
+    push {r4, r5, lr}
+    ldr r4, =__ctor_start
+    ldr r5, =__ctor_end
+
+0:  cmp r4, r5
+    beq 1f
+    ldr r0, [r4]
+    bl 2f
+    adds r4, #4
+    b 0b
+
+1:  pop {r4, r5}
+    pop {r0}
+2:  bx r0 @ reused as both the trampoline and normal return
+.pool

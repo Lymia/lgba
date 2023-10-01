@@ -3,23 +3,17 @@ use crate::{
     data::{
         load,
         loader::{LoadedEntry, LoadedFilesystem, LoadedRoot},
-        DataHeader, FileData, FileList, FilesystemDataInfo, FilesystemDataType, FilterManager,
-        ParsedManifest, PhfData,
+        DataHeader, FileData, FileList, FilterManager, ParsedManifest, RomDataInfo, RomDataType,
+        RomRoot,
     },
     encoder::BaseEncoder,
     hashes::hashed,
 };
 use anyhow::*;
-use std::{
-    collections::{BTreeMap, HashSet},
-    format,
-    hash::Hash,
-    marker::PhantomData,
-    path::Path,
-    string::{String, ToString},
-    vec::Vec,
-};
 use serde::Serialize;
+use std::{collections::BTreeMap, hash::Hash, marker::PhantomData, path::Path, vec::Vec};
+
+// TODO: Increase amount of caching.
 
 #[derive(Debug)]
 pub struct FilesystemEncoder {
@@ -77,13 +71,13 @@ impl FilesystemEncoder {
         }
         Ok(())
     }
-    fn encode_file_list(&mut self, data: &[Vec<u8>]) -> Result<FilesystemDataInfo> {
+    fn encode_file_list(&mut self, data: &[Vec<u8>]) -> Result<RomDataInfo> {
         if data.is_empty() {
-            Ok(FilesystemDataInfo::new(FilesystemDataType::NoFiles, 0x8000000))
+            Ok(RomDataInfo::new(RomDataType::NoFiles, 0x8000000))
         } else if data.len() == 1 {
             let data = self.write_serial_bytes(&data[0])?;
             let offset = self.encoder.encode(&FileData { data })?;
-            Ok(FilesystemDataInfo::new(FilesystemDataType::FileData, offset as u32))
+            Ok(RomDataInfo::new(RomDataType::FileData, offset as u32))
         } else {
             let list_offset = self.encoder.cur_offset();
             for file in data {
@@ -99,7 +93,7 @@ impl FilesystemEncoder {
                 },
             })?;
 
-            Ok(FilesystemDataInfo::new(FilesystemDataType::FileList, offset as u32))
+            Ok(RomDataInfo::new(RomDataType::FileList, offset as u32))
         }
     }
     fn encode_entry(&mut self, data: &LoadedEntry) -> Result<u32> {
@@ -117,8 +111,8 @@ impl FilesystemEncoder {
     fn encode_root_typed<T: Copy + Ord + Eq + Hash + Serialize>(
         &mut self,
         data: &BTreeMap<T, LoadedEntry>,
-        ty: FilesystemDataType,
-    ) -> Result<FilesystemDataInfo> {
+        ty: RomDataType,
+    ) -> Result<RomDataInfo> {
         assert!(data.len() > 0);
 
         let mut phf_raw_data = Vec::new();
@@ -138,18 +132,15 @@ impl FilesystemEncoder {
         let data = crate::phf::build_phf(phf_offset, &phf_raw_data);
         self.encoder.encode_bytes_raw(&data);
 
-        let offset = self.encoder.encode(&PhfData {
+        let offset = self.encoder.encode(&RomRoot {
             partition_count: partition_count.unwrap() as u32,
             table: phf_offset,
             _phantom: PhantomData::<T>,
         })?;
-        Ok(FilesystemDataInfo::new(ty, offset as u32))
+        Ok(RomDataInfo::new(ty, offset as u32))
     }
 
-    fn write_filesystem(
-        &mut self,
-        loaded: &LoadedFilesystem,
-    ) -> Result<SerialSlice<FilesystemDataInfo>> {
+    fn write_filesystem(&mut self, loaded: &LoadedFilesystem) -> Result<SerialSlice<RomDataInfo>> {
         let hash = hashed(loaded, 3);
         if !self.encoder.cached_objects.contains_key(&hash) {
             self.pre_encode_file_data(loaded)?;
@@ -157,20 +148,18 @@ impl FilesystemEncoder {
             let mut roots = Vec::new();
             for (_, root) in &loaded.roots {
                 roots.push(match root {
-                    LoadedRoot::Empty => {
-                        FilesystemDataInfo::new(FilesystemDataType::NoFiles, 0x8000000)
-                    }
+                    LoadedRoot::Empty => RomDataInfo::new(RomDataType::NoFiles, 0x8000000),
                     LoadedRoot::MapStr(map) => {
-                        self.encode_root_typed(map, FilesystemDataType::PhfStr)?
+                        self.encode_root_typed(map, RomDataType::RootStr)?
                     }
                     LoadedRoot::MapU16(map) => {
-                        self.encode_root_typed(map, FilesystemDataType::PhfU16)?
+                        self.encode_root_typed(map, RomDataType::RootU16)?
                     }
                     LoadedRoot::MapU16U16(map) => {
-                        self.encode_root_typed(map, FilesystemDataType::PhfU16U16)?
+                        self.encode_root_typed(map, RomDataType::RootU16U16)?
                     }
                     LoadedRoot::MapU32(map) => {
-                        self.encode_root_typed(map, FilesystemDataType::PhfU32)?
+                        self.encode_root_typed(map, RomDataType::RootU32)?
                     }
                 });
             }

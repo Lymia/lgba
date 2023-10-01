@@ -11,13 +11,13 @@ license = "MIT/Apache-2.0"
 proc-macro = true
 
 [features]
-lgba = ["darling", "fnv"]
-data = ["hashes"]
+lgba = ["darling"]
+data = ["hashes", "lgba_common/data_manifest"]
 hashes = ["lgba_common", "lgba_common/hashes"]
 
 [dependencies]
 darling = { version = "0.20", optional = true, default-features = false }
-fnv = { version = "1.0", optional = true, default-features = false }
+fnv = { version = "1.0", default-features = false }
 syn = "2"
 quote = "1"
 proc-macro2 = "1"

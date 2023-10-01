@@ -69,6 +69,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
             -C opt-level=3
             -C lto=fat
             -C debuginfo=full
+            -Z macro-backtrace
         ",
         home = home.display(),
         sysroot = sysroot.trim(),

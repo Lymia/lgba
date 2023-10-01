@@ -1,33 +1,35 @@
 use crate::{
-    common::{ExHeader, ExHeaderType, SerialSlice},
+    common::{ExHeaderType, SerialSlice},
     phf::PhfTable,
 };
-use core::hash::{Hash, Hasher};
+use core::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 use fnv::FnvHasher;
 use num_enum::TryFromPrimitive;
 #[cfg(feature = "data_build")]
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 /// The data underlying a PHF root.
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct PhfData<T: Eq + Hash> {
+pub struct RomRoot<T: Eq + Hash> {
     /// The size of the bare array `table` points to.
     pub partition_count: u32,
 
     /// The underlying PHF data.
     ///
     /// Key is `T`.
-    /// Value is a pointer to a bare array of [`FilesystemDataInfo`] objects.
+    /// Value is a pointer to a bare array of [`RomDataInfo`] objects.
     pub table: u32,
 
     /// phantom data
     pub _phantom: PhantomData<T>,
 }
-impl<T: Eq + Hash> PhfData<T> {
-    pub unsafe fn lookup(&self, t: &T) -> Option<&'static [PhfDataEntry]> {
+impl<T: Eq + Hash> RomRoot<T> {
+    pub unsafe fn lookup(&self, t: &T) -> Option<&'static [RomPartitionData]> {
         match (*(self.table as *const PhfTable<T, u32>)).lookup(t) {
             None => None,
             Some(v) => {
@@ -39,13 +41,13 @@ impl<T: Eq + Hash> PhfData<T> {
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
-pub struct PhfDataEntry(FilesystemDataInfo);
-impl PhfDataEntry {
+pub struct RomPartitionData(RomDataInfo);
+impl RomPartitionData {
     pub unsafe fn as_slice(&self) -> &'static [FileData] {
         match self.0.decode() {
-            FilesystemData::NoFiles => &[],
-            FilesystemData::FileData(v) => core::slice::from_ref(v),
-            FilesystemData::FileList(v) => v.as_slice(),
+            RomData::NoFiles => &[],
+            RomData::FileData(v) => core::slice::from_ref(v),
+            RomData::FileList(v) => v.as_slice(),
             _ => type_error(),
         }
     }
@@ -55,16 +57,16 @@ impl PhfDataEntry {
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 #[repr(transparent)]
-pub struct StrHash(u32);
-impl StrHash {
-    pub fn new(name: &str) -> StrHash {
+pub struct RawStrHash(pub u32);
+impl RawStrHash {
+    pub fn new(name: &str) -> RawStrHash {
         let mut hash = FnvHasher::with_key(123456001);
         for path in name.split('/') {
             if !path.is_empty() {
                 path.hash(&mut hash);
             }
         }
-        StrHash(hash.finish() as u32)
+        RawStrHash(hash.finish() as u32)
     }
 }
 
@@ -72,21 +74,21 @@ impl StrHash {
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
-pub enum FilesystemDataType {
+pub enum RomDataType {
     /// There are no files present.
     NoFiles,
     /// The data for a single file.
     FileData,
     /// The data for multiple files.
     FileList,
-    /// A PHF string node. Points to a [`PhfData<StrHash>`].
-    PhfStr,
-    /// A PHF ID node. Points to a [`PhfData<u16>`].
-    PhfU16,
-    /// A PHF ID node. Points to a [`PhfData<(u16, u16)>`].
-    PhfU16U16,
-    /// A PHF ID node. Points to a [`PhfData<u32>`].
-    PhfU32,
+    /// A PHF string node. Points to a [`RomRoot<RawStrHash>`].
+    RootStr,
+    /// A PHF ID node. Points to a [`RomRoot<u16>`].
+    RootU16,
+    /// A PHF ID node. Points to a [`RomRoot<(u16, u16)>`].
+    RootU16U16,
+    /// A PHF ID node. Points to a [`RomRoot<u32>`].
+    RootU32,
 }
 
 /// Stores the data for a single file.
@@ -117,16 +119,16 @@ impl FileList {
     }
 }
 
-/// A typed [`FilesystemDataInfo`], used internally to decode them.
+/// A typed [`RomDataInfo`], used internally to decode them.
 #[derive(Copy, Clone, Debug)]
-pub enum FilesystemData {
+pub enum RomData {
     NoFiles,
     FileData(&'static FileData),
     FileList(&'static FileList),
-    PhfStr(&'static PhfData<StrHash>),
-    PhfU16(&'static PhfData<u16>),
-    PhfU16U16(&'static PhfData<(u16, u16)>),
-    PhfU32(&'static PhfData<u32>),
+    PhfStr(&'static RomRoot<RawStrHash>),
+    PhfU16(&'static RomRoot<u16>),
+    PhfU16U16(&'static RomRoot<(u16, u16)>),
+    PhfU32(&'static RomRoot<u32>),
 }
 
 /// A pointer to a typed filesystem node.
@@ -136,42 +138,30 @@ pub enum FilesystemData {
 #[cfg_attr(feature = "data_build", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
-pub struct FilesystemDataInfo(pub u32);
-impl FilesystemDataInfo {
-    pub fn new(ty: FilesystemDataType, ptr: u32) -> Self {
+pub struct RomDataInfo(pub u32);
+impl RomDataInfo {
+    pub fn new(ty: RomDataType, ptr: u32) -> Self {
         assert_eq!(ptr & 0xFE000000, 0x08000000, "ptr must be in 0x8000000-0x9FFFFFF range.");
-        FilesystemDataInfo(ptr & 0x01FFFFFF | ((ty as u32) << 25))
+        RomDataInfo(ptr & 0x01FFFFFF | ((ty as u32) << 25))
     }
 
     pub fn ptr(&self) -> u32 {
         (self.0 & 0x01FFFFFF) | 0x08000000
     }
 
-    pub fn ty(&self) -> FilesystemDataType {
-        FilesystemDataType::try_from((self.0 >> 25) as u8).unwrap()
+    pub fn ty(&self) -> RomDataType {
+        RomDataType::try_from((self.0 >> 25) as u8).unwrap()
     }
 
-    pub unsafe fn decode(&self) -> FilesystemData {
+    pub unsafe fn decode(&self) -> RomData {
         match self.ty() {
-            FilesystemDataType::NoFiles => FilesystemData::NoFiles,
-            FilesystemDataType::FileList => {
-                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::PhfStr => {
-                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::FileData => {
-                FilesystemData::FileData(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::PhfU16 => {
-                FilesystemData::PhfU16(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::PhfU16U16 => {
-                FilesystemData::PhfU16U16(&*(self.ptr() as usize as *const _))
-            }
-            FilesystemDataType::PhfU32 => {
-                FilesystemData::PhfU32(&*(self.ptr() as usize as *const _))
-            }
+            RomDataType::NoFiles => RomData::NoFiles,
+            RomDataType::FileList => RomData::FileData(&*(self.ptr() as usize as *const _)),
+            RomDataType::RootStr => RomData::FileData(&*(self.ptr() as usize as *const _)),
+            RomDataType::FileData => RomData::FileData(&*(self.ptr() as usize as *const _)),
+            RomDataType::RootU16 => RomData::PhfU16(&*(self.ptr() as usize as *const _)),
+            RomDataType::RootU16U16 => RomData::PhfU16U16(&*(self.ptr() as usize as *const _)),
+            RomDataType::RootU32 => RomData::PhfU32(&*(self.ptr() as usize as *const _)),
         }
     }
 }
@@ -184,18 +174,18 @@ pub struct DataHeader {
     /// The hash derived from the manifest.
     pub hash: [u8; 12],
     /// An array of roots for the manifest.
-    pub roots: SerialSlice<FilesystemDataInfo>,
+    pub roots: SerialSlice<RomDataInfo>,
 }
 impl DataHeader {
     pub const fn new(hash: [u8; 12]) -> DataHeader {
         DataHeader { hash, roots: SerialSlice::default() }
     }
 
-    pub unsafe fn get_root(&self, root_idx: usize) -> FilesystemData {
+    pub unsafe fn get_root(&self, root_idx: usize) -> RomDataInfo {
         if self.roots.ptr == 0 {
             panic!("data root not available. Please use lgba_romtool.");
         }
-        (*self.roots.offset(root_idx)).decode()
+        *self.roots.offset(root_idx)
     }
 }
 impl ExHeaderType for DataHeader {

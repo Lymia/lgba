@@ -70,6 +70,44 @@ pub fn ewram_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Calls this function when the game first starts.
+pub fn ctor_impl(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args: SynTokenStream = args.into();
+    let input: SynTokenStream = input.into();
+
+    let input: ItemFn = match syn::parse2(input) {
+        Ok(v) => v,
+        Err(_) => {
+            return Error::new(args.span(), "#[lgba::ctor] must be placed on a function.")
+                .to_compile_error()
+                .into()
+        }
+    };
+
+    let mut hasher = fnv::FnvHasher::with_key(0x12345679);
+    input.hash(&mut hasher);
+    format!("{:?}", input.span()).hash(&mut hasher);
+    let hash = hasher.finish();
+
+    let name = &input.sig.ident;
+    let unsafety = &input.sig.unsafety;
+    let export_name = format!("__lgba_ctor_{name}_{hash:x}");
+    let export_symbol = Ident::new(&export_name, args.span());
+
+    (quote! {
+        pub const _: () = {
+            #[used]
+            #[link_section = ".ctor"]
+            #[export_name = #export_name]
+            #[doc(hidden)]
+            pub static #export_symbol: #unsafety fn() = #name;
+        };
+
+        #input
+    })
+    .into()
+}
+
 pub fn arm_impl(input: TokenStream) -> TokenStream {
     let input: SynTokenStream = input.into();
     (quote! {
@@ -230,6 +268,7 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
     let mut hasher = fnv::FnvHasher::with_key(0x12345678);
     attrs.hash(&mut hasher);
     input.hash(&mut hasher);
+    format!("{:?}", input.span()).hash(&mut hasher);
     let canary = hasher.finish();
 
     let new_attrs: Vec<_> = input

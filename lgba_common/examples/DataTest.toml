@@ -5,3 +5,7 @@ spec = "examples/test_files/a_{u16}_{u16}.txt"
 [[root]]
 name = "test2"
 spec = "examples/test_files/*_{u16}_{u16}.txt"
+
+[[root]]
+name = "test3"
+spec = "examples/test_files/{str}.txt"

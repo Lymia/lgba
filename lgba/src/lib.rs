@@ -67,7 +67,7 @@ pub mod timer;
 pub use asm::{init_lgba, setup_lgba};
 #[cfg(feature = "low_level")]
 pub use lgba_macros::unsafe_alloc_zones;
-pub use lgba_macros::{arm, entry, ewram, iwram, thumb};
+pub use lgba_macros::{arm, ctor, entry, ewram, iwram, thumb};
 
 /// A module allowing easier usage of memory-mapped registers.
 #[cfg(feature = "low_level")]

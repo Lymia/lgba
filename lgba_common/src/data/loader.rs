@@ -1,4 +1,4 @@
-use crate::data::{ParsedManifest, ParsedRoot, ParsedSpecShape, StrHash};
+use crate::data::{ParsedManifest, ParsedRoot, ParsedSpecShape, RawStrHash};
 use anyhow::{bail, ensure, Result};
 use log::{trace, warn};
 use std::{
@@ -7,7 +7,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     format, fs,
     hash::Hash,
-    path::{Path, PathBuf},
+    path::Path,
     rc::Rc,
     str::FromStr,
     string::{String, ToString},
@@ -22,7 +22,7 @@ pub struct LoadedEntry {
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum LoadedRoot {
     Empty,
-    MapStr(BTreeMap<StrHash, LoadedEntry>),
+    MapStr(BTreeMap<RawStrHash, LoadedEntry>),
     MapU16(BTreeMap<u16, LoadedEntry>),
     MapU16U16(BTreeMap<(u16, u16), LoadedEntry>),
     MapU32(BTreeMap<u32, LoadedEntry>),
@@ -35,7 +35,7 @@ pub struct LoadedFilesystem {
 
 #[derive(Copy, Clone, Debug)]
 pub enum IdKey {
-    Str(StrHash),
+    Str(RawStrHash),
     U16(u16),
     U16U16(u16, u16),
     U32(u32),
@@ -141,10 +141,11 @@ impl RootFilterVisitor {
     }
 }
 impl FilterVisitor for RootFilterVisitor {
-    fn create(parent: Box<dyn FilterVisitor>) -> Result<Self>
+    fn create(_: Box<dyn FilterVisitor>) -> Result<Self>
     where Self: Sized {
         unimplemented!()
     }
+
     fn visit(&mut self, root: &str, key: IdKey, partition: &str, data: Vec<u8>) -> Result<()> {
         let name = &self
             .template
@@ -204,10 +205,11 @@ impl FilterVisitor for RootFilterVisitor {
 
 struct RootFilterWrapper(Rc<RefCell<RootFilterVisitor>>);
 impl FilterVisitor for RootFilterWrapper {
-    fn create(parent: Box<dyn FilterVisitor>) -> Result<Self>
+    fn create(_: Box<dyn FilterVisitor>) -> Result<Self>
     where Self: Sized {
         unimplemented!()
     }
+
     fn visit(&mut self, root: &str, key: IdKey, partition: &str, data: Vec<u8>) -> Result<()> {
         self.0.borrow_mut().visit(root, key, partition, data)
     }
@@ -255,7 +257,7 @@ fn dispatch_root(
                     };
 
                     let id = match shape {
-                        ParsedSpecShape::Str => IdKey::Str(StrHash::new(&captures[1])),
+                        ParsedSpecShape::Str => IdKey::Str(RawStrHash::new(&captures[1])),
                         ParsedSpecShape::U16 => IdKey::U16(maybe_hex(&captures[1], is_hex[0])?),
                         ParsedSpecShape::U16U16 => IdKey::U16U16(
                             maybe_hex(&captures[1], is_hex[0])?,
