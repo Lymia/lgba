@@ -189,10 +189,19 @@ impl RomData {
             .base_addr
             .expect("Base address must exist for link_base_rom!");
         let data = std::mem::replace(&mut self.data, Vec::new());
-        self.data.extend(&rom[..(base_addr - 0x8000000)]);
-        let len = data.len();
+
+        let copy_len = base_addr - 0x8000000;
+        self.data.extend(&rom[..copy_len]);
         self.data.extend(data);
-        *self.usage.entry("Base ROM".into()).or_default() += len;
+        *self.usage.entry("Base ROM".into()).or_default() += copy_len;
+
+        for (_, exh) in &mut self.exh {
+            for exh_l in exh {
+                exh_l.range.start += copy_len;
+                exh_l.range.end += copy_len;
+            }
+        }
+
         self.base_addr = Some(0x8000000);
     }
 
