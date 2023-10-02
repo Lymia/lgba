@@ -3,6 +3,8 @@ use derive_setters::Setters;
 use log::{debug, info};
 use std::{path::PathBuf, process::Command};
 
+// TODO: Support debug_assertions and fix the issue with compiler_builtins
+
 #[derive(Setters)]
 #[setters(strip_option)]
 pub struct CompileConfig {
@@ -13,9 +15,7 @@ pub struct CompileConfig {
     #[setters(into)]
     linker_script: Option<PathBuf>,
     linker_script_data: Option<String>,
-    #[setters(bool)]
-    release: bool,
-    #[setters(into)]
+    #[setters(skip)]
     extra_rust_flags: Vec<String>,
 }
 impl CompileConfig {
@@ -25,9 +25,15 @@ impl CompileConfig {
             output,
             linker_script: None,
             linker_script_data: None,
-            release: false,
             extra_rust_flags: vec![],
         }
+    }
+
+    pub fn extra_rust_flags(mut self, args: &[&str]) -> Self {
+        for arg in args {
+            self.extra_rust_flags.push(arg.to_string());
+        }
+        self
     }
 }
 
@@ -69,7 +75,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
             --remap-path-prefix {rootdir}/src/=
             -C link-arg=-T{linker_script}
             -C target-cpu=arm7tdmi
-            -C opt-level=3
+            -C opt-level=2
             -C debuginfo=full
             -Z macro-backtrace
         ",
@@ -90,16 +96,12 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
     }
     let rust_args = cleaned_args.join(" ");
 
-    let rel_args: &[&str] = if args.release { &["--release"] } else { &[] };
-    let rel_path = if args.release { "release" } else { "debug" };
-
     debug!("rustc flags: {cleaned_args:?}");
     Command::new("cargo")
         .arg("+nightly")
-        .args(["--config", "profile.dev.lto=\"fat\""])
         .args(["--config", "profile.release.lto=\"fat\""])
+        .args(["--config", "profile.release.panic=\"abort\""])
         .args(["build", "-p", &args.package])
-        .args(rel_args)
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
         .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])
@@ -109,7 +111,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
 
     info!("Copying binary...");
     let final_path =
-        PathBuf::from(format!("target/thumbv4t-none-eabi/{rel_path}/{}", args.package));
+        PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package));
     debug!("output path: {}", final_path.display());
     std::fs::copy(final_path, &args.output)?;
 

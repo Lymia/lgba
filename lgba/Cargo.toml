@@ -38,6 +38,6 @@ lgba_phf = { version = "0.1", path = "../lgba_phf" }
 #
 # We can't use the stdlib version because it doesn't have weak-instrinsics.
 package = "compiler_builtins"
-version = "0.1.93"
+version = "0.1.101"
 features = ["weak-intrinsics", "no-asm"]
 default-features = false
