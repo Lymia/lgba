@@ -35,7 +35,7 @@ fn ctor_test_1() {
 
 #[lgba::ctor]
 fn ctor_test_2() {
-    lgba::println!("Hello world from #[ctor]! (2)");
+    lgba::println!("Hello world from #[ctor]! (2a)");
 }
 
 #[lgba::entry]

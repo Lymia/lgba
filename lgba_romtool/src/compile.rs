@@ -15,6 +15,8 @@ pub struct CompileConfig {
     linker_script_data: Option<String>,
     #[setters(bool)]
     release: bool,
+    #[setters(into)]
+    extra_rust_flags: Vec<String>,
 }
 impl CompileConfig {
     pub fn new(package: String, output: PathBuf) -> Self {
@@ -24,6 +26,7 @@ impl CompileConfig {
             linker_script: None,
             linker_script_data: None,
             release: false,
+            extra_rust_flags: vec![],
         }
     }
 }
@@ -81,6 +84,9 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
         if !arg.trim().is_empty() {
             cleaned_args.push(arg.trim());
         }
+    }
+    for arg in &args.extra_rust_flags {
+        cleaned_args.push(arg)
     }
     let rust_args = cleaned_args.join(" ");
 

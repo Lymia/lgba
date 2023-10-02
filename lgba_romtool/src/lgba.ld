@@ -87,6 +87,11 @@ SECTIONS {
         . = ALIGN(4);
     } >iwram
 
+    /* Dynamic info */
+    .dynamic   : { *(.dynamic) }
+    .dynsym    : { *(.dynsym) }
+    .dynstr    : { *(.dynstr) }
+
     /* DWARF 1 */
     .debug          0 : { *(.debug) }
     .line           0 : { *(.line) }

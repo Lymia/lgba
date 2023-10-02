@@ -56,15 +56,19 @@ impl RomData {
                 continue;
             }
 
-            let seg_start = segment.sh_offset as usize;
-            let seg_end = (segment.sh_offset + segment.sh_size) as usize;
-            let segment_data = &elf_data[seg_start..seg_end];
-            while rom_program.len() % segment.sh_addralign as usize != 0 {
-                rom_program.push(0);
+            if !name.starts_with(".dyn") {
+                assert_eq!(name, SECTION_ORDER[section_no], "Wrong section found!");
+
+                let seg_start = segment.sh_offset as usize;
+                let seg_end = (segment.sh_offset + segment.sh_size) as usize;
+                let segment_data = &elf_data[seg_start..seg_end];
+                while rom_program.len() % segment.sh_addralign as usize != 0 {
+                    rom_program.push(0);
+                }
+                rom_program.extend(segment_data);
+
+                section_no += 1;
             }
-            assert_eq!(name, SECTION_ORDER[section_no], "Wrong section found!");
-            rom_program.extend(segment_data);
-            section_no += 1;
         }
         assert_eq!(
             section_no,
