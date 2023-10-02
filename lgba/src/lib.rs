@@ -79,6 +79,7 @@ pub mod reg {
 /// **NOT** public API!! Only for this crate's macros.
 #[doc(hidden)]
 pub mod __macro_export {
+    #[cfg(feature = "gba_header")]
     pub use crate::asm::gba_header;
     pub use core;
     pub use lgba_common::common::StaticStr;

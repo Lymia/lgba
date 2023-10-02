@@ -3,6 +3,8 @@
 use core::ops::Range;
 
 mod build_asm;
+
+#[cfg(feature = "gba_header")]
 pub mod gba_header;
 
 // force link the crates.io version of compiler_builtins_local

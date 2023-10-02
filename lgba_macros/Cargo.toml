@@ -13,6 +13,7 @@ proc-macro = true
 [features]
 lgba = ["darling"]
 data = ["lgba_common", "lgba_common/data_manifest"]
+gba_header = []
 
 [dependencies]
 darling = { version = "0.20", optional = true, default-features = false }

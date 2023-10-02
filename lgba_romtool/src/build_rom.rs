@@ -180,6 +180,22 @@ impl RomData {
         })
     }
 
+    /// Links a base ROM into the given binary.
+    ///
+    /// This is meant for use for creating ROM hacks and similar game modifications. The ROM is
+    /// assumed to begin at 0x8000000, and end at the base offset for the ELF binary.
+    pub fn link_base_rom(&mut self, rom: &[u8]) {
+        let base_addr = self
+            .base_addr
+            .expect("Base address must exist for link_base_rom!");
+        let data = std::mem::replace(&mut self.data, Vec::new());
+        self.data.extend(&rom[..(base_addr - 0x8000000)]);
+        let len = data.len();
+        self.data.extend(data);
+        *self.usage.entry("Base ROM".into()).or_default() += len;
+        self.base_addr = Some(0x8000000);
+    }
+
     /// Returns the base address of this ROM.
     pub fn base_addr(&self) -> Result<usize> {
         match self.base_addr {

@@ -12,6 +12,9 @@ include_global_asm!("impl/header.s");
 include_global_asm!("impl/save.s");
 include_global_asm!("impl/sys.s");
 
+#[cfg(feature = "gba_header")]
+include_global_asm!("impl/gba_header.s");
+
 // aeabi functions implemented in assembly
 // original source: https://github.com/bobbl/libaeabi-cortexm0
 include_global_asm!("aeabi/idiv.S");

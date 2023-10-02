@@ -13,9 +13,11 @@ readme = "../README.md"
 license = "MIT/Apache-2.0"
 
 [features]
-default = ["allocator"]
+default = ["allocator", "gba_header"]
 # Enables the allocator
 allocator = ["linked_list_allocator"]
+# Enables the GBA header
+gba_header = ["lgba_macros/gba_header"]
 # Enables low-level features
 low_level = []
 # Disables debugging functionality entirely

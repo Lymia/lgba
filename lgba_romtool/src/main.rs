@@ -18,8 +18,6 @@ struct Cli {
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Compile {
-    #[arg(long)]
-    linker_script: Option<PathBuf>,
     #[arg(short = 'p', long)]
     package: String,
     #[arg(short = 'o', long)]
@@ -49,10 +47,7 @@ enum Commands {
 fn execute(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Compile(v) => {
-            let mut config = CompileConfig::new(v.package, v.output);
-            if let Some(linker_script) = v.linker_script {
-                config = config.linker_script(linker_script);
-            }
+            let config = CompileConfig::new(v.package, v.output);
             lgba_romtool::compile(&config)?;
         }
         Commands::BuildRom(v) => {

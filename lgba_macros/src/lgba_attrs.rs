@@ -271,6 +271,29 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
     format!("{:?}", input.span()).hash(&mut hasher);
     let canary = hasher.finish();
 
+    #[cfg(feature = "gba_header")]
+    let gba_header = quote! {
+        use #crate_name::__macro_export::gba_header::*;
+
+        #[no_mangle]
+        #[link_section = ".lgba.header.dynamic"]
+        pub static __lgba_header_dynamic: GbaHeader = {
+            let mut h = GBA_HEADER_TEMPLATE;
+            h = set_header_field(h, #title, 0, 12, #title_auto);
+            h = set_header_field(h, #code, 12, 4, #code_auto);
+            h = set_header_field(h, #developer, 16, 2, #developer_auto);
+            h[0x1C] = #version as u8;
+            h = calculate_complement(h);
+            h
+        };
+    };
+
+    #[cfg(not(feature = "gba_header"))]
+    let gba_header = quote! {};
+
+    #[cfg(not(feature = "gba_header"))]
+    let _used = (title, title_auto, code, code_auto, developer, developer_auto, version);
+
     let new_attrs: Vec<_> = input
         .attrs
         .iter()
@@ -283,19 +306,9 @@ fn entry_0(mut input: ItemFn, attrs: EntryAttrs) -> syn::Result<SynTokenStream> 
 
         /// The module used by lgba for its entry attribute codegen.
         mod __lgba_entry {
-            use #crate_name::__macro_export::{gba_header::*, StaticStr};
+            use #crate_name::__macro_export::StaticStr;
 
-            #[no_mangle]
-            #[link_section = ".lgba.header.dynamic"]
-            pub static __lgba_header_dynamic: GbaHeader = {
-                let mut h = GBA_HEADER_TEMPLATE;
-                h = set_header_field(h, #title, 0, 12, #title_auto);
-                h = set_header_field(h, #code, 12, 4, #code_auto);
-                h = set_header_field(h, #developer, 16, 2, #developer_auto);
-                h[0x1C] = #version as u8;
-                h = calculate_complement(h);
-                h
-            };
+            #gba_header
 
             #[no_mangle]
             pub static __lgba_config_canary: u64 = #canary;

@@ -1,11 +1,3 @@
-ENTRY  (__start)
-
-MEMORY {
-    ewram (w!x) : ORIGIN = 0x02000000, LENGTH = 256K
-    iwram (w!x) : ORIGIN = 0x03000000, LENGTH = 32K
-    rom (rx)    : ORIGIN = 0x08000000, LENGTH = 32M
-}
-
 SECTIONS {
     __root_lma = .;
 

@@ -13,8 +13,13 @@ pub struct CompileConfig {
     #[setters(skip)]
     output: PathBuf,
     #[setters(into)]
-    linker_script: Option<PathBuf>,
-    linker_script_data: Option<String>,
+    linker_start_target: String,
+    #[setters(skip)]
+    linker_ewram_config: (usize, usize),
+    #[setters(skip)]
+    linker_iwram_config: (usize, usize),
+    #[setters(skip)]
+    linker_rom_config: (usize, usize),
     #[setters(skip)]
     extra_rust_flags: Vec<String>,
 }
@@ -23,8 +28,10 @@ impl CompileConfig {
         CompileConfig {
             package,
             output,
-            linker_script: None,
-            linker_script_data: None,
+            linker_start_target: "__start".to_string(),
+            linker_ewram_config: (0x02000000, 1024 * 256),
+            linker_iwram_config: (0x03000000, 1024 * 32),
+            linker_rom_config: (0x08000000, 1024 * 1024 * 32),
             extra_rust_flags: vec![],
         }
     }
@@ -35,11 +42,40 @@ impl CompileConfig {
         }
         self
     }
+
+    pub fn linker_ewram(mut self, origin: usize, len: usize) -> Self {
+        self.linker_ewram_config = (origin, len);
+        self
+    }
+    pub fn linker_iwram(mut self, origin: usize, len: usize) -> Self {
+        self.linker_iwram_config = (origin, len);
+        self
+    }
+    pub fn linker_rom(mut self, origin: usize, len: usize) -> Self {
+        self.linker_rom_config = (origin, len);
+        self
+    }
+
+    pub fn make_linker_script(&self) -> String {
+        let start_symbol = &self.linker_start_target;
+        let (ewram_origin, ewram_len) = self.linker_ewram_config;
+        let (iwram_origin, iwram_len) = self.linker_iwram_config;
+        let (rom_origin, rom_len) = self.linker_rom_config;
+        format!(
+            include_str!("lgba_config.ld.inc"),
+            start_symbol = start_symbol,
+            ewram_origin = ewram_origin,
+            ewram_len = ewram_len,
+            iwram_origin = iwram_origin,
+            iwram_len = iwram_len,
+            rom_origin = rom_origin,
+            rom_len = rom_len,
+            rest = include_str!("lgba_main.ld.inc"),
+        )
+    }
 }
 
 pub fn compile(args: &CompileConfig) -> Result<()> {
-    assert!(!(args.linker_script.is_some() && args.linker_script_data.is_some()));
-
     info!("Compiling package {} to '{}'...", args.package, args.output.display());
 
     let home = dirs::home_dir().expect("Could not find home directory");
@@ -50,17 +86,10 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
             .stdout,
     )?;
     let rootdir = PathBuf::from(".").canonicalize()?;
-    let linker_script = match &args.linker_script {
-        None => {
-            let tmp_path = PathBuf::from(format!("{}/target/lgba.ld", rootdir.display()));
-            if let Some(linker_script_data) = &args.linker_script_data {
-                std::fs::write(&tmp_path, linker_script_data)?;
-            } else {
-                std::fs::write(&tmp_path, include_bytes!("lgba.ld"))?;
-            }
-            tmp_path
-        }
-        Some(script) => script.clone(),
+    let linker_script = {
+        let tmp_path = PathBuf::from(format!("{}/target/lgba.ld", rootdir.display()));
+        std::fs::write(&tmp_path, args.make_linker_script())?;
+        tmp_path
     };
     let rust_args = format!(
         "
@@ -110,8 +139,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
         .exit_ok()?;
 
     info!("Copying binary...");
-    let final_path =
-        PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package));
+    let final_path = PathBuf::from(format!("target/thumbv4t-none-eabi/release/{}", args.package));
     debug!("output path: {}", final_path.display());
     std::fs::copy(final_path, &args.output)?;
 
