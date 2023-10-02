@@ -245,15 +245,23 @@ fn dispatch_root(
             let regex = regex_lite::Regex::new(&spec.regex()?)?;
             let is_hex = spec.is_hex()?;
 
+            // sort the file paths, ensuring a predictable order
+            let mut paths = Vec::new();
             for path in glob::glob(&pattern)? {
                 let path = path?;
+                paths.push(path);
+            }
+            paths.sort();
+
+            // find all the relevant files and send them to the visitor
+            for path in paths {
                 if path.is_file() {
                     let path_str = path.display().to_string();
                     ensure!(path_str.starts_with(&root_str));
                     let path_str = &path_str[root_str.len() + 1..];
 
                     let Some(captures) = regex.captures(path_str) else {
-                        bail!("Regex match failure after glob match success?");
+                        continue;
                     };
 
                     let id = match shape {

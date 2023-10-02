@@ -132,7 +132,7 @@ impl FilesystemEncoder {
 
         let phf_offset = self.encoder.cur_offset() as u32;
         let data = crate::phf::build_phf(phf_offset, &phf_raw_data);
-        self.encoder.encode_bytes_raw(&data);
+        self.encoder.encode_bytes(&data)?;
 
         let offset = self.encoder.encode(&RomRoot {
             partition_count: partition_count.unwrap() as u32,
