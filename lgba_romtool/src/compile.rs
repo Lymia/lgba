@@ -101,7 +101,7 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
         .arg("+nightly")
         .args(["--config", "profile.release.lto=\"fat\""])
         .args(["--config", "profile.release.panic=\"abort\""])
-        .args(["build", "-p", &args.package])
+        .args(["build", "-p", &args.package, "--release"])
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
         .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])
