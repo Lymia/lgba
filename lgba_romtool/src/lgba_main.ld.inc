@@ -39,7 +39,7 @@ SECTIONS {
 
         /* Rest of the read-only data */
         *(.rodata .rodata.*);
-        . = ALIGN(4);
+        . = ALIGN(16);
     } >rom
 
     /* Data stored in EWRAM. This is stored in ROM initially and copied into RAM. */
@@ -51,7 +51,7 @@ SECTIONS {
     } >ewram AT>rom
     .ewram_text : {
         *(.ewram_text .ewram_text.*);
-        . = ALIGN(4);
+        . = ALIGN(16);
         __ewram_end = ABSOLUTE(.); /* explicit ewram code */
     } >ewram AT>rom
 
@@ -74,15 +74,14 @@ SECTIONS {
     .bss : {
         __bss_start = ABSOLUTE(.);
         *(.bss .bss.*);
-        . = ALIGN(4);
+        . = ALIGN(16);
         __bss_end = ABSOLUTE(.);
-        . = ALIGN(4);
     } >iwram
 
     /* Dynamic info */
-    .dynamic   : { *(.dynamic) }
-    .dynsym    : { *(.dynsym) }
-    .dynstr    : { *(.dynstr) }
+    .dynamic   : { *(.dynamic) } >rom
+    .dynsym    : { *(.dynsym) } >rom
+    .dynstr    : { *(.dynstr) } >rom
 
     /* DWARF 1 */
     .debug          0 : { *(.debug) }
