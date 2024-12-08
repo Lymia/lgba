@@ -18,14 +18,13 @@ binary = ["clap", "env_logger"]
 
 [dependencies]
 anyhow = "1.0"
-byteorder = "1.4"
 derive_setters = "0.1"
 dirs = "5.0"
-goblin = { version = "0.7", default-features = false, features = ["std", "elf32", "elf64", "endian_fd"] }
+goblin = { version = "0.9", default-features = false, features = ["std", "elf32", "elf64", "endian_fd"] }
 log = "0.4"
 
 lgba_common = { path = "../lgba_common", features = ["data_build"] }
 
 # Only used for the binary
 clap = { version = "4.3", optional = true, default-features = false, features = ["std", "derive"] }
-env_logger = { version = "0.10", optional = true }
+env_logger = { version = "0.11", optional = true }

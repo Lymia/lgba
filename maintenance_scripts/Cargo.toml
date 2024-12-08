@@ -7,7 +7,7 @@ edition = "2021"
 [features]
 
 [dependencies]
-bdf = "0.6"
+bdf = { version = "0.7", package = "bdf2" }
 kanji = "2"
 syn = "2"
 quote = "1"

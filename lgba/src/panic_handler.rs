@@ -119,10 +119,7 @@ fn handle_panic_inner(error: &PanicInfo) -> ! {
         write_location(terminal, error.location());
 
         // write panic message
-        match error.message() {
-            None => terminal.write_str("Message : <unknown>\n"),
-            Some(error) => write!(terminal.write(), "Message : {error}\n"),
-        }
+        write!(terminal.write(), "Message : {}\n", error.message());
     })
 }
 

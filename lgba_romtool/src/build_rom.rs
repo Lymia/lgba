@@ -302,9 +302,15 @@ impl RomData {
 
     fn read_str(&self, offset: usize) -> Result<&str> {
         let base = self.base_addr()?;
-        let start = self.read_usize(offset)? - base;
-        let end = start + self.read_usize(offset + 4)?;
-        Ok(std::str::from_utf8(&self.data[start..end])?)
+        let raw_offset = self.read_usize(offset)?;
+        let raw_length = self.read_usize(offset + 4)?;
+        if raw_length == 0 {
+            Ok("")
+        } else {
+            let start = raw_offset - base;
+            let end = start + raw_length;
+            Ok(std::str::from_utf8(&self.data[start..end])?)
+        }
     }
 
     /// Adds a data source to the rom.
