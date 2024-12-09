@@ -42,8 +42,10 @@ impl RomData {
             ".rodata",
             ".ewram",
             ".ewram_text",
+            ".ewram_late",
             ".iwram",
             ".iwram_text",
+            ".iwram_late",
             ".bss",
         ];
 

@@ -86,11 +86,6 @@ SECTIONS {
         __bss_end = ABSOLUTE(.);
     } >iwram
 
-    /* Dynamic info */
-    .dynamic   : { *(.dynamic) } >rom
-    .dynsym    : { *(.dynsym) } >rom
-    .dynstr    : { *(.dynstr) } >rom
-
     /* DWARF 1 */
     .debug          0 : { *(.debug) }
     .line           0 : { *(.line) }
