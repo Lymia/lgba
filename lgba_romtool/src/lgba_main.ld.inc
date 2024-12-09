@@ -50,9 +50,13 @@ SECTIONS {
         . = ALIGN(4);
     } >ewram AT>rom
     .ewram_text : {
-        *(.ewram_text .ewram_text.*);
+        *(.ewram_text .ewram_text.*); /* explicit ewram code */
+        . = ALIGN(4);
+    } >ewram AT>rom
+    .ewram_late : {
+        *(.ewram_late .ewram_late.*); /* late iwram variables (usually used for a canary) */
         . = ALIGN(16);
-        __ewram_end = ABSOLUTE(.); /* explicit ewram code */
+        __ewram_end = ABSOLUTE(.);
     } >ewram AT>rom
 
     /* Data stored in IWRAM. This is stored in ROM initially and copied into RAM. */
@@ -67,6 +71,10 @@ SECTIONS {
     .iwram_text : {
         *(.iwram_text .iwram_text.*); /* explicit iwram code */
         . = ALIGN(4);
+    } >iwram AT>rom
+    .iwram_late : {
+        *(.iwram_late .iwram_late.*); /* late iwram variables (usually used for a canary) */
+        . = ALIGN(16);
         __iwram_end = ABSOLUTE(.);
     } >iwram AT>rom
 
