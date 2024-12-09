@@ -66,6 +66,7 @@ unsafe impl GlobalAlloc for DefaultAlloc {
         }
         ptr::null_mut()
     }
+
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         check_interrupt();
         if !ptr.is_null() {

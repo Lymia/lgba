@@ -6,7 +6,7 @@ use kanji::Level;
 use lgba_phf::generator::SpecialTy;
 use proc_macro2::{Literal, TokenStream};
 use quote::quote;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use syn::Result;
 use unic_ucd_bidi::BidiClass;
 use unic_ucd_block::Block;
@@ -15,12 +15,12 @@ use unic_ucd_normal::is_combining_mark;
 
 #[derive(Clone, Debug)]
 enum DecodedMap {
-    Contents(HashSet<&'static str>),
+    Contents(BTreeSet<&'static str>),
     Wildcard,
 }
 impl DecodedMap {
     fn from_list(list: Vec<&'static str>) -> Self {
-        let mut set = HashSet::new();
+        let mut set = BTreeSet::new();
         for i in list {
             if i == "*" {
                 return DecodedMap::Wildcard;

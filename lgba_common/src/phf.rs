@@ -56,7 +56,7 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     let generator = lgba_phf::generator::generate_hash(1.0, &keys);
 
     let mut new_data = Vec::new();
-    new_data.extend(vec![0; mem::size_of::<PhfTable<K, V>>()]);
+    new_data.extend(vec![0; size_of::<PhfTable<K, V>>()]);
 
     while new_data.len() % mem::align_of::<DisplacementData>() != 0 {
         new_data.push(0);
@@ -73,9 +73,9 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     let mut presence_table = vec![0u32; (generator.map.len() + 31) / 32];
     for (i, idx) in generator.map.iter().enumerate() {
         if *idx == !0 {
-            new_data.extend(vec![0; mem::size_of::<K>()])
+            new_data.extend(vec![0; size_of::<K>()])
         } else {
-            let mut data = vec![0; mem::size_of::<K>()];
+            let mut data = vec![0; size_of::<K>()];
             assert_eq!(
                 ssmarshal::serialize(&mut data, &entries[*idx].0.clone()).unwrap(),
                 data.len(),
@@ -91,9 +91,9 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     let start_value_table = base_offset + new_data.len() as u32;
     for idx in &generator.map {
         if *idx == !0 {
-            new_data.extend(vec![0; mem::size_of::<V>()])
+            new_data.extend(vec![0; size_of::<V>()])
         } else {
-            let mut data = vec![0; mem::size_of::<V>()];
+            let mut data = vec![0; size_of::<V>()];
             assert_eq!(
                 ssmarshal::serialize(&mut data, &entries[*idx].1.clone()).unwrap(),
                 data.len(),
@@ -135,7 +135,7 @@ pub fn build_phf<K: Eq + Hash + Clone + Serialize, V: Clone + Serialize>(
     };
     assert_eq!(
         ssmarshal::serialize(&mut new_data, &table).unwrap(),
-        mem::size_of::<PhfTable<K, V>>()
+        size_of::<PhfTable<K, V>>()
     );
 
     new_data
