@@ -133,7 +133,6 @@ pub fn compile(args: &CompileConfig) -> Result<()> {
         .args(["build", "-p", &args.package, "--release"])
         .args(["--target", "thumbv4t-none-eabi"])
         .args(["-Z", "build-std=core,alloc"])
-        .args(["-Z", "build-std-features=compiler-builtins-mangled-names"])
         .env("RUSTFLAGS", rust_args)
         .status()?
         .exit_ok()?;

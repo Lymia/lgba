@@ -7,9 +7,6 @@ mod build_asm;
 #[cfg(feature = "gba_header")]
 pub mod gba_header;
 
-// force link the crates.io version of compiler_builtins_local
-extern crate compiler_builtins_local;
-
 mod interface {
     use crate::{
         arm,

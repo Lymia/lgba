@@ -32,14 +32,3 @@ log = { version = "0.4", optional = true, default-features = false }
 lgba_common = { version = "0.1", path = "../lgba_common" }
 lgba_macros = { version = "0.1", path = "../lgba_macros", features = ["lgba"] }
 lgba_phf = { version = "0.1", path = "../lgba_phf" }
-
-[dependencies.compiler_builtins_local]
-# Link a version of compiler_builtins from crates.io
-# This allows us to enable weak linkage, and thus use optimized ASM versions of instrinics we have those for.
-# Otherwise, we fall back on a Rust version (for stuff like softfloat)
-#
-# We can't use the stdlib version because it doesn't have weak-instrinsics.
-package = "compiler_builtins"
-version = "0.1.101"
-features = ["weak-intrinsics", "no-asm"]
-default-features = false
